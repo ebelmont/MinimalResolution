@@ -4,16 +4,16 @@
 //BP operations
 BP_Op *primitive_data::BPoper;
 //Zp module operations
-ModuleOp<matrix_index,Z2> *primitive_data::Z2Mod_oper;
+ModuleOp<matrix_index,Z3> *primitive_data::Z3Mod_oper;
 
 //set operators
 void primitive_data::set_oper(BP_Op* BPop){
 	BPoper = BPop;
-	Z2Mod_oper = &BPop->Z2Mod_opers;
+	Z3Mod_oper = &BPop->Z3Mod_opers;
 }
 
 //compute the complex on primitives, the formula being etaR(v^e)[shift]
-void BPComplex::make_prim_map(const primitive_data& source, const primitive_data& target, matrix<BP>* X, matrix<BP> *result, matrix<Z2> *map){
+void BPComplex::make_prim_map(const primitive_data& source, const primitive_data& target, matrix<BP>* X, matrix<BP> *result, matrix<Z3> *map){
 	std::function<vectors<matrix_index,BP>(int)> rows = [&source,X](int i){
 		//get the i-th primitive
 		auto v = primitive_data::BPoper->monomial(source[i].coeficient);
@@ -26,7 +26,7 @@ void BPComplex::make_prim_map(const primitive_data& source, const primitive_data
 	result->construct(source.size(),rows);
 	
 	//convert the map to a map of Zp modules
-	std::function<vectors<matrix_index,Z2>(int)> rs = [&result, &target](int k){
+	std::function<vectors<matrix_index,Z3>(int)> rs = [&result, &target](int k){
 		return target.expand(result->find(k)); };
 		
 	map->construct(source.size(),rs);
@@ -72,8 +72,8 @@ bool prim_entry::operator<(const prim_entry y) const{
 }
 
 //expand a verctor over BP into a vector over Zp
-vectors<matrix_index, Z2> primitive_data::expand(const vectors<matrix_index,BP>& v) const{
-	vectors<matrix_index, Z2> result;
+vectors<matrix_index, Z3> primitive_data::expand(const vectors<matrix_index,BP>& v) const{
+	vectors<matrix_index, Z3> result;
 
 	for(unsigned i=0; i<v.size(); ++i)
 		for(unsigned j=0; j<v.dataArray[i].coeficient.size(); ++j){
@@ -84,7 +84,7 @@ vectors<matrix_index, Z2> primitive_data::expand(const vectors<matrix_index,BP>&
 			auto n = prim_index.at(ns);
 			
 			//add this new term to result
-			result = Z2Mod_oper->add(result, Z2Mod_oper->singleton(n,v.dataArray[i].coeficient.dataArray[j].coeficient));
+			result = Z3Mod_oper->add(result, Z3Mod_oper->singleton(n,v.dataArray[i].coeficient.dataArray[j].coeficient));
 		}
 	return result;
 }
@@ -118,7 +118,7 @@ std::vector<int> BPComplex::load_prim(int resolution_length, std::fstream &gens_
 }
 
 //comstruct a complex from a resolution by taking the primitives
-void BPComplex::load(int resolution_length, string generator_filename, string maps_filename, matrix<BP>* mp, matrix<BP>* pm, std::function<matrix<Z2>*(int)> map_constr){
+void BPComplex::load(int resolution_length, string generator_filename, string maps_filename, matrix<BP>* mp, matrix<BP>* pm, std::function<matrix<Z3>*(int)> map_constr){
 	//open the files for the generators and maps of a resolution
 	std::fstream gens_file(generator_filename, std::ios::in | std::ios::binary);
 	std::fstream maps_file(maps_filename, std::ios::in | std::ios::binary);

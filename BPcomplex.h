@@ -23,7 +23,7 @@ public:
 	//BP operations
 	static BP_Op *BPoper;
 	//Zp module operations
-	static ModuleOp<matrix_index,Z2> *Z2Mod_oper;
+	static ModuleOp<matrix_index,Z3> *Z3Mod_oper;
 	//index for searching
 	std::map<prim_entry,unsigned> prim_index;
 	//the shift of the generators, i.e. the place of the primitives in the whole complex
@@ -46,7 +46,7 @@ public:
 	//make the data of primitives from a cofree comodule
 	static primitive_data primitive_maker(cofree_comodule<BPBP,int> &, monomial_index*);
 
-	vectors<matrix_index, Z2> expand(const vectors<matrix_index,BP>&) const;
+	vectors<matrix_index, Z3> expand(const vectors<matrix_index,BP>&) const;
 	
 	//output primitive data
 	string output();
@@ -56,10 +56,10 @@ public:
 class BPComplex{
 public:
 	std::vector<primitive_data> Prims;
-	std::vector<matrix<Z2>*> Maps;
+	std::vector<matrix<Z3>*> Maps;
 	
 	//construct the complex of primitives from a resolution
-	void load(int resolution_length, string generator_filename, string maps_filename, matrix<BP>*, matrix<BP>*, std::function<matrix<Z2>*(int)>);
+	void load(int resolution_length, string generator_filename, string maps_filename, matrix<BP>*, matrix<BP>*, std::function<matrix<Z3>*(int)>);
 	
 	//IO operations
 	void save_matrix(string);
@@ -70,7 +70,7 @@ public:
 	unsigned size();
 	
 	//construct the map of primitives, using the data source ->^{X} target
-	static void make_prim_map(const primitive_data& source, const primitive_data& target, matrix<BP>* X, matrix<BP> *, matrix<Z2> *);
+	static void make_prim_map(const primitive_data& source, const primitive_data& target, matrix<BP>* X, matrix<BP> *, matrix<Z3> *);
 	
 	//get the data for the generators
 	static std::vector<FreeBPCoMod> get_generator(int resolution_length, string generator_filename);

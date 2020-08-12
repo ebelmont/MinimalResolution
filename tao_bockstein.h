@@ -15,7 +15,7 @@ void multiplication_table(motSteenrod const&, int deg, string filename_generator
 //output the set of generators
 void output_generators(int resolution_length, string filename_generators, string filename_outs);
 
-//complex over F2[tau]
+//complex over F3[tau]
 class motComplex : public complex<MotDegree, tauPoly>{
 	std::vector<matrix_mem<tauPoly>> maps_data;
 public:
@@ -55,7 +55,7 @@ public:
 	std::vector<tau_table_entry> table;
 	//the index for the tags and cycles
 	std::map<int,int> tag_index, cycle_index;
-	//the leading term of a vector over F2[tau]
+	//the leading term of a vector over F3[tau]
 	static int leading_term(vectors<matrix_index, tauPoly> const&);
 	//construct the bockstein table 
 	static void make_pretable(std::stack<int> &pot, matrix<tauPoly> *M, tau_table &result, tau_table &pre_table);

@@ -74,9 +74,9 @@ std::vector<int> resolution(Hopf_Algebroid<ring, algebroid> &HA_oper, string fil
 		gens_file.read((char*)&M_rank, 4);
 		
 		//load the next generators
-		cofree_comodule<algebroid,degree_type> F2;
-		F2.load(gens_file);
-		res_rank.push_back(F2.rank());
+		cofree_comodule<algebroid,degree_type> F3;
+		F3.load(gens_file);
+		res_rank.push_back(F3.rank());
 		//load the quotient map
 		qut->load(maps_file);
 		if(cout!=NULL)
@@ -95,7 +95,7 @@ std::vector<int> resolution(Hopf_Algebroid<ring, algebroid> &HA_oper, string fil
 		composed->save(res_file);
 		
 		//go to the next step
-		F1=F2; 
+		F1=F3; 
 		
 		std::cout << "\r"  << i << "/" << resolution_length << std::flush;
 	}

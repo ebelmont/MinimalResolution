@@ -7,7 +7,7 @@ inline bool tauOper::isZero(tauPoly const &x) { return x==internal_zero; }
 inline tauPoly tauOper::add(tauPoly const &x, tauPoly const &y) { 
 	if(isZero(x)) return y;
 	if(isZero(y)) return x;
-	//if x and y are both nontrivial, they are addible only when they have the same degree, and then x=y in F2[tau]
+	//if x and y are both nontrivial, they are addible only when they have the same degree, and then x=y in F3[tau]
 	return internal_zero;
 }
 
@@ -66,7 +66,7 @@ void tauOper::shift(tauPoly& x, int n){ x+=n;}
 //the power of tau
 tauPoly tauOper::power_tau(int i){ return i;}
     
-//operations of F2[tau]
+//operations of F3[tau]
 tauOper tau_oper;
 //operations on Amot
 MotSteenrodRingOp motSteenrod_oper(&tau_oper);
@@ -266,14 +266,14 @@ string MotSteenrodOp::output_monomials(){
 	return res;
 }
 
-//lift elements in F2 to  F2[tau]
-tauPoly MotSteenrodOp::lift(F2 x){
+//lift elements in F3 to  F3[tau]
+tauPoly MotSteenrodOp::lift(F3 x){
 	if(x%2 != 0) return tau_oper.unit(1);
 	return tau_oper.zero();
 }
 
-//lift vectors over F2 to vectors over F2[tau]
-vectors<matrix_index,tauPoly> MotSteenrodOp::lift(const vectors<matrix_index,F2>&v){
+//lift vectors over F3 to vectors over F3[tau]
+vectors<matrix_index,tauPoly> MotSteenrodOp::lift(const vectors<matrix_index,F3>&v){
 	vectors<matrix_index, tauPoly> result;
 	for(auto tm : v.dataArray)
 		result.push({tm.ind, lift(tm.coeficient)});

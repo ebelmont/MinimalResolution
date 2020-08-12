@@ -9,11 +9,11 @@
 typedef std::pair<std::vector<int>,int> cycle_name; // gen_ind, v0, v1, ...
 
 //the class of algebraic Novikov spectral sequences
-class algNov_table : virtual public SS_table<cycle_name, Z2>{
+class algNov_table : virtual public SS_table<cycle_name, Z3>{
 public:
 	//basic operations
-	static Z2_Op *Z2Oper;
-	static ModuleOp<matrix_index, Z2> *Modop;
+	static Z3_Op *Z3Oper;
+	static ModuleOp<matrix_index, Z3> *Modop;
 	static BP_Op *BPoper;
 	
 	//set the operations
@@ -25,19 +25,19 @@ public:
 	primitive_data *Pcyc;
 
 	//the filtration by number of v's
-	virtual int v_valuation(Z2, exponent);
+	virtual int v_valuation(Z3, exponent);
 	
 	//filtration of a cycle
 	int filtration(cycle_name);
 	
 	//transform a term into a cycle name with given primitive data
-	cycle_name naming(const Z2&, matrix_index, primitive_data&);
+	cycle_name naming(const Z3&, matrix_index, primitive_data&);
 	
 	//transform a term into a cycle name, using Pcyc
-	cycle_name naming(const Z2&, matrix_index);
+	cycle_name naming(const Z3&, matrix_index);
 	
 	//computing the leading term of a cycle vector
-	unsigned leading_term(SS_entry<cycle_name, Z2>::value_type&);
+	unsigned leading_term(SS_entry<cycle_name, Z3>::value_type&);
 	
 	//constructors
 	algNov_table();
@@ -46,7 +46,7 @@ public:
 	string output(cycle_name,int);
 	
 	//output entries
-	std::pair<std::pair<int,int>,string> output(SS_entry<cycle_name, Z2>&, int);
+	std::pair<std::pair<int,int>,string> output(SS_entry<cycle_name, Z3>&, int);
 	
 	//output the table
 	virtual std::set<std::pair<std::pair<int,int>,string>> output_table(int, int);
@@ -56,19 +56,19 @@ public:
 	cycle_name load(std::iostream&);
 	
 	//IO of entries
-	void save(SS_entry<cycle_name, Z2>&, std::iostream&);
-	void load(SS_entry<cycle_name, Z2>&, std::iostream&);
+	void save(SS_entry<cycle_name, Z3>&, std::iostream&);
+	void load(SS_entry<cycle_name, Z3>&, std::iostream&);
 	
 	//construct a vector using the primitive data
-	static SS_entry<cycle_name, Z2>::value_type make_vec(cycle_name, primitive_data&, ModuleOp<matrix_index,Z2>*, Z2_Op*);
+	static SS_entry<cycle_name, Z3>::value_type make_vec(cycle_name, primitive_data&, ModuleOp<matrix_index,Z3>*, Z3_Op*);
 	//construct a full tag from the leading term
-	SS_entry<cycle_name, Z2>::value_type get_tag(cycle_name);
+	SS_entry<cycle_name, Z3>::value_type get_tag(cycle_name);
 	
 	//construct the cycle pot. pot has additional leading number for sorting reasons...
 	std::set<cycle_name> cycle_pot(int);
 	
 	//check the entry is a tag or not
-	bool tagged(const SS_entry<cycle_name,Z2>&);
+	bool tagged(const SS_entry<cycle_name,Z3>&);
 	
 	//check if a name is valid
 	bool valid(const cycle_name&);

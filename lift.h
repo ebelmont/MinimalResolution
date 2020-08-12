@@ -35,31 +35,31 @@ vectors<matrix_index,ring> adjoint(matrix<ring> *X, std::vector<uint32_t> const&
 
 //lift a map to its one-step resolution
 template<typename ring, typename algebroid, typename degree_type>
-void lift_resolvor(cofree_comodule<algebroid, degree_type> &F2, matrix<ring> &inj2, matrix<ring> &qut2, matrix<ring> &spliter1, std::vector<matrix_index> &inv_ind1, matrix<ring> &starting_map, matrix<ring> &result, Hopf_Algebroid<ring, algebroid> &HA_oper, matrix<ring> *lg, matrix<ring> *cofree_map){
+void lift_resolvor(cofree_comodule<algebroid, degree_type> &F3, matrix<ring> &inj2, matrix<ring> &qut2, matrix<ring> &spliter1, std::vector<matrix_index> &inv_ind1, matrix<ring> &starting_map, matrix<ring> &result, Hopf_Algebroid<ring, algebroid> &HA_oper, matrix<ring> *lg, matrix<ring> *cofree_map){
 	result.clear();
-	//compute the i-th term of the lifting F1->cogens(F2)
-	std::function<vectors<matrix_index, ring>(int i)> cogens_lifting = [&spliter1, &starting_map, &inj2, &HA_oper, &F2](int i){
+	//compute the i-th term of the lifting F1->cogens(F3)
+	std::function<vectors<matrix_index, ring>(int i)> cogens_lifting = [&spliter1, &starting_map, &inj2, &HA_oper, &F3](int i){
 		//get the i-th row of the spliting map 
 		auto spv = spliter1.find(i);
 		//the image in X2
 		auto pva = starting_map.maps_to(spv);
-		//find the image in F2
+		//find the image in F3
 		auto pb = inj2.maps_to(pva);
 		//find the map to the cogenerators
-		return cogens_map(pb, F2, HA_oper);
+		return cogens_map(pb, F3, HA_oper);
 	}
 	lg->construct(spliter1.rank, cogens_lifting);
 	
 	if(cofree_map!=NULL){
-		std::function<vectors<matrix_index, ring>(int i)> F1F2 = []{
-			return adjoint(lg, F2.position_of_gens, i, HA_oper); };
-		cofree_map->construct(lg->rank, F1F2);
+		std::function<vectors<matrix_index, ring>(int i)> F1F3 = []{
+			return adjoint(lg, F3.position_of_gens, i, HA_oper); };
+		cofree_map->construct(lg->rank, F1F3);
 	}
 	
 	//compute the i-th term of the map F1->M2
 	std::function<vectors<matrix_index, ring>(int i)> F1M2 = [&cogens_map, &qut2, &inv_ind1](int i){
-		auto F1F2 = adjoint(lg, F2.position_of_gens, inv_ind1[i], HA_oper);
-		return qut2.maps_to(F1F2); 
+		auto F1F3 = adjoint(lg, F3.position_of_gens, inv_ind1[i], HA_oper);
+		return qut2.maps_to(F1F3); 
 	};
 	
 	//construct the matrix
@@ -84,8 +84,8 @@ void resolution_lift(int resolution_length, matrix<ring> *current_map, string sp
 		gens_file2.read((char*)&M_rank, 4);
 		
 		//read the generators for second resolution
-		cofree_comodule<algebroid,degree_type> F2;
-		F2.load(gens_file);
+		cofree_comodule<algebroid,degree_type> F3;
+		F3.load(gens_file);
 		
 		//load the maps
 		inj2->clear();
@@ -97,7 +97,7 @@ void resolution_lift(int resolution_length, matrix<ring> *current_map, string sp
 		spliter1->load(split_file1);
 		
 		//lift the map
-		lift_resolvor(F2, *inj2, *qut2, *spliter1, inv_ind1[i], *current_map, *next_map, HA_oper, liftedmap, cofree_map);
+		lift_resolvor(F3, *inj2, *qut2, *spliter1, inv_ind1[i], *current_map, *next_map, HA_oper, liftedmap, cofree_map);
 		
 		//save the maps
 		liftedmap->save(lift_file);

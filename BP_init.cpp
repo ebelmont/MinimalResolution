@@ -6,7 +6,7 @@ BPComodInit::BPComodInit(string filename) : BPCoMod_generic(&coaction_matrix), c
 }
 
 //the constructor
-BPInit::BPInit(int max_deg, int res_length, string etaL_data, string delta_data, string R2L_data, string dirname) : BP_oper(max_deg, &Z2_oper, &etaL_matrix, &delta_matrix, &R2L_matrix), F2Mod_opers(&Z2_oper.F2_opers), etaL_matrix(dirname + "etaL_matrix"), R2L_matrix(dirname + "R2L_matrix"), delta_matrix(dirname + "delta_matrix"), indj(dirname + "indj"), qut(dirname + "qut"), new_map(dirname + "new_map"), mm(dirname + "mm_matrix"), comod(dirname + "comodule_matrix"), multp(&BP_oper){
+BPInit::BPInit(int max_deg, int res_length, string etaL_data, string delta_data, string R2L_data, string dirname) : BP_oper(max_deg, &Z3_oper, &etaL_matrix, &delta_matrix, &R2L_matrix), F3Mod_opers(&Z3_oper.F3_opers), etaL_matrix(dirname + "etaL_matrix"), R2L_matrix(dirname + "R2L_matrix"), delta_matrix(dirname + "delta_matrix"), indj(dirname + "indj"), qut(dirname + "qut"), new_map(dirname + "new_map"), mm(dirname + "mm_matrix"), comod(dirname + "comodule_matrix"), multp(&BP_oper){
 	max_degree = max_deg;
 	resolution_length = res_length;
 	director = dirname;
@@ -14,7 +14,7 @@ BPInit::BPInit(int max_deg, int res_length, string etaL_data, string delta_data,
 	//initialize matric operators
 	matrix<BP>::moduleOper = &BP_oper.BPMod_opers;
 	matrix<BPBP>::moduleOper = &BP_oper.BPBPMod_opers;
-	matrix<Z2>::moduleOper = &BP_oper.Z2Mod_opers;
+	matrix<Z3>::moduleOper = &BP_oper.Z3Mod_opers;
 
 	//initialize the structure data
 	BP_oper.initialize(etaL_data, delta_data, R2L_data);
@@ -23,7 +23,7 @@ BPInit::BPInit(int max_deg, int res_length, string etaL_data, string delta_data,
 	BP_oper.set_to_trivial(comod,0);
 	
 	//initialize the curtis tables
-	curtis_table<F2>::ModOper = &F2Mod_opers;
+	curtis_table<F3>::ModOper = &F3Mod_opers;
 	ResolutionTables.resize(resolution_length+2);
 	
 	//set the complex of primitives
@@ -41,7 +41,7 @@ BPInit::BPInit(int max_deg, int res_length, string etaL_data, string delta_data,
 
 //do resolutions
 void BPInit::resolve(){
-	std::function<curtis_table<F2>*(int)> tables = [this](int i){
+	std::function<curtis_table<F3>*(int)> tables = [this](int i){
 		return &ResolutionTables[i]; };
 	
 	std::function<vectors<matrix_index,BP>(const vectors<matrix_index,Fp>&)> tfm = [this] (const vectors<matrix_index,Fp>& v){ 
@@ -61,7 +61,7 @@ void BPInit::resolution(){
 	
 	//set the matrices
 	mapses.resize(resolution_length + 2);
-	std::function <matrix<Z2>*(int)> mst = [this](int i){
+	std::function <matrix<Z3>*(int)> mst = [this](int i){
 		return &mapses[i]; };
 	//construct the complex of primitives
 	Complex.load(resolution_length,director + "gens",director + "res",&inj,&indj,mst);

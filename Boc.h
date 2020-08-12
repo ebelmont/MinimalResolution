@@ -11,13 +11,13 @@ public:
 	Boc_table();
 	
 	//re-define the valuation so that it is given by the number of v0's
-	int v_valuation(Z2, exponent) override;
+	int v_valuation(Z3, exponent) override;
 	
 	//number of v's
 	int num_v(cycle_name);
 	
 	//output entries
-	std::pair<std::pair<int,int>,string> output(SS_entry<cycle_name, Z2>&, int);
+	std::pair<std::pair<int,int>,string> output(SS_entry<cycle_name, Z3>&, int);
 	
 	//output table 
 	std::set<std::pair<std::pair<int,int>,string>> output_table(int, int) override;

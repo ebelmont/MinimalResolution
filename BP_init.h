@@ -27,12 +27,12 @@ public:
 	//the director for the data
 	string director;
 	
-	//the operations on Z2
-	Z2_Op Z2_oper;
+	//the operations on Z3
+	Z3_Op Z3_oper;
 	//the operations on BP
 	BP_Op BP_oper;
-	//operations on F2-modules
-	ModuleOp<matrix_index,F2> F2Mod_opers;
+	//operations on F3-modules
+	ModuleOp<matrix_index,F3> F3Mod_opers;
 	
 	//the matrices for the structure data
 	matrix_file<BP> etaL_matrix, R2L_matrix;
@@ -51,12 +51,12 @@ public:
 	matrix_mem<BP> inj;
 	matrix_file<BP> indj, qut, new_map;
 	//the matrices for the resolutions
-	std::vector<matrix_mem<Z2>> mapses;
-	matrix_file<Z2> mm;
+	std::vector<matrix_mem<Z3>> mapses;
+	matrix_file<Z3> mm;
 	
 	//the curtis table for the resolutions
-	std::vector<curtis_table_mem<F2>> ResolutionTables;
-	curtis_table_mem<F2> ctable;
+	std::vector<curtis_table_mem<F3>> ResolutionTables;
+	curtis_table_mem<F3> ctable;
 	
 	//the generators for a resolution
 	std::vector<std::vector<int>> gens;

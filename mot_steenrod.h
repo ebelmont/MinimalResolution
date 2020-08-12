@@ -4,11 +4,11 @@
 #include "exponents.h"
 #include "Fp.h"
 
-typedef Fp F2;
+typedef Fp F3;
 
 //a homogenious polynomial in tau
 typedef int16_t tauPoly;
-//operations on F2[tau]  
+//operations on F3[tau]  
 class tauOper : public virtual RingOp<tauPoly>{
 	//the zero polynomial
 	constexpr static tauPoly internal_zero = (1<<15);
@@ -132,9 +132,9 @@ public:
 	//output the array of monomials
 	string output_monomials();
 	
-	//lift elements in F2 to  F2[tau]
-	tauPoly lift(F2 x);
+	//lift elements in F3 to  F3[tau]
+	tauPoly lift(F3 x);
 	
-	//lift vectors over F2 to vectors over F2[tau]
-	vectors<matrix_index,tauPoly> lift(const vectors<matrix_index,F2>&v);
+	//lift vectors over F3 to vectors over F3[tau]
+	vectors<matrix_index,tauPoly> lift(const vectors<matrix_index,F3>&v);
 };

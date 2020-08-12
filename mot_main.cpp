@@ -32,16 +32,16 @@ int main(int agrc, char **argv){
 	MotDegree zo = {0,0};
 	MOP.set_to_trivial(comod,zo);
 	
-	//operations over F2
-	Fp_Op F2oper(2);
-	ModuleOp<matrix_index,F2> F2ModuleOper(&F2oper);
+	//operations over F3
+	Fp_Op F3oper(2);
+	ModuleOp<matrix_index,F3> F3ModuleOper(&F3oper);
 	
 	//set the curtis table
-	curtis_table<F2>::ModOper = &F2ModuleOper;
-	curtis_table_mem<F2> ctable;
+	curtis_table<F3>::ModOper = &F3ModuleOper;
+	curtis_table_mem<F3> ctable;
 	
-	//transform a F2 vector to a tau vector
-	std::function<vectors<matrix_index,tauPoly>(const vectors<matrix_index,F2>&)> tfm = [&MOP] (const vectors<matrix_index,F2>& v){ 
+	//transform a F3 vector to a tau vector
+	std::function<vectors<matrix_index,tauPoly>(const vectors<matrix_index,F3>&)> tfm = [&MOP] (const vectors<matrix_index,F3>& v){ 
 		return MOP.lift(v); };
 		
 	//the matrices for the intermediat steps

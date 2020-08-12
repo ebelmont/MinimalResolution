@@ -35,9 +35,9 @@ int main(int argc, char** argv){
 	deltafile.close();
 	
 	//construct the integral operators
-	Z2_Op Z2_oper;
+	Z3_Op Z3_oper;
 	matrix_mem<BP> etaL_matrix;
-	BP_Op BP_oper(max_degree, &Z2_oper, &etaL_matrix, NULL, NULL);
+	BP_Op BP_oper(max_degree, &Z3_oper, &etaL_matrix, NULL, NULL);
 	matrix<BP>::moduleOper = &BP_oper.BPMod_opers;
 	
 	//construct the tables for the complete structure maps

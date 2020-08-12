@@ -22,10 +22,10 @@ void multiplication::make_eta_R_multiplier(BPBP const& x,matrix<BP>* result, int
 }
 
 //construct the multiplication matrix
-void multiplication::multily_matrix(int max_deg, matrix<BP> *multiplier, matrix<BP> *res_map, FreeBPCoMod* F, primitive_data* prim_next, matrix<Z2> *result){
-	std::function<vectors<matrix_index,Z2>(int)> rows = [max_deg, this, multiplier, res_map, F, prim_next](int i){
+void multiplication::multily_matrix(int max_deg, matrix<BP> *multiplier, matrix<BP> *res_map, FreeBPCoMod* F, primitive_data* prim_next, matrix<Z3> *result){
+	std::function<vectors<matrix_index,Z3>(int)> rows = [max_deg, this, multiplier, res_map, F, prim_next](int i){
 		//filter out those out of range
-		if(F->degree(i)>max_deg) return BPoper->Z2Mod_opers.zero();
+		if(F->degree(i)>max_deg) return BPoper->Z3Mod_opers.zero();
 		//compute d(etaR(v^e)x)
 		auto v = res_map->maps_to(F->multiply_using_table(i,*multiplier));
 		return prim_next->expand(v);
@@ -71,7 +71,7 @@ multiplication_table<cycle_name> multiplication::mult_extension(matrix<ring> *mu
 }
 
 //make multiplacation table from the algebraic Novikov table of a complex
-std::vector<multiplication_table<cycle_name>> multiplication::mult_extension(matrix<BP> *multiplier, int max_deg, int resolution_length, std::vector<FreeBPCoMod>& generators, string maps_filename, BPComplex& Cm, algNov_tables Tb, matrix<BP> *mp, matrix<Z2> *mm, int pric, bool fixedpric){
+std::vector<multiplication_table<cycle_name>> multiplication::mult_extension(matrix<BP> *multiplier, int max_deg, int resolution_length, std::vector<FreeBPCoMod>& generators, string maps_filename, BPComplex& Cm, algNov_tables Tb, matrix<BP> *mp, matrix<Z3> *mm, int pric, bool fixedpric){
 	//open the files of the maps
 	std::fstream maps_file(maps_filename, std::ios::in | std::ios::binary);
 	std::vector<multiplication_table<cycle_name>> result;
@@ -84,7 +84,7 @@ std::vector<multiplication_table<cycle_name>> multiplication::mult_extension(mat
 		multily_matrix(max_deg, multiplier, mp, &generators[i-1], &Cm.Prims[i], mm);
 		//compute the multiplication table for the current term in the resolution
 		int cpric = fixedpric ? pric : pric-i;
-		multiplication_table<cycle_name> new_table = mult_extension<cycle_name,Z2>(mm, *(Tb.tables)[i-1], *(Tb.tables)[i], *(Tb.tables)[i+1], cpric);
+		multiplication_table<cycle_name> new_table = mult_extension<cycle_name,Z3>(mm, *(Tb.tables)[i-1], *(Tb.tables)[i], *(Tb.tables)[i+1], cpric);
 		result.push_back(new_table);
 	}
 	return result;

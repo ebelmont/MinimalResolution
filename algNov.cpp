@@ -2,8 +2,8 @@
 #include"algNov.h"
 
 //the operators
-Z2_Op *algNov_table::Z2Oper;
-ModuleOp<matrix_index, Z2> *algNov_table::Modop;
+Z3_Op *algNov_table::Z3Oper;
+ModuleOp<matrix_index, Z3> *algNov_table::Modop;
 BP_Op *algNov_table::BPoper;
 
 //filtration of a cycle
@@ -12,12 +12,12 @@ int algNov_table::filtration(cycle_name cyc){
 }
 
 //the filtration by number of v's
-int algNov_table::v_valuation(Z2 r, exponent e){
-	return Z2Oper->valuation(r) + total_deg(e, [](int){return 1;});
+int algNov_table::v_valuation(Z3 r, exponent e){
+	return Z3Oper->valuation(r) + total_deg(e, [](int){return 1;});
 }
 	
 //transform a term into a cycle name
-cycle_name algNov_table::naming(const Z2 &coeficient, matrix_index ind, primitive_data &P){
+cycle_name algNov_table::naming(const Z3 &coeficient, matrix_index ind, primitive_data &P){
 	//get the exponent
 	exponent e = P[ind].coeficient;
 	//construct the cycle
@@ -25,7 +25,7 @@ cycle_name algNov_table::naming(const Z2 &coeficient, matrix_index ind, primitiv
 	//first compute the algebraic Novikov filtration
 	eo.push_back(v_valuation(coeficient,e));
 	//then get the number of v0's
-	eo.push_back(Z2Oper->valuation(coeficient));
+	eo.push_back(Z3Oper->valuation(coeficient));
 	//then the exponent
 	for(int i=1; i<=maxVar; ++i)
 		eo.push_back(xnVal(e,i));
@@ -35,12 +35,12 @@ cycle_name algNov_table::naming(const Z2 &coeficient, matrix_index ind, primitiv
 }
 
 //transform a term into a cycle name, using Pcyc
-cycle_name algNov_table::naming(const Z2 &coeficient, matrix_index ind){
+cycle_name algNov_table::naming(const Z3 &coeficient, matrix_index ind){
 	return naming(coeficient, ind, *Pcyc);
 }
 	
 //computing the leading term of a cycle vector
-unsigned algNov_table::leading_term(SS_entry<cycle_name, Z2>::value_type& v){
+unsigned algNov_table::leading_term(SS_entry<cycle_name, Z3>::value_type& v){
 	//case of zero
 	if(v.size()==0) return -1;
 	
@@ -60,15 +60,15 @@ unsigned algNov_table::leading_term(SS_entry<cycle_name, Z2>::value_type& v){
 //set the operations
 void algNov_table::set_op(BP_Op *BP_oper){
 	BPoper = BP_oper;
-	Modop = &BPoper->Z2Mod_opers;
-	Z2Oper = BPoper->Z2_oper;
+	Modop = &BPoper->Z3Mod_opers;
+	Z3Oper = BPoper->Z3_oper;
 }
 	
 //constructors
-algNov_table::algNov_table() : SS_table(&BPoper->Z2Mod_opers){}
+algNov_table::algNov_table() : SS_table(&BPoper->Z3Mod_opers){}
 
 //check the entry is a tag or not
-bool algNov_table::tagged(const SS_entry<cycle_name,Z2> &et){
+bool algNov_table::tagged(const SS_entry<cycle_name,Z3> &et){
 	return et.tag.second != Invalid;
 }
 
@@ -82,7 +82,7 @@ std::set<cycle_name> algNov_table::cycle_pot(int pric){
 	std::set<cycle_name> res;
 	for(unsigned i=0; i<Ptag->size(); ++i){
 		//construct ((l,0,v1^e1,...),gen_ind)
-		auto s = naming(Z2Oper->unit(1), i, *Ptag);
+		auto s = naming(Z3Oper->unit(1), i, *Ptag);
 		//compute the filtration
 		int l = filtration(s);
 		for(int j=0; j+l<=pric; ++j){
@@ -106,7 +106,7 @@ string algNov_table::output(cycle_name sn, int k){
 }
 
 //IO of entries
-std::pair<std::pair<int,int>,string> algNov_table::output(SS_entry<cycle_name, Z2>& et, int k){
+std::pair<std::pair<int,int>,string> algNov_table::output(SS_entry<cycle_name, Z3>& et, int k){
 	string res;
 	//if it is a untagged cycle
 	if(!tagged(et)) 
@@ -129,7 +129,7 @@ void algNov_table::save(cycle_name nm, std::iostream& fl){
 }
 
 //save the entry
-void algNov_table::save(SS_entry<cycle_name, Z2>& et, std::iostream& fl){
+void algNov_table::save(SS_entry<cycle_name, Z3>& et, std::iostream& fl){
 	save(et.tag,fl);
 	save(et.cycle,fl);
 	Modop->save(et.full_tag,fl);
@@ -148,7 +148,7 @@ cycle_name algNov_table::load(std::iostream& fl){
 }
 
 //load the entry
-void algNov_table::load(SS_entry<cycle_name, Z2>& et, std::iostream& fl){
+void algNov_table::load(SS_entry<cycle_name, Z3>& et, std::iostream& fl){
 	et.tag = load(fl);
 	et.cycle = load(fl);
 	et.full_tag = Modop->load(fl);
@@ -156,18 +156,18 @@ void algNov_table::load(SS_entry<cycle_name, Z2>& et, std::iostream& fl){
 }
 
 //construct a vector using the primitive data
-SS_entry<cycle_name, Z2>::value_type algNov_table::make_vec(cycle_name cyc, primitive_data& P, ModuleOp<matrix_index,Z2> *Modop, Z2_Op *Z2Oper){ 
+SS_entry<cycle_name, Z3>::value_type algNov_table::make_vec(cycle_name cyc, primitive_data& P, ModuleOp<matrix_index,Z3> *Modop, Z3_Op *Z3Oper){ 
 	//construct the exponent
 	auto e = pack(cyc.first.data()+2);
 	//find the entry
 	auto n = P.prim_index[{(matrix_index)cyc.second, e}];
 	//construct the term v0^e0v1^e1...[gen_pos]
-	return Modop->singleton(n,Z2Oper->power_p(cyc.first[1]));
+	return Modop->singleton(n,Z3Oper->power_p(cyc.first[1]));
 }
 
 //construct a full tag from the leading term
-SS_entry<cycle_name, Z2>::value_type algNov_table::get_tag(cycle_name tag){
-	return make_vec(tag, *Ptag, Modop, Z2Oper); }
+SS_entry<cycle_name, Z3>::value_type algNov_table::get_tag(cycle_name tag){
+	return make_vec(tag, *Ptag, Modop, Z3Oper); }
 
 //the degree of cycle
 int algNov_table::degree(cycle_name cyc){
@@ -211,13 +211,13 @@ string algNov_tables::output_tables(){
 //save the tables
 void algNov_tables::save(std::iostream& fl){
 	for(auto tm:tables)
-		tm->SS_table<cycle_name,Z2>::save(fl);
+		tm->SS_table<cycle_name,Z3>::save(fl);
 }
 
 //load the tables
 void algNov_tables::load(std::iostream& fl){
 	for(auto tm:tables)
-		tm->SS_table<cycle_name,Z2>::load(fl);
+		tm->SS_table<cycle_name,Z3>::load(fl);
 }
 
 //save to file
@@ -245,5 +245,5 @@ bool algNov_table::valid(const cycle_name& cyc){
 }
 
 std::set<std::pair<std::pair<int,int>,string>> algNov_table::output_table(int k, int pric){
-	return SS_table<cycle_name,Z2>::output(k,pric);
+	return SS_table<cycle_name,Z3>::output(k,pric);
 }

@@ -1,8 +1,8 @@
 //Boc.cpp
 #include"Boc.h"
 
-int Boc_table::v_valuation(Z2 r, exponent){
-	return Z2Oper->valuation(r);
+int Boc_table::v_valuation(Z3 r, exponent){
+	return Z3Oper->valuation(r);
 }
 
 void Boc_tables::set_table(std::vector<algNov_table>*){
@@ -25,7 +25,7 @@ int Boc_table::num_v(cycle_name cyc){
 	return res;
 }
 
-std::pair<std::pair<int,int>,string> Boc_table::output(SS_entry<cycle_name, Z2>& et, int k){
+std::pair<std::pair<int,int>,string> Boc_table::output(SS_entry<cycle_name, Z3>& et, int k){
 	string res;
 	//if it is a untagged cycle
 	if(!tagged(et)) 
@@ -86,4 +86,4 @@ std::vector<multiplication_table<cycle_name>> Boc_tables::Bname2Anames(int resol
 }
 
 //constructor
-Boc_table::Boc_table() : SS_table(&algNov_table::BPoper->Z2Mod_opers){}
+Boc_table::Boc_table() : SS_table(&algNov_table::BPoper->Z3Mod_opers){}

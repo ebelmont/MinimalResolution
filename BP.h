@@ -1,6 +1,6 @@
 //BP.h
 #pragma once
-#include"Z2.h"
+#include"Z3.h"
 #include"polynomial.h"
 #include"matrices.h"
 #include"mon_index.h"
@@ -9,7 +9,7 @@
 #include<map>
 
 //BP_* = Zp[v_1,v_2,\dots]
-typedef polynomial<Z2> BP;
+typedef polynomial<Z3> BP;
 //BP_*BP = BP_*[t_1,t_2,\dots]
 typedef polynomial<BP> BPBP;
 typedef polynomial<BPBP> BPBPBP;
@@ -30,17 +30,17 @@ public:
 };
     
 //structur of Hopf algebroid on (BP_*,BP_*BP)
-class BP_Op : virtual public Hopf_Algebroid<BP,BPBP>, public PolynomialOp_Para<Z2>{
+class BP_Op : virtual public Hopf_Algebroid<BP,BPBP>, public PolynomialOp_Para<Z3>{
 public:
 	//ring operations
-	Z2_Op *Z2_oper;
+	Z3_Op *Z3_oper;
 	BPBP_Op BPBP_opers;
 	BPBPBP_Op BPBPBP_opers;
         
 	//module operations
 	ModuleOp<matrix_index,BP> BPMod_opers;
 	ModuleOp<matrix_index,BPBP> BPBPMod_opers;
-	ModuleOp<matrix_index,Z2> Z2Mod_opers;
+	ModuleOp<matrix_index,Z3> Z3Mod_opers;
 
 	//index of monomials
 	monomial_index mon_index;
@@ -56,7 +56,7 @@ private:
 	matrix<BP> *R2L_table;
         
 public:
-	BP_Op(int maxdeg, Z2_Op*, matrix<BP> *etaL_mat, matrix<BPBP> *delta_mat, matrix<BP> *R2L_mat);
+	BP_Op(int maxdeg, Z3_Op*, matrix<BP> *etaL_mat, matrix<BPBP> *delta_mat, matrix<BP> *R2L_mat);
         
 	//load the structure maps from files
 	void load_etaL(string);
@@ -99,11 +99,11 @@ public:
 	//initilaizaiotn
 	void initialize(string etaL_filename, string R2L_filename, string delta_filename);
         
-	//lift elements in F2 to BP_*
-	BP lift(F2);
+	//lift elements in F3 to BP_*
+	BP lift(F3);
 	
-	//lift vectors over F2 to vectors over BP_*
-	vectors<matrix_index,BP> lift(const vectors<matrix_index,F2>&);
+	//lift vectors over F3 to vectors over BP_*
+	vectors<matrix_index,BP> lift(const vectors<matrix_index,F3>&);
 	
 	//make the structure tables
 	void make_tables(int maxVar, string R2Lfilename, string deltafilename, string etaL_filename, string R2L_filename, string delta_filename, std::ostream &outputfile=std::cout);

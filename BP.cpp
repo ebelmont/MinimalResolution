@@ -4,8 +4,8 @@
 #include<ios>
 
 //constructor
-BP_Op::BP_Op(int maxdeg, Z2_Op *Z2_op, matrix<BP> *etaL_mat, matrix<BPBP> *delta_mat, matrix<BP> *R2L_mat) :
-ModuleOp<exponent,Z2>(Z2_op), PolynomialOp_Para<Z2>(Z2_op), BPBP_opers(this), BPBPBP_opers(&BPBP_opers), BPMod_opers(this), BPBPMod_opers(&BPBP_opers), Z2Mod_opers(Z2_op), mon_index(maxdeg){
+BP_Op::BP_Op(int maxdeg, Z3_Op *Z3_op, matrix<BP> *etaL_mat, matrix<BPBP> *delta_mat, matrix<BP> *R2L_mat) :
+ModuleOp<exponent,Z3>(Z3_op), PolynomialOp_Para<Z3>(Z3_op), BPBP_opers(this), BPBPBP_opers(&BPBP_opers), BPMod_opers(this), BPBPMod_opers(&BPBP_opers), Z3Mod_opers(Z3_op), mon_index(maxdeg){
 	mon_index.init_mon_array();
 	maxDeg = maxdeg;
 	Hopf_Algebroid<BP,BPBP>::ringOper = this;
@@ -14,7 +14,7 @@ ModuleOp<exponent,Z2>(Z2_op), PolynomialOp_Para<Z2>(Z2_op), BPBP_opers(this), BP
 	moduleOper = &BPMod_opers;
 	algebroidModuleOper = &BPBPMod_opers;
     
-	Z2_oper = Z2_op;
+	Z3_oper = Z3_op;
 	etaL_table = etaL_mat;
 	delta_table = delta_mat;
 	R2L_table = R2L_mat;
@@ -52,7 +52,7 @@ void BP_Op::load_delta(string filename){
 
 //the left unit
 BPBP BP_Op::etaL(const BP &x){
-	std::function<BPBP(const Z2&, const BPBP&)> scalor_mult = [this] (const Z2 &r, const BPBP &fm){
+	std::function<BPBP(const Z3&, const BPBP&)> scalor_mult = [this] (const Z3 &r, const BPBP &fm){
 		return BPBP_opers.scalor_mult(this->monomial(0,r),fm); };
 	auto xvec = mon_index.poly2vec(x, this);
 	return etaL_table->maps_to(xvec, scalor_mult, &BPBP_opers);
@@ -68,7 +68,7 @@ BPBP BP_Op::etaL(const BPBP &x){
 
 //the right unit, vn is in the outer
 BPBP BP_Op::etaR(const BP &x){
-	std::function<BP(const Z2&)> tfm = [this](const Z2& r){
+	std::function<BP(const Z3&)> tfm = [this](const Z3& r){
 		return this->monomial(0,r); };
 	return this->termwise_operation(tfm,x);
 }
@@ -83,7 +83,7 @@ vectors<matrix_index, BP> BP_Op::algebroid2vector(const BPBP& x, int shift){
 //change right notation to the left notation and switch ti to the outer
 BPBP BP_Op::R2L(const BPBP &x){
 	std::function<BPBP(const BP&, const BPBP&)> scalor_mult = [this](const BP &r, const BPBP &fm){
-		std::function<BP(const Z2&)> tfm = [this](const Z2& r0){
+		std::function<BP(const Z3&)> tfm = [this](const Z3& r0){
 			return this->monomial(0,r0); };
 		auto r1 = termwise_operation(tfm,r);
 		return BPBP_opers.multiply(r1,fm); };
@@ -208,12 +208,12 @@ void BP_Op::make_tables(int maxVar, string R2Lfilename, string deltafilename, st
 	delta_tablefile.close();
 }
 
-//lift elements in F2 to BP
-BP BP_Op::lift(F2 x){
-	return monomial(0,Z2_oper->lift(x));
+//lift elements in F3 to BP
+BP BP_Op::lift(F3 x){
+	return monomial(0,Z3_oper->lift(x));
 }
 
-//lift vectors over F2 to vectors over BP
+//lift vectors over F3 to vectors over BP
 vectors<matrix_index,BP> BP_Op::lift(const vectors<matrix_index,Fp>&v){
 	vectors<matrix_index, BP> result;
 	for(auto tm : v.dataArray)
@@ -274,7 +274,7 @@ BPBP BP_Op::h3(){
 	//v1^4
 	BP v14 = monomial(vars(1)*4);
 	//8v2
-	BP vv2 = monomial(vars(2),Z2_oper->unit(8));
+	BP vv2 = monomial(vars(2),Z3_oper->unit(8));
 	//v1^4 + 8v1v2
 	v14 = add(v14, multiply(vv2,v1()));
 	//etaR - etaL
@@ -347,8 +347,8 @@ std::vector<BPBP> BP_Op::thetas(){
 
 //divide by p^n
 BP BP_Op::divide_power_p(const BP& x, int n){
-	std::function<Z2(const Z2&)> rl = [this,n](const Z2 &r){
-		return Z2_oper->divide(r,n); };
+	std::function<Z3(const Z3&)> rl = [this,n](const Z3 &r){
+		return Z3_oper->divide(r,n); };
 	return this->termwise_operation(rl,x);
 }
 
