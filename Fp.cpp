@@ -59,9 +59,10 @@ Fp Fp_Op::load(std::iostream& reader){
 bool Fp_Op::invertible(const Fp& x){ 
 	return !isZero(x); }
 
-//inverse of an invertible element, only for p=2
+//inverse of an invertible element, only for p=2 and 3
 Fp Fp_Op::inverse(const Fp& x){
-	if(prime==2) return x;
+	if(prime==2 || prime==3) return x;
 	std::cerr << "not implemented!";
 	return 0;
 }
+
