@@ -2,6 +2,8 @@
 #include"Z2.h"
 #include<sstream>
 
+constexpr uint64_t MAX_3 = 4052555153018976267; // 3^39
+
 //the constructor
 Z2_Op::Z2_Op() : F2_opers(2) {}
 

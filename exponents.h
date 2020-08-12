@@ -4,7 +4,7 @@
 #include<array>
 
 //maximal number of variables
-constexpr int maxVar = 7;
+constexpr int maxVar = 5;
 //exponent for multivarible monomials
 typedef std::array<int,maxVar> exponentArry;
   

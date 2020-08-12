@@ -1,5 +1,16 @@
 //exponents.cpp
+/*
+ * The tuple (a1, ..., a5) representing v1^{a1} v2^{a2} ... v5^{a5} is encoded as
+ * the 32-bit int
+ * a1 + 128(a2 + 32(a3 + 10(a4 + 4a5)))
+ * This takes < 20 bits.
+ *
+*/
+
 #include "exponents.h"
+
+//EB: In polynomial/2.h we have: typedef uint32_t exponent;
+
 
 //multiply all the elements in a list
 exponent multiply_all(exponent lis[], int start, int end){ 
@@ -17,12 +28,12 @@ std::vector<exponent> get_pos(exponent lis[], int length){
 }
 
 //the degree of the n-th variable
-int xnDegs[maxVar+1] = {0,1,3,7,15,31,63,127};
+int xnDegs[maxVar+1] = {0,4,16,52,160,484}; // degrees of v_n, i.e. 2(3^n-1)
 int xnDeg(int n){ 
 	return xnDegs[n]; }
 
 //the maximal value of the n-th exponent
-exponent xnMaxExpo[maxVar+1] = {0, 255, 85, 37, 17, 9, 5, 3};
+exponent xnMaxExpo[maxVar+1] = {0, 128, 32, 10, 4, 2};
 
 //the maximal total degree
 exponent totalMax = multiply_all(xnMaxExpo,1,maxVar+1);
