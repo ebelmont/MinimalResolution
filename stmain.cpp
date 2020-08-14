@@ -8,7 +8,7 @@ int main(int argc, char** argv){
 	int maxdeg = std::atoi(argv[1]);
 	int length = std::atoi(argv[2]);
 	
-	SteenrodInit st(2,maxdeg, length, filename + "steenrod_coaction.data");
+	SteenrodInit st(3,maxdeg, length, filename + "steenrod_coaction.data");
 	
 //	std::cout<<st.steenrod_oper.delta_table->output();
 	

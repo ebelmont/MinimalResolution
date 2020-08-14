@@ -68,3 +68,4 @@ void SteenrodInit::save_gens(string gens_data){
 			genfile.write((char*)&gens[i][j], 4);
 	}
 }
+
