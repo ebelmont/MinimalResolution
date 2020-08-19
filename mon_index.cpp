@@ -11,7 +11,7 @@ monomial_index::monomial_index(int maxdeg){
 	//initialize the larget generator
 	max_var = 0;
 	for(int i=1; i<=maxVar; ++i)
-		if(xnDeg(i)<max_degree)
+		if(xnDeg(i)<=max_degree)
 			max_var = i;
 }
 
