@@ -2,9 +2,10 @@
 #include"Z3.h"
 #include<sstream>
 #include<cmath>
+#include<cassert>
 
 //the constructor
-Z3_Op::Z3_Op() : F2_opers(3) {}
+Z3_Op::Z3_Op() : F3_opers(3) {}
 
 //the residual characteristic
 inline int Z3_Op::prime(){ return 3; }
@@ -97,6 +98,6 @@ Z3 Z3_Op::divide(const Z3& x, int n){
 }
 
 //lift from residue field
-Z3 Z3_Op::lift(F2 x){
+Z3 Z3_Op::lift(F3 x){
     return x;
 }

@@ -31,6 +31,7 @@ void matrix<R>::make_quotient(std::vector<matrix_index> const &inverse_ind, std:
 	for(unsigned i=0; i<inj_index.size(); ++i) {
 		auto newTerm = moduleOper->minus(find(i));
 		newTerm = moduleOper->add(newTerm, moduleOper->singleton(inj_index[i]));
+		std::cout << i << " " << std::flush;
 		
 		std::function<matrix_index(matrix_index)>  rule = [&quot_ind] (matrix_index n){ 
 			return quot_ind.at(n); };
