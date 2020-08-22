@@ -58,8 +58,11 @@ inline Z3 Z3_Op::load(std::iostream& reader){
 bool Z3_Op::invertible(const Z3& x){ return (x&(Z3)1) != 0; }
 
 //the inverse, using a recursion formula
-//EB: This appears to be equivalent to the Taylor series for 1/(1+y) with y = x-1
-//TODO: Do we need to change the bound of 6?
+//EB: This appears to be equivalent to the first 63 terms of the Taylor series
+//for 1/(1+y) with y = x-1
+//An invertible element in Zp is a unit mod p. If p = 2, that means it's 1 + 2a_1 +...
+//and this Taylor series centered at 1 converges 2-adically.
+//TODO: 3-adic version??
 Z3 Z3_Op::inverse(const Z3& x){
 	Z3 u = 1;
 	for(int i=0;i<6;++i)
