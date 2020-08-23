@@ -4,7 +4,7 @@
 #include"Fp.h"
 
 //we use 64-bit unsigned integer to denote 3-adic numbers
-typedef int64_t Z3;
+typedef uint64_t Z3;
 
 //the residue field
 typedef Fp F3;
