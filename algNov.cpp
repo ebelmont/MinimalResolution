@@ -114,8 +114,8 @@ std::pair<std::pair<int,int>,string> algNov_table::output(SS_entry<cycle_name, Z
 	//if it is tagged, output cyc <- tag
 	else 
 		res = output(et.cycle,k) + "\t<-\t" + output(et.tag,k-1) +"\t|d" + std::to_string(diff_length(et)+1);
-	//degree = (2t-s, s+i)
-	std::pair<int,int> degs = std::make_pair(degree(et.cycle)*2-k, k+filtration(et.cycle));
+	//degree = (t-s, s+i)
+	std::pair<int,int> degs = std::make_pair(degree(et.cycle)-k, k+filtration(et.cycle));
 	
 	return std::make_pair(degs, res + "\t|deg=(" + std::to_string(degs.first) + "," + std::to_string(degs.second)+ ")");
 }
