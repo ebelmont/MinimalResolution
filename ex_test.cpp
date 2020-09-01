@@ -1,5 +1,4 @@
-#include"ex_index.h"
-#include"ctau_steenrod.h"
+#include"exponents.h"
 
 main(){
 	monomial_index mi(142);

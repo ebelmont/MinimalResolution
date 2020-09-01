@@ -57,8 +57,8 @@ public:
 	uint64_t int_part(Qp);
 };
   
-//spectialize to p=2
-class Q2_Op : virtual public Qp_Op{
+//spectialize to p=3
+class Q3_Op : virtual public Qp_Op{
     int prime();
 };
 
@@ -68,8 +68,8 @@ public:
 	void save(Qp const &x, std::iostream& writer);
 };
 
-//Q2 operations with integral IO
-class Q2_int : virtual public Qp_int, virtual public Q2_Op{
+//Q3 operations with integral IO
+class Q3_int : virtual public Qp_int, virtual public Q3_Op{
 public:
 	string output(Qp x);
 };

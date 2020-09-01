@@ -69,10 +69,10 @@ inline Z3 Z3_Op::zero(){ return 0; }
 //negation
 inline Z3 Z3_Op::minus(const Z3& x){ return MAX3 - (x % MAX3); }
 
-//output using hex form
+//output using decimal form
 string Z3_Op::output(Z3 x){
 	std::stringstream res;
-	res << std::hex << x;
+	res << x;
 	return res.str();
 }
 

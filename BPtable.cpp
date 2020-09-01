@@ -15,9 +15,9 @@ int main(int argc, char** argv){
 	filename += "_";
 	
 	//construct rational operators
-	Q2_int Q2intoper;
-	Q2_Op Q2_oper;
-	BPQ_Op BPQ_oper(&Q2_oper,&Q2intoper,max_var);
+	Q3_int Q3intoper;
+	Q3_Op Q3_oper;
+	BPQ_Op BPQ_oper(&Q3_oper,&Q3intoper,max_var);
 	
 	//output the structure data
 	std::fstream data_gens(filename + "structures", std::ios::out);

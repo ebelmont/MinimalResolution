@@ -134,9 +134,9 @@ inline Qp Qp_Op::load(std::iostream& reader){
 	return result;
 }
 
-//the characteristic of the residue field for Q2
-inline int Q2_Op::prime(){ 
-	return 2;}
+//the characteristic of the residue field for Q3
+inline int Q3_Op::prime(){ 
+	return 3;}
 
 //the constructor
 Qp Qp_Op::construct(int num, int16_t val){ 
@@ -204,7 +204,7 @@ void Qp_int::save(Qp const &x, std::iostream& writer){
 	writer.write((char*)&w, 8);
 }
 
-string Q2_int::output(Qp x){
+string Q3_int::output(Qp x){
 	uint64_t w = this->int_part(x);
 	return std::to_string((int)w);
 }
