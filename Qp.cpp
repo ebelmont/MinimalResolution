@@ -151,7 +151,7 @@ uint64_t Qp_Op::int_part(Qp x){
 	}
 	num_type ip = x.numerator * power_p(x.valuation);
 	//the maximal number for an 64-bit unsigned integer
-	static const num_type t64 = power_p(64);
+	static const num_type t64 = 12157665459056928801U; // 3^40
 	//truncate the lower part
 	ip = ip % t64;
 	if(ip<0) ip+=t64;
