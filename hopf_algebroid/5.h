@@ -6,11 +6,11 @@ cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::resolvor(
 	//embed X into a cofree comodule F, with the injective map stored in inj, and the data for generators stored in gens
 	auto F = embed2cofree(&X,inj,table,gens,new_map,basis_order,tablefile);
 
-//	std::cout << inj->output();
+	std::cout << inj->output();
 	std::cout << "Preparing Gausing...\n" << std::flush;
 	//prepare the injective map
 	auto inj_ind = table->cycle_matrix(*indj,X.rank());
-//	std::cout << table->output();
+	std::cout << table->output();
 	table->save(tablefile);
 //	table->clear();
 	std::vector<std::pair<matrix_index,matrix_index>> gs;
@@ -19,7 +19,7 @@ cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::resolvor(
 
 	std::cout << "Gausing...\n" << std::flush;
 
-//	std::cout << indj->output();
+	std::cout << indj->output();
 	//do Gaussan ellimination on indj
 	indj->gaussian(gs);
 	

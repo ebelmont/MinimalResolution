@@ -37,14 +37,14 @@ public:
 	//make multiplacation table from the algebraic Novikov table of a complex
 	std::vector<multiplication_table<cycle_name>> mult_extension(matrix<BP>*, int, int, std::vector<FreeBPCoMod>&, string, BPComplex&, algNov_tables, matrix<BP>*, matrix<Z3>*, int pric, bool fixedpric=false);
 	
-	//computing the table for multiplication by two
+	//computing the table for multiplication by three
 	template<typename cycle_name, typename ring>
-	multiplication_table<cycle_name> two_extension(SS_table<cycle_name,ring>& cur_table, int pric);
+	multiplication_table<cycle_name> three_extension(SS_table<cycle_name,ring>& cur_table, int pric);
 	
-	std::vector<multiplication_table<cycle_name>> two_extension(int resolution_length, BPComplex& Cm, algNov_tables Tb, int pric);
+	std::vector<multiplication_table<cycle_name>> three_extension(int resolution_length, BPComplex& Cm, algNov_tables Tb, int pric);
 	
-	//compute the multiplacation by two table in the whole algebraic Novikov table
-	std::vector<multiplication_table<cycle_name>> two_extension(algNov_tables, BPComplex&, int pric);
+	//compute the multiplacation by three table in the whole algebraic Novikov table
+	std::vector<multiplication_table<cycle_name>> three_extension(algNov_tables, BPComplex&, int pric);
 	
 	//output the table
 	template<typename cycle_name, typename ring>

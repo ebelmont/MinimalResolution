@@ -36,7 +36,7 @@ int main(int argc, char** argv){
 	BPoper.make_Boc();
 	
 	//compute the multiplicative structure
-	//BPoper.mult_table();
+	BPoper.mult_table();
 	BPoper.mult_theta();
 	
 	return 0;

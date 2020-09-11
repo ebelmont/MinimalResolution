@@ -103,7 +103,7 @@ void BPInit::make_algNov(){
 	std::fstream atb(director + "AANSS_table.txt", std::ios::out);
 	atb << AANtables.output_tables();
 	
-	auto et2 = multp.two_extension(resolution_length,Complex,AANtables,resolution_length);
+	auto et2 = multp.three_extension(resolution_length,Complex,AANtables,resolution_length);
 	std::fstream h0f(director + "AANSS_h0.txt", std::ios::out);
 	h0f << multp.output_multiplication_table(et2,0,resolution_length-1);
 }
@@ -160,28 +160,27 @@ void BPInit::mult_theta(){
 	auto theta = BP_oper.thetas();
 	
 	//degree of theta
-	int deg = 2;
-	for(int i=2; i<=5; ++i){
-		deg *= 2;
-		//make the multiplication table on BPBP
-		multp.make_eta_R_multiplier(theta[i], &inj, deg);
-		//compute the table for the multiplication on Bockstein spectral sequence
-		auto Bmultable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 1, true);
-		//output the table
-		std::fstream fileB(director + "BocSS_theta" + std::to_string(i) + ".txt", std::ios::out);
-		fileB << multp.output_multiplication_table(Bmultable, 1, 10);
-	}
+	int deg = 12;
+	int i=2;
+	//make the multiplication table on BPBP
+	multp.make_eta_R_multiplier(theta[i], &inj, deg);
+	//compute the table for the multiplication on Bockstein spectral sequence
+	auto Bmultable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 1, true);
+	//output the table
+	std::fstream fileB(director + "BocSS_theta" + std::to_string(i) + ".txt", std::ios::out);
+	fileB << multp.output_multiplication_table(Bmultable, 1, 10); // EB: ???????
 }
 
 //make the algebraic Novikov multiplication table by a given element in BPBP
 void BPInit::mult_table(){
 	//make the h1 multiplication table
 	BPBP h1 = BP_oper.h1();
-	mult_table(h1, 1, "h1.txt");
-	//make h2 multiplication table
+	// h1 is defined as (eta_R(v1) - eta_L(v1))/p, so it's really h1 at p=3
+	mult_table(h1, 4, "h1.txt");
+	/*//make h2 multiplication table
 	BPBP h2 = BP_oper.h2();
 	mult_table(h2, 2, "h2.txt");
 	//make h3 multiplication table
 	BPBP h3 = BP_oper.h3();
-	mult_table(h3, 4, "h3.txt");
+	mult_table(h3, 4, "h3.txt");*/
 }

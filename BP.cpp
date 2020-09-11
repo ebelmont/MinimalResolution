@@ -288,60 +288,19 @@ BPBP BP_Op::h3(){
 //return the top thetas on the Moore spectrum
 std::vector<BPBP> BP_Op::thetas(){
 	std::vector<BPBP> theta(10);
-	if(mon_index.max_degree<=6){
-		std::cerr << "out of range for theta2";
+	if(mon_index.max_degree<=12){
+		std::cerr << "out of range for beta1";
 		return theta;
 	}
 	//v2
 	BP v2 = monomial(vars(2));
 	std::cout << "v2=" << output(v2) << "\n";
-	//v2^2
-	BP v22 = multiply(v2,v2);
-	//d(v2^2)
-	BPBP dv22 = BPBP_opers.add(BPBP_opers.minus(etaL(v22)), etaR(v22));
-	//theta2 = d(v2^2)/v1^2
-	BPBP theta2 = divide_v1(dv22,2);
-	std::cout << "theta2=" << BPBP_opers.output(theta2) << "\n";
-	theta[2] = theta2;
-	
-	if(mon_index.max_degree<=12){
-		std::cerr << "out of range for theta3";
-		return theta;
-	}
-	//v2^4
-	BP v24 = multiply(v22,v22);
-	//d(v2^4 )
-	BPBP dv24 = BPBP_opers.add(BPBP_opers.minus(etaL(v24)), etaR(v24));
-	//theta3 = d(v2^4 )/v1^4
-	BPBP theta3 = divide_v1(dv24,4);
-	std::cout << "theta3=" << BPBP_opers.output(theta3) << "\n";
-	theta[3] = theta3;
-	
-	if(mon_index.max_degree<=24){
-		std::cerr << "out of range for theta4";
-		return theta;
-	}
-	//v2^8
-	BP v28 = multiply(v24,v24);
-	//d(v2^8)
-	auto dv28 = BPBP_opers.add(BPBP_opers.minus(etaL(v28)), etaR(v28));
-	//theta4 = d(v2^8 )/v1^8
-	auto theta4 = divide_v1(dv28,8);
-	std::cout << "theta4=" << BPBP_opers.output(theta4) << "\n";
-	theta[4] = theta4;
-	
-	if(mon_index.max_degree<=48){
-		std::cerr << "out of range for theta5";
-		return theta;
-	}
-	//v2^16
-	BP v216 = multiply(v28,v28);
-	//d(v2^16)
-	BPBP dv216 = BPBP_opers.add(BPBP_opers.minus(etaL(v216)), etaR(v216));
-	//theta5 = d(v2^16)/v1^16
-	auto theta5 = divide_v1(dv216,16);
-	std::cout << "theta5=" << BPBP_opers.output(theta5) << "\n";
-	theta[5] = theta5;
+	//d(v2)
+	BPBP dv2 = BPBP_opers.add(BPBP_opers.minus(etaL(v2)), etaR(v2));
+	//beta1 = d(v2)/v1
+	BPBP beta1 = divide_v1(dv2,1);
+	std::cout << "beta1=" << BPBP_opers.output(beta1) << "\n";
+	theta[2] = beta1;
 	return theta;
 }
 
@@ -361,14 +320,18 @@ BPBP BP_Op::divide_power_p(const BPBP& a, int n) {
 
 //divide by v1^n
 BPBP BP_Op::divide_v1(const BPBP& x,int n){
-	//mod 2 reduction
+	//mod 3 reduction
 	BPBP x1;
 	for(auto tm : x.dataArray){
 		BP a1;
-		for(auto am : tm.coeficient.dataArray) 
-			if(am.coeficient%2!=0){
+		for(auto am : tm.coeficient.dataArray) {
+			if(am.coeficient%3==1){
 				a1.push({am.ind, 1});
 			}
+			else if(am.coeficient%3==2){
+				a1.push({am.ind, 2});
+			}
+		}
 		if(!isZero(a1))
 			x1.push({tm.ind,a1});
 	}

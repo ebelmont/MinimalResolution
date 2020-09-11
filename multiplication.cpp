@@ -116,20 +116,20 @@ string multiplication::output_multiplication_table(std::vector<multiplication_ta
 	return res;
 }
 
-//the extension by 2
+//the extension by 3
 template<typename cycle_name, typename ring>
-multiplication_table<cycle_name> multiplication::two_extension(SS_table<cycle_name,ring>& cur_table, int pric){
+multiplication_table<cycle_name> multiplication::three_extension(SS_table<cycle_name,ring>& cur_table, int pric){
 	multiplication_table<cycle_name> res;
-	//the element 2
-	static auto two = cur_table.Modop->ringOper->unit(2);
-	//compute the 2-extensions
+	//the element 3
+	static auto three = cur_table.Modop->ringOper->unit(3);
+	//compute the 3-extensions
 	for(auto &tm : cur_table){
 		//skip invalid entries
 		if(!cur_table.valid(tm.cycle)) continue;
 		//skip the tagged entries
 		if(cur_table.tagged(tm)) continue;
-		//compute the multiplication of the cycle by 2
-		auto v = cur_table.Modop->scalor_mult(two, tm.full_cycle);
+		//compute the multiplication of the cycle by 3
+		auto v = cur_table.Modop->scalor_mult(three, tm.full_cycle);
 		//compute the name of the result
 		multiplication_table_entry<cycle_name> nm = {tm.cycle,cur_table.name_of_cycle(v,pric)};
 		res.push_back(nm);
@@ -137,13 +137,13 @@ multiplication_table<cycle_name> multiplication::two_extension(SS_table<cycle_na
 	return res;
 }
 
-//make 2-extension table from the algebraic Novikov table of a complex
-std::vector<multiplication_table<cycle_name>> multiplication::two_extension(int resolution_length, BPComplex& Cm, algNov_tables Tb, int pric){
+//make 3-extension table from the algebraic Novikov table of a complex
+std::vector<multiplication_table<cycle_name>> multiplication::three_extension(int resolution_length, BPComplex& Cm, algNov_tables Tb, int pric){
 	std::vector<multiplication_table<cycle_name>> result;
 	//make the tables for each term in the resolution	
 	for(int i=0;i<resolution_length;++i){
 		//compute the multiplication table for the current term in the resolution
-		multiplication_table<cycle_name> new_table = two_extension(*(Tb.tables)[i], pric-i);
+		multiplication_table<cycle_name> new_table = three_extension(*(Tb.tables)[i], pric-i);
 		result.push_back(new_table);
 	}
 	return result;
