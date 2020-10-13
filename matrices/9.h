@@ -46,6 +46,10 @@ public:
 			//find the entry
 			entry *etr;
 			etr = search_ref(start);
+
+			//EB: We will later do x = x + cp * etr and we want the coefficient of the leading term to be zero in this, so cp = -x[start] / etr->full_cycle[start].
+			ring inv = ModOper->ringOper->inverse(ModOper->component(start, etr->full_cycle));
+			cp = ModOper->ringOper->multiply(cp, inv);
 		//	entry ks = search(start);
 		//	etr = &ks;
 			//take away the term in the table from x
