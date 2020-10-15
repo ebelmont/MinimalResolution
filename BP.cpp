@@ -301,6 +301,20 @@ std::vector<BPBP> BP_Op::thetas(){
 	BPBP beta1 = divide_v1(dv2,1);
 	std::cout << "beta1=" << BPBP_opers.output(beta1) << "\n";
 	theta[2] = beta1;
+
+	if(mon_index.max_degree<=12){
+		std::cerr << "out of range for beta1";
+		return theta;
+	}
+	//v2^2
+	BP v22 = multiply(v2,v2);
+	//d(v2^2)
+	BPBP dv22 = BPBP_opers.add(BPBP_opers.minus(etaL(v22)), etaR(v22));
+	//beta2 = d(v2^2)/v1
+	BPBP beta2 = divide_v1(dv22,1);
+	std::cout << "beta2=" << BPBP_opers.output(beta2) << "\n";
+	theta[3] = beta2;
+
 	return theta;
 }
 

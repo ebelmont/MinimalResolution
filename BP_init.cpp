@@ -160,15 +160,16 @@ void BPInit::mult_theta(){
 	auto theta = BP_oper.thetas();
 	
 	//degree of theta
-	int deg = 12;
-	int i=2;
-	//make the multiplication table on BPBP
-	multp.make_eta_R_multiplier(theta[i], &inj, deg);
-	//compute the table for the multiplication on Bockstein spectral sequence
-	auto Bmultable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 1, true);
-	//output the table
-	std::fstream fileB(director + "BocSS_theta" + std::to_string(i) + ".txt", std::ios::out);
-	fileB << multp.output_multiplication_table(Bmultable, 1, 10); // EB: ???????
+	int deg[maxVar+1] = {12,28};
+	for(int i=2; i<=3; ++i){
+		//make the multiplication table on BPBP
+		multp.make_eta_R_multiplier(theta[i], &inj, deg[i-2]);
+		//compute the table for the multiplication on Bockstein spectral sequence
+		auto Bmultable = multp.mult_extension(&inj, max_degree-deg[i-2], resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 1, true);
+		//output the table
+		std::fstream fileB(director + "BocSS_theta" + std::to_string(i) + ".txt", std::ios::out);
+		fileB << multp.output_multiplication_table(Bmultable, 1, 10); // EB: ???????
+	}
 }
 
 //make the algebraic Novikov multiplication table by a given element in BPBP
