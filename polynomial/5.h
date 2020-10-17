@@ -8,7 +8,7 @@ poly<exponent_type,base_ring> PolyOp_Para<exponent_type,base_ring>::mon_multiply
 	poly<exponent_type,base_ring> result;
 	result.dataArray.resize(x.size());
 	
-/*#pragma omp parallel for schedule(dynamic)*/
+#pragma omp parallel for schedule(dynamic)
 	for(unsigned i=0; i<x.size(); ++i){
 		result.dataArray[i].ind = x.dataArray[i].ind + e;
 		result.dataArray[i].coeficient = this->ringOper->multiply(x.dataArray[i].coeficient, r);

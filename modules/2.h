@@ -87,7 +87,7 @@ public:
 		if(size()==0) return result;
 		if(dataArray[size()-1].ind >= rank)
 			std::cerr << "tout:" << dataArray[size()-1].ind << "/" << rank << std::flush;
-/*#pragma omp parallel for schedule(dynamic)*/
+#pragma omp parallel for schedule(dynamic)
 		for(unsigned i=0; i<size(); ++i)
 			result[(unsigned) dataArray[i].ind] = dataArray[i].coeficient;
 		return result;
@@ -108,7 +108,7 @@ public:
 		if(size()==0) return;
 		if(dataArray[size()-1].ind >= y.size())
 			std::cerr << "aout:" << dataArray[size()-1].ind << "/" << y.size() << std::flush;
-/*#pragma omp parallel for schedule(dynamic)*/
+#pragma omp parallel for schedule(dynamic)
 		for(unsigned i=0; i<size(); ++i){
 			R nf = ringop->multiply(c, dataArray[i].coeficient);
 			y[(unsigned) dataArray[i].ind] = ringop->add(y[(unsigned) dataArray[i].ind], nf);
