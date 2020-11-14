@@ -146,7 +146,7 @@ void BPInit::mult_table(BPBP const &mul, int deg, string filename){
 }
 
 //make multiplication table for top theta on the Moore spectrum
-void BPInit::mult_theta(){
+void BPInit::mult_theta(int resolution_length){
 	//load the complex
 	auto genst = BPComplex::get_generator(resolution_length, director + "gens");
 	//load the complex of primitives
@@ -160,15 +160,15 @@ void BPInit::mult_theta(){
 	auto theta = BP_oper.thetas();
 	
 	//degree of theta
-	int deg[maxVar+1] = {12,28};
-	for(int i=2; i<=3; ++i){
+	int deg[maxVar+1] = {12,28,36,60,76,84};
+	for(int i=2; i<=7; ++i){
 		//make the multiplication table on BPBP
 		multp.make_eta_R_multiplier(theta[i], &inj, deg[i-2]);
 		//compute the table for the multiplication on Bockstein spectral sequence
 		auto Bmultable = multp.mult_extension(&inj, max_degree-deg[i-2], resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 1, true);
 		//output the table
 		std::fstream fileB(director + "BocSS_theta" + std::to_string(i) + ".txt", std::ios::out);
-		fileB << multp.output_multiplication_table(Bmultable, 1, 10); // EB: ???????
+		fileB << multp.output_multiplication_table(Bmultable, 1, resolution_length+1); // EB: the last argument here is 1 + the last homological degree where theta products are recorded in the output files ...theta2.txt, etc.
 	}
 }
 

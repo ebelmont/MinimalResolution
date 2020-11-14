@@ -302,8 +302,8 @@ std::vector<BPBP> BP_Op::thetas(){
 	std::cout << "beta1=" << BPBP_opers.output(beta1) << "\n";
 	theta[2] = beta1;
 
-	if(mon_index.max_degree<=12){
-		std::cerr << "out of range for beta1";
+	if(mon_index.max_degree<=28){
+		std::cerr << "out of range for beta2";
 		return theta;
 	}
 	//v2^2
@@ -314,6 +314,63 @@ std::vector<BPBP> BP_Op::thetas(){
 	BPBP beta2 = divide_v1(dv22,1);
 	std::cout << "beta2=" << BPBP_opers.output(beta2) << "\n";
 	theta[3] = beta2;
+
+	if(mon_index.max_degree<=36){
+		std::cerr << "out of range for beta3/3";
+		return theta;
+	}
+	//v2^3
+	BP v23 = multiply(v22,v2);
+	//d(v2^3)
+	BPBP dv23 = BPBP_opers.add(BPBP_opers.minus(etaL(v23)), etaR(v23));
+	//beta3/3 = d(v2^3)/v1^3
+	BPBP beta33 = divide_v1(dv23,3);
+	std::cout << "beta3/3=" << BPBP_opers.output(beta33) << "\n";
+	theta[4] = beta33;
+
+
+	if(mon_index.max_degree<=60){
+		std::cerr << "out of range for beta4";
+		return theta;
+	}
+	//v2^4
+	BP v24 = multiply(v23,v2);
+	//d(v2^4)
+	BPBP dv24 = BPBP_opers.add(BPBP_opers.minus(etaL(v24)), etaR(v24));
+	//beta4 = d(v2^4)/v1
+	BPBP beta4 = divide_v1(dv24,1);
+	std::cout << "beta4=" << BPBP_opers.output(beta4) << "\n";
+	theta[5] = beta4;
+
+
+	if(mon_index.max_degree<=76){
+		std::cerr << "out of range for beta5";
+		return theta;
+	}
+	//v2^5
+	BP v25 = multiply(v24,v2);
+	//d(v2^5)
+	BPBP dv25 = BPBP_opers.add(BPBP_opers.minus(etaL(v25)), etaR(v25));
+	//beta5 = d(v2^5)/v1
+	BPBP beta5 = divide_v1(dv25,1);
+	std::cout << "beta5=" << BPBP_opers.output(beta5) << "\n";
+	theta[6] = beta5;
+
+	if(mon_index.max_degree<=84){
+		std::cerr << "out of range for beta6/3";
+		return theta;
+	}
+	//v2^6
+	BP v26 = multiply(v25,v2);
+	//d(v2^6)
+	BPBP dv26 = BPBP_opers.add(BPBP_opers.minus(etaL(v26)), etaR(v26));
+	//beta6/3 = d(v2^6)/v1^3
+	BPBP beta63 = divide_v1(dv26,3);
+	std::cout << "beta6/3=" << BPBP_opers.output(beta63) << "\n";
+	theta[7] = beta63;
+
+
+
 
 	return theta;
 }

@@ -91,5 +91,5 @@ public:
 	void mult_table(BPBP const &, int, string);
 	void mult_table();
 	//make multiplication table for top theta on the Moore spectrum
-	void mult_theta();
+	void mult_theta(int);
 };

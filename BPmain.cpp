@@ -37,7 +37,7 @@ int main(int argc, char** argv){
 	
 	//compute the multiplicative structure
 	BPoper.mult_table();
-	BPoper.mult_theta();
+	BPoper.mult_theta(resolution_length);
 	
 	return 0;
 }

@@ -34,8 +34,8 @@ std::pair<std::pair<int,int>,string> Boc_table::output(SS_entry<cycle_name, Z3>&
 	else 
 		res = this->algNov_table::output(et.cycle,k) + "\t<-\t" + this->algNov_table::output(et.tag,k-1) + "\t|d" + std::to_string(diff_length(et));
 	
-	std::pair<int,int> degs = std::make_pair(degree(et.cycle)-k, k+filtration(et.cycle));
-	return std::make_pair(degs, res + "\t|stem=" + std::to_string(degs.first));
+	std::pair<int,int> degs = std::make_pair(degree(et.cycle)*2-k, k+filtration(et.cycle));
+	return std::make_pair(degs, res + "\t|deg=" + std::to_string(degs.first));
 }
 
 std::set<std::pair<std::pair<int,int>,string>> Boc_table::output_table(int k, int pric){
