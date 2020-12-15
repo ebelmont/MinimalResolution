@@ -237,52 +237,16 @@ BP BP_Op::v1(){
 	return v1;
 }
 	
-//return the element h1 = (etaR(v1) - etaL(v1))/p
-BPBP BP_Op::h1(){
+//return the element h0 = (etaR(v1) - etaL(v1))/p
+BPBP BP_Op::h0(){
 	if(mon_index.max_degree<=1){
-		std::cerr << "out of range for h1";
+		std::cerr << "out of range for h0";
 		return BPBP_opers.zero();
 	}
 	auto dv1 = BPBP_opers.add(BPBP_opers.minus(etaL(v1())), etaR(v1()));
-	BPBP h1 = divide_power_p(dv1,1);
-	std::cout << "h1=" << BPBP_opers.output(h1) << "\n";
-	return h1;
-}
-
-//return the element h2
-BPBP BP_Op::h2(){
-	if(mon_index.max_degree<=2){
-		std::cerr << "out of range for h2";
-		return BPBP_opers.zero();
-	}
-	//v1^2
-	BP v12 = multiply(v1(),v1());
-	//etaR(v1^2)-etaL(v1^2)
-	auto dv12 = BPBP_opers.add(BPBP_opers.minus(etaL(v12)), etaR(v12));
-	//(etaR(v1^2)-etaL(v1^2))/4
-	BPBP h2 = divide_power_p(dv12,2);
-	std::cout << "h2=" << BPBP_opers.output(h2) << "\n";
-	return h2;
-}
-
-//return the element h3
-BPBP BP_Op::h3(){
-	if(mon_index.max_degree<=4){
-		std::cerr << "out of range for h3";
-		return BPBP_opers.zero();
-	}
-	//v1^4
-	BP v14 = monomial(vars(1)*4);
-	//8v2
-	BP vv2 = monomial(vars(2),Z3_oper->unit(8));
-	//v1^4 + 8v1v2
-	v14 = add(v14, multiply(vv2,v1()));
-	//etaR - etaL
-	auto dv14 = BPBP_opers.add(BPBP_opers.minus(etaL(v14)), etaR(v14));
-	//h3 = d(v1^4 + 8v1v2)/16
-	BPBP h3 = divide_power_p(dv14,4);
-	std::cout << "h3=" << BPBP_opers.output(h3) << "\n";
-	return h3;
+	BPBP h0 = divide_power_p(dv1,1);
+	std::cout << "h0=" << BPBP_opers.output(h0) << "\n";
+	return h0;
 }
 
 //return the top thetas on the Moore spectrum

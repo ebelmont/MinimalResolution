@@ -108,12 +108,8 @@ public:
 	//make the structure tables
 	void make_tables(int maxVar, string R2Lfilename, string deltafilename, string etaL_filename, string R2L_filename, string delta_filename, std::ostream &outputfile=std::cout);
 	
-	//return the element h1
-	BPBP h1();
-	//return the element h2
-	BPBP h2();
-	//return the element h3
-	BPBP h3();
+	//return the element h0
+	BPBP h0();
 	//return the element v1
 	BP v1();
 	//return the top thetas on the Moore spectrum

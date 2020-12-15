@@ -104,8 +104,8 @@ void BPInit::make_algNov(){
 	atb << AANtables.output_tables();
 	
 	auto et2 = multp.three_extension(resolution_length,Complex,AANtables,resolution_length);
-	std::fstream h0f(director + "AANSS_h0.txt", std::ios::out);
-	h0f << multp.output_multiplication_table(et2,0,resolution_length-1);
+	std::fstream a0f(director + "AANSS_a0.txt", std::ios::out);
+	a0f << multp.output_multiplication_table(et2,0,resolution_length-1);
 }
 
 //make Bockstein table
@@ -174,14 +174,10 @@ void BPInit::mult_theta(int resolution_length){
 
 //make the algebraic Novikov multiplication table by a given element in BPBP
 void BPInit::mult_table(){
-	//make the h1 multiplication table
-	BPBP h1 = BP_oper.h1();
-	// h1 is defined as (eta_R(v1) - eta_L(v1))/p, so it's really h1 at p=3
-	mult_table(h1, 4, "h1.txt");
-	/*//make h2 multiplication table
-	BPBP h2 = BP_oper.h2();
-	mult_table(h2, 2, "h2.txt");
-	//make h3 multiplication table
-	BPBP h3 = BP_oper.h3();
-	mult_table(h3, 4, "h3.txt");*/
+	//make the h0 multiplication table
+	BPBP h0 = BP_oper.h0();
+	// h0 is defined as (eta_R(v1) - eta_L(v1))/p
+	BPBP h02 = BP_oper.BPBP_opers.multiply(h0, h0);
+	mult_table(h0, 4, "h0.txt");
+	mult_table(h02, 8, "h0squared.txt");
 }
