@@ -64,7 +64,50 @@ multiplication_table<cycle_name> multiplication::mult_extension(matrix<ring> *mu
 		//construct new entry
 		auto cycls = next_table.name_of_cycle(v,&third_table,pric);
 		auto cm = next_table.combine_cycles(cycls);
+		multiplication_table_entry<cycle_name> nm = {tm.tag,cm};
+		res.push_back(nm);
+	}
+	return res;
+}
+
+//make multiplication table
+template<typename cycle_name, typename ring>
+multiplication_table<cycle_name> multiplication::mult_extension1(matrix<ring> *mult_matrix, SS_table<cycle_name,ring> &cur_table, SS_table<cycle_name,ring> &next_table, SS_table<cycle_name,ring> &third_table, int pric){
+	multiplication_table<cycle_name> res;
+	int counter = 0;
+	//compute the extensions for the entries in the table
+	for(auto &tm : cur_table){
+		std::cout << "\r" << counter++;
+		//skip invalid entries
+		if(!cur_table.valid(tm.cycle)) continue;
+		//skip the tagged entries
+		if(cur_table.tagged(tm)) continue;
+		//skip
+		if(cur_table.filtration(tm.cycle)>=pric) continue;
+		//get the image of the full cycle under multiplication
+		auto v = mult_matrix->maps_to(tm.full_cycle);
+		//construct the new entry
+		auto cycls = next_table.name_of_cycle(v,&third_table,pric);
+		auto cm = next_table.combine_cycles(cycls);
 		multiplication_table_entry<cycle_name> nm = {tm.cycle,cm};
+		res.push_back(nm);
+	}
+	
+	//then deal with the tags
+	for(auto &tm : next_table){
+		std::cout << "\r" << counter++ << "/" << next_table.size();
+		//skip invalid entries
+		if(!next_table.valid(tm.cycle)) continue;
+		//skip untagged entries
+		if(!next_table.tagged(tm)) continue;
+		//skip
+		std::cout << cur_table.filtration(tm.tag);
+		if(cur_table.filtration(tm.tag)>=pric) continue;
+		auto v = mult_matrix->maps_to(tm.full_tag);
+		//construct new entry
+		auto cycls = next_table.name_of_cycle(v,&third_table,pric,false);
+		auto cm = next_table.combine_cycles(cycls);
+		multiplication_table_entry<cycle_name> nm = {tm.tag,cm};
 		res.push_back(nm);
 	}
 	return res;
@@ -85,6 +128,27 @@ std::vector<multiplication_table<cycle_name>> multiplication::mult_extension(mat
 		//compute the multiplication table for the current term in the resolution
 		int cpric = fixedpric ? pric : pric-i;
 		multiplication_table<cycle_name> new_table = mult_extension<cycle_name,Z3>(mm, *(Tb.tables)[i-1], *(Tb.tables)[i], *(Tb.tables)[i+1], cpric);
+		result.push_back(new_table);
+	}
+	return result;
+}
+
+//make multiplacation table from the algebraic Novikov table of a complex
+std::vector<multiplication_table<cycle_name>> multiplication::mult_extension1(matrix<BP> *multiplier, int max_deg, int resolution_length, std::vector<FreeBPCoMod>& generators, string maps_filename, BPComplex& Cm, algNov_tables Tb, matrix<BP> *mp, matrix<Z3> *mm, int pric, bool fixedpric){
+	//open the files of the maps
+	std::fstream maps_file(maps_filename, std::ios::in | std::ios::binary);
+	std::vector<multiplication_table<cycle_name>> result;
+	//make the tables for each term in the resolution	
+	for(int i=1;i<resolution_length-1;++i){
+		std::cout << "\n" << i << std::flush;
+		//load the maps in the resolution
+		mp->load(maps_file);
+		//compute the matrix for the multiplacation
+		mm->clear();
+		multily_matrix(max_deg, multiplier, mp, &generators[i-1], &Cm.Prims[i], mm);
+		//compute the multiplication table for the current term in the resolution
+		int cpric = fixedpric ? pric : pric-i;
+		multiplication_table<cycle_name> new_table = mult_extension1<cycle_name,Z3>(mm, *(Tb.tables)[i-1], *(Tb.tables)[i], *(Tb.tables)[i+1], cpric);
 		result.push_back(new_table);
 	}
 	return result;
@@ -113,6 +177,34 @@ string multiplication::output_multiplication_table(std::vector<multiplication_ta
 	string res;
 	for(unsigned i=0;i<MTs.size();++i)
 		res+= output_multiplication_table(MTs[i],i,shift, pric--,Tb);
+	return res;
+}
+
+//output the table
+template<typename cycle_name, typename ring>
+string multiplication::output_multiplication_table1(multiplication_table<cycle_name> const &MT, int k, int shift, int pric, SS_table<cycle_name, ring> &Tb){
+	string res;
+	for(auto &tm: MT){
+		//skip those entries out of range
+		if(Tb.filtration(tm.original_name) >= pric) continue;
+		//output the origin
+		res+= Tb.output(tm.original_name,k) + "\t->\t";
+		//output the result
+		for(auto sm: tm.multiplied_names.second)
+			res+= Tb.output(sm,k+shift)+"+";
+		for(auto sm: tm.multiplied_names.first)
+			res+= Tb.output(sm,k+shift)+"+";
+		res+= "o\n";
+	}
+	return res;
+}
+
+//output the tables
+string multiplication::output_multiplication_table1(std::vector<multiplication_table<cycle_name>> const &MTs, int shift, int pric){
+	algNov_table Tb;
+	string res;
+	for(unsigned i=0;i<MTs.size();++i)
+		res+= output_multiplication_table1(MTs[i],i,shift, pric--,Tb);
 	return res;
 }
 

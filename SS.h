@@ -195,7 +195,7 @@ public:
 	}
 	
 	//Return the set of cycles modulo filtration pric boundaries and cycles, original vector should be discarded after
-	std::tuple<std::vector<cycle_name>, std::vector<cycle_name>, std::vector<cycle_name>> name_of_cycle(typename SS_entry<cycle_name, ring>::value_type& v, SS_table *next_table, int pric){
+	std::tuple<std::vector<cycle_name>, std::vector<cycle_name>, std::vector<cycle_name>> name_of_cycle(typename SS_entry<cycle_name, ring>::value_type& v, SS_table *next_table, int pric, bool check_cycle=true){
 		//the set of tags, boundaries and cycles in v
 		std::vector<cycle_name> tgs, bdrs, cycs;
 		while(!Modop->isZero(v)){
@@ -211,14 +211,14 @@ public:
 			if(it == cycle_index.end()){
 				//when the leading term is not a cycle, try it with the next table
 				if(next_table == NULL)
-					std::cerr << "invalid table!";
+					std::cerr << "invalid table!:end of table";
 				else{
 					//try to find the leading term as a tag
 					auto ot = next_table->tag_index.find(leading_name);
 					if(ot == next_table->tag_index.end())
-						std::cerr << "invalid table!";
+						std::cerr << "invalid table!: no such tag";
 					else{
-						if(filtration(next_table->at(ot->second).cycle)<pric)
+						if(filtration(next_table->at(ot->second).cycle)<pric && check_cycle)
 							std::cerr << "invalid table!";
 						//subtract the full tag
 						v = Modop->add(v, Modop->minus(next_table->at(ot->second).full_tag));

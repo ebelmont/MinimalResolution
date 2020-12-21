@@ -120,6 +120,10 @@ void BPInit::make_Boc(){
 	auto ba = Btables.Bname2Anames(resolution_length, AANtables, resolution_length);
 	std::fstream b2a(director + "B2A_table.txt", std::ios::out);
 	b2a << multp.output_multiplication_table(ba,0,resolution_length-1);
+	
+	auto et2 = multp.three_extension(resolution_length,Complex,Btables,resolution_length);
+	std::fstream a0f(director + "BocSS_a0.txt", std::ios::out);
+	a0f << multp.output_multiplication_table1(et2,0,resolution_length-1);
 }
 
 //make the algebraic Novikov multiplication table by a given element in BPBP
@@ -139,7 +143,7 @@ void BPInit::mult_table(BPBP const &mul, int deg, string filename){
 	std::fstream file(director + "AANSS_" + filename, std::ios::out);
 	file << multp.output_multiplication_table(multable, 1, resolution_length-2);
 	//compute the table for the multiplication on Bockstein spectral sequence
-	auto Bmultable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, resolution_length);
+	auto Bmultable = multp.mult_extension1(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 1, true);
 	//output the table
 	std::fstream fileB(director + "BocSS_" + filename, std::ios::out);
 	fileB << multp.output_multiplication_table(Bmultable, 1, resolution_length-2);
@@ -179,5 +183,5 @@ void BPInit::mult_table(){
 	// h0 is defined as (eta_R(v1) - eta_L(v1))/p
 	BPBP h02 = BP_oper.BPBP_opers.multiply(h0, h0);
 	mult_table(h0, 4, "h0.txt");
-	mult_table(h02, 8, "h0squared.txt");
+//	mult_table(h02, 8, "h0squared.txt");
 }
