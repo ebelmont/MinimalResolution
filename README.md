@@ -2,8 +2,7 @@
 
 This is a p=3 fork of [Guozhen Wang's code](https://github.com/pouiyter/MinimalResolution)
 for computing the Adams-Novikov E<sub>2</sub> page for the sphere (originally
-at p=2), using the algebraic Novikov spectral sequence. It also computes
-multiplications (by alpha1 and various beta elements). See
+at p=2), using the algebraic Novikov spectral sequence. See
 [this repository](https://github.com/ebelmont/ANSS_data) for sample data and an
 explanation of how to interpret the data files output by the program. The
 rest of this README is Guozhen's original instructions.
