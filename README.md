@@ -1,5 +1,14 @@
 # MinimalResolution
 
+This is a p=3 fork of Guozhen Wang's code for computing the Adams-Novikov E<sub>2</sub> page
+for the sphere (originally at p=2), using the algebraic Novikov spectral sequence.
+It also computes multiplications (by alpha1 and various beta elements). See
+[this repository](https://github.com/ebelmont/ANSS_data) for sample data and an
+explanation of how to interpret the data files output by the program. The
+rest of this README is Guozhen's original instructions.
+
+******************************************************************************************************
+
 The algorithm is explained in the pdf file MinimalResolution.pdf
 
 The codes can be compiled with GCC. The GNU Multiple Precision Arithmetic Library should be installed.
@@ -39,3 +48,5 @@ The three executalbes are dependent, and should be run in the above order.
 The s for the minimal resolution for BP/I should be at least one larger than the s for that of BP.
 
 Any mistake of the input could result in unpredictible behaviour, usually a break-down of the program such as a segmentation error.
+
+[EB: the p=3 version may have different restrictions on the degrees, but I haven't thought about what the rule should be.]
