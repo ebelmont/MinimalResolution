@@ -2,6 +2,7 @@
 #pragma once
 #include"algebra.h"
 #include"Fp.h"
+#include <cstdint>
 
 //we use 64-bit unsigned integer to denote 3-adic numbers
 typedef uint64_t Z3;
