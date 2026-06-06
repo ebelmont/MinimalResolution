@@ -19,7 +19,7 @@ To compile, run the following batch files:
 
 sh st_compiling
 
-sh BPtable_complile
+sh BPtable_compile
 
 sh BP_compile
 
