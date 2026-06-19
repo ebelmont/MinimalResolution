@@ -66,7 +66,7 @@ void Hopf_Algebroid<ring,algebroid>::pre_resolution_modeled( comodule_generic<al
 	gens_file0.close();
 	maps_file.close();
 	
-	for(int i=0; i<=resolution_length; ++i) {
+	for(int i=0; i<resolution_length; ++i) {
 		inj->clear();
 		qut->clear();
 		
