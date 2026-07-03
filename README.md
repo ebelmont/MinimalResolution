@@ -7,6 +7,18 @@ at p=2), using the algebraic Novikov spectral sequence. See
 explanation of how to interpret the data files output by the program. The
 rest of this README is Guozhen's original instructions.
 
+## Documentation
+
+This codebase has no prior architecture documentation beyond this README and
+inline comments. [`docs/index.html`](docs/index.html) is a generated
+documentation dashboard covering the class structure, module relationships,
+and full build/run pipeline — start there, or jump straight to
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the big picture. It also
+flags a few things worth knowing before you dig in: several sub-pipelines
+(`kos`, `mr_ex`, and the whole motivic pipeline) are hardcoded to p=2 despite
+the "p=3 fork" framing, and there's some dead/duplicate code left over from
+earlier refactors — see `docs/ARCHITECTURE.md` §5–6 for specifics.
+
 ******************************************************************************************************
 
 The algorithm is explained in the pdf file MinimalResolution.pdf
