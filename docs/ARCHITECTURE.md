@@ -10,6 +10,9 @@ you'll click through to the detail docs for anything beyond the big picture:
 - [`CODE_WALKTHROUGH.md`](CODE_WALKTHROUGH.md) — a slower, line-by-line
   walkthrough of how comodules and Hopf algebroids are represented in C++,
   written for readers who aren't fluent in reading the code itself.
+- [`GENERAL_COMODULES.md`](GENERAL_COMODULES.md) — how to compute the
+  algebraic Novikov E2 page for a general `BP_*BP`-comodule (not just the
+  sphere), using the additive `BPGenericInit`/`SteenrodGenericInit` classes.
 - [`pipelines/STEENROD.md`](pipelines/STEENROD.md) — `mr_st`, `kos`.
 - [`pipelines/BP.md`](pipelines/BP.md) — `BPtab`, `mr_BP` (the repo's main deliverable).
 - [`pipelines/MOTIVIC.md`](pipelines/MOTIVIC.md) — `motTab`, `mr_mot`, `mot_comb`, `mot_mult`, `tauBoc`.
