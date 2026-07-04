@@ -1,0 +1,405 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">ARCHITECTURE</span></div>
+  <div class="actions">
+    <a class="src-link" href="ARCHITECTURE.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="architecture">Architecture<a class="heading-anchor" href="#architecture">#</a></h1>
+<p>This document is the map of the whole repository: what it computes, how its
+11 build targets relate, and where the actual prime <code>p</code> each computation runs
+at diverges from the &quot;p=3 fork&quot; framing in the top-level README. It assumes
+you&#39;ll click through to the detail docs for anything beyond the big picture:</p>
+<ul>
+<li><a href="FRAMEWORK.html"><code>FRAMEWORK.md</code></a> — the generic, math-agnostic template layer
+(rings, modules, matrices, comodules, <code>Hopf_Algebroid</code>, <code>curtis_table</code>).</li>
+<li><a href="pipelines/STEENROD.html"><code>pipelines/STEENROD.md</code></a> — <code>mr_st</code>, <code>kos</code>.</li>
+<li><a href="pipelines/BP.html"><code>pipelines/BP.md</code></a> — <code>BPtab</code>, <code>mr_BP</code> (the repo&#39;s main deliverable).</li>
+<li><a href="pipelines/MOTIVIC.html"><code>pipelines/MOTIVIC.md</code></a> — <code>motTab</code>, <code>mr_mot</code>, <code>mot_comb</code>, <code>mot_mult</code>, <code>tauBoc</code>.</li>
+<li><a href="pipelines/EX_CTAU.html"><code>pipelines/EX_CTAU.md</code></a> — <code>mr_ex</code>, <code>e2p</code>.</li>
+<li><a href="BUILD_AND_RUN.html"><code>BUILD_AND_RUN.md</code></a> — concrete build/run instructions.</li>
+<li><a href="CLASSES.html"><code>CLASSES.md</code></a> — full class catalog across all four docs.</li>
+<li><a href="GLOSSARY.html"><code>GLOSSARY.md</code></a> — math term ↔ code identifier index.</li>
+</ul>
+<p>This document, and the rest of the <code>docs/</code> tree, is now grounded in
+<strong><code>MinimalResolution.pdf</code></strong> (Guozhen Wang, <em>Computations of the Adams-Novikov
+E2-term</em>, April 2020), which the repo owner added after the rest of this
+documentation was first written. Every claim below cites a definition,
+proposition, or section of that paper where one exists; anywhere the paper
+is silent (mostly: the ex/ctau, motivic, and Koszul side-pipelines, which
+postdate the paper&#39;s own §9 source walkthrough), that&#39;s called out
+explicitly rather than guessed at.</p>
+<h2 id="1-what-this-repo-computes">1. What this repo computes<a class="heading-anchor" href="#1-what-this-repo-computes">#</a></h2>
+<p>This is Guozhen Wang&#39;s minimal-resolution machinery for computing the
+<strong>Adams–Novikov E2 page for the sphere spectrum</strong>, forked to the prime 3, via
+the <strong>algebraic Novikov spectral sequence</strong>. Precisely (paper, §2 &quot;Notation&quot;
+and §7):</p>
+<ul>
+<li><code>BP</code> is the Brown–Peterson spectrum, a complex-oriented ring spectrum whose
+formal group law is the universal <code>p</code>-typical one over <code>Z_(p)</code>, with
+<code>BP_* = Z_(p)[v1, v2, ...]</code> and <code>BP_*BP = BP_*[t1, t2, ...]</code>.</li>
+<li><code>I = (p, v1, v2, ...)</code> is the invariant regular ideal, and
+<code>P := BP_*BP/I = F_p[t1, t2, ...]</code> — reduction mod <code>I</code> turns the Hopf
+algebroid <code>(BP_*, BP_*BP)</code> into the Hopf <strong>algebra</strong> <code>P</code>, which the paper
+states is <strong>a sub-Hopf-algebra of the dual Steenrod algebra, and at <code>p=2</code>
+is isomorphic to the whole dual Steenrod algebra with degrees doubled</strong>
+(paper §2). This is the precise sense in which <code>P</code> — the object the
+classical Steenrod pipeline (<code>mr_st</code>) resolves — relates to <code>BP_*BP</code>; see
+§5 below.</li>
+<li>The <strong>algebraic Adams-Novikov filtration</strong> (paper §7) filters the
+primitives of a <code>BP_*BP</code>-comodule resolution by powers of <code>I</code>: writing
+a primitive as a linear combination of <code>v0^{i0} v1^{i1} ··· vk^{ik} · a</code>
+(convention <code>v0 = p</code>, <code>a</code> a chosen <code>BP_*</code>-generator), its filtration degree
+is <code>i0 + i1 + ... + ik</code>. Reading off the Curtis table of this filtered
+complex (§2 below) gives exactly <code>algNov_table</code> (<code>docs/pipelines/BP.md</code>
+§3) — this <strong>is</strong> the algebraic Novikov spectral sequence, computed here
+as a byproduct of minimal-resolution machinery rather than the classical,
+much slower route of computing directly in the cobar complex (paper §1,
+citing Ravenel [3]).</li>
+</ul>
+<p>The BP pipeline (<code>BPtab</code> → <code>mr_BP</code>) is the actual deliverable; everything
+else in the repo is either infrastructure it&#39;s built on (the generic
+framework), a necessary precomputation the BP pipeline&#39;s own optimization
+depends on (<code>mr_st</code>, see §5), or an independent cross-check computed via a
+different route through motivic homotopy theory (the ex/ctau + motivic
+pipelines, <code>kos</code>; see §6).</p>
+<h2 id="2-mathematical-background-from-minimalresolutionpdf">2. Mathematical background (from <code>MinimalResolution.pdf</code>)<a class="heading-anchor" href="#2-mathematical-background-from-minimalresolutionpdf">#</a></h2>
+<p>The paper&#39;s core contribution, in the order it&#39;s presented, with pointers to
+which classes implement each piece:</p>
+<ol>
+<li><strong>Minimal resolutions are defined via reduction mod <code>I</code>.</strong> A cofree
+resolution of a <code>BP_*BP</code>-comodule <code>M</code> (free over <code>BP_*</code>) is <em>minimal</em> if
+its reduction mod <code>I</code> is a minimal resolution of the <code>P</code>-comodule <code>M/I</code>
+(Definitions 6–7); a resolution of a <code>P</code>-comodule is minimal if, at every
+stage, <code>Prim(M̃_i) → Prim(F̃_i)</code> is bijective. This is exactly the
+termination criterion <code>Hopf_Algebroid::embed2cofree</code> implements via
+<code>curtis_table::simplify_to_led</code> (<code>FRAMEWORK.md</code> §5): a new cofree
+generator is added only when the current partial embedding fails to
+reduce a basis element to zero, i.e. exactly when it&#39;s <em>not yet</em> in the
+image — the bijective-on-primitives condition, checked one generator at
+a time.</li>
+<li><strong>Cogenerators and the adjoint map.</strong> A map <code>f : M → X</code> exhibits <code>X</code> as
+cogenerators of <code>M</code> iff the adjoint <code>M → BP_*BP ⊗_{BP_*} X</code> is strongly
+injective (a split injection of underlying <code>BP_*</code>-modules), and — crucially
+— this holds <strong>iff its reduction mod <code>I</code> does</strong> (Definition 2, Remark 3.1,
+Propositions 3, 8). This is exactly <code>Hopf_Algebroid::adjoint</code>
+(<code>FRAMEWORK.md</code> §5) and is <em>why</em> checking things via <code>curtis_table</code>
+reduction (a <code>P</code>/mod-<code>I</code> computation) correctly certifies properties of
+the integral <code>BP_*BP</code> resolution.</li>
+<li><strong>Curtis tables compute homology of any filtered complex</strong> (§6, citing
+Curtis–Goerss–Mahowald–Milgram [1] — the origin of the <code>curtis_table</code>
+name). Given a complex of locally finite modules with a compatible
+maximal filtration, a unique table of entries <code>a</code> (surviving cycle) or
+<code>a → b</code> (differential) exists (Proposition 9) and, when a coarser
+filtration is refined by the maximal one, the table&#39;s <code>a</code> entries are
+exactly the permanent cycles and its <code>a → b</code> entries the differentials of
+the spectral sequence for that coarser filtration (Proposition 10). This
+is the general machinery <code>curtis_table</code>/<code>SS_table</code> implement
+(<code>FRAMEWORK.md</code> §3), and it&#39;s <em>why</em> the same table structure serves both
+as a resolution&#39;s bookkeeping and as <code>algNov_table</code>/<code>Boc_table</code>&#39;s
+spectral-sequence storage.</li>
+<li><strong>The algebraic Novikov and Bockstein spectral sequences are the same
+construction with two different term orders</strong> on the same minimal
+resolution&#39;s primitives (§7, Remark 7.1): order by
+<code>(Adams-Novikov filtration, then lexicographic)</code> for the algebraic
+Novikov SS, or by <strong>lexicographic order directly</strong> for the Bockstein SS.
+This is exactly the difference between <code>algNov_table</code> and <code>Boc_table</code>
+(<code>docs/pipelines/BP.md</code> §3/§6): <code>Boc_table::v_valuation</code> counts only
+powers of <code>p</code> (<code>v0</code>), which is the lexicographic-primarily-by-<code>p</code>-power
+ordering the paper describes.</li>
+<li><strong>Multiplicative structure is Atiyah-Hirzebruch, and AHSS differentials
+are multiplication by an extension class</strong> (§8, Proposition 12): for a
+two-step filtration <code>0 → BP_* → M → Σ^j BP_* → 0</code> classified by
+<code>h ∈ Ext^{j,1}(BP_*)</code>, the Atiyah-Hirzebruch differentials for <code>M</code>
+correspond exactly to multiplication by <code>h</code>. This is the mathematical
+content of <code>BP_Op::h0()</code>/<code>BP_Op::thetas()</code> and <code>multiplication.cpp</code>
+(<code>docs/pipelines/BP.md</code> §3/§6): each is the extension class of a specific
+two-step (or iterated) filtration on the resolution, and the code
+computes multiplication tables by this recipe rather than by directly
+constructing Massey products.</li>
+</ol>
+<h2 id="3-the-four-layer-structure">3. The four-layer structure<a class="heading-anchor" href="#3-the-four-layer-structure">#</a></h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│  Layer 4: concrete pipelines (each ties a ring + Hopf-algebroid       │
+│  structure + a main() driver to the framework below)                 │
+│                                                                       │
+│    Steenrod (p=3)      BP (p=3)         Ex/Ctau (p=2)   Motivic (p=2)│
+│    steenrod.*           BP.*, BPQ.*      ctau_steenrod.* mot_steenrod.*│
+│    steenrod_init.*      BP_init.*        ex_steenrod_init.* tao_bockstein.*│
+│    stmain.cpp           BPmain.cpp       ex_main.cpp     mot_main.cpp │
+│    kosul.cpp            BPtable.cpp                      + 4 more    │
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 3: base rings                                                 │
+│    Fp (F_p field)   Z3 (3-adic ints)   Qp/Q3 (p-local rationals, GMP)│
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 2: generic algebraic structures (math-agnostic, templated)    │
+│    RingOp/AbGroupOp · ModuleOp · matrix (mem/stream/file backends)   │
+│    polynomial/PolyOp_Para · CoModule/comodule_generic/cofree_comodule│
+│    Hopf_Algebroid  (the resolution ALGORITHM lives here)             │
+│    curtis_table (mem/stream backends) · SS_table · monomial_index    │
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 1: plumbing                                                   │
+│    con_streams/con_fstreams (thread-safe file/stream IO)             │
+└─────────────────────────────────────────────────────────────────────┘</code></pre>
+<p>Every concrete pipeline instantiates <code>Hopf_Algebroid&lt;ring, algebroid&gt;</code> for
+its own ring/algebroid pair and gets the entire resolution algorithm
+(<code>embed2cofree</code>, <code>resolvor</code>, <code>pre_resolution_tab</code>, <code>quotient</code>, ...) for free —
+see <code>FRAMEWORK.md</code> §5 for exactly what that algorithm computes, now grounded
+in the paper&#39;s Definitions 6–7 and Propositions 3/8 (§2 above) rather than
+left as an open question.</p>
+<h2 id="4-executable-pipeline-and-data-flow">4. Executable pipeline and data flow<a class="heading-anchor" href="#4-executable-pipeline-and-data-flow">#</a></h2>
+<p>11 build targets total (9 &quot;primary&quot; executables plus 2 upstream helper tools,
+<code>motTab</code> and <code>e2p</code>, that other docs found were required but not in the
+original brief):</p>
+<div class="mermaid-wrap"><pre class="mermaid">flowchart TB
+    subgraph Steenrod["Classical Steenrod (p=3)"]
+        mrst["mr_st &amp;lt;halfT&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;stmain.cpp"]
+        kos["kos &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;kosul.cpp — hardcoded p=2&lt;br/&gt;(not covered by the paper)"]
+    end
+
+    subgraph BP["BP Hopf algebroid (p=3) — MAIN DELIVERABLE"]
+        bptab["BPtab &amp;lt;halfT&amp;gt;&lt;br/&gt;BPtable.cpp"]
+        mrbp["mr_BP &amp;lt;halfT&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;BPmain.cpp"]
+        bptab --&gt;|"&amp;lt;halfT&amp;gt;_etaL/_R2L/_delta"| mrbp
+    end
+
+    subgraph ExCtau["Ex/Ctau (p=2, cofiber-of-tau cross-check)"]
+        mrex["mr_ex &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;ex_main.cpp"]
+        e2p["e2p &amp;lt;maxdeg&amp;gt;&lt;br/&gt;ex2poly.cpp"]
+    end
+
+    subgraph Motivic["Motivic tau-graded (p=2, cofiber-of-tau cross-check)"]
+        mottab["motTab &amp;lt;maxdeg&amp;gt;&lt;br/&gt;mot_coactions.cpp"]
+        mrmot["mr_mot &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;mot_main.cpp"]
+        motcomb["mot_comb &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;mot_combine.cpp&lt;br/&gt;(resume/recombine only)"]
+        motmult["mot_mult &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;mot_mult.cpp"]
+        taub["tauBoc &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;taubocmain.cpp"]
+        mottab --&gt;|"_mot_deltas/_poly_exponents"| mrmot
+        mrmot --&gt;|"_mot_gens/_mot_res"| motcomb
+        mrmot --&gt;|"_mot_gens/_mot_res"| motmult
+        mrmot --&gt;|"_mot_gens/_mot_res"| taub
+    end
+
+    mrex --&gt;|"_gens_data_ctau, _extables&lt;br/&gt;(models the resolution)"| mrmot
+    e2p --&gt;|"_ex2poly_index"| mrmot
+
+    mrst --&gt;|"_gens_data&lt;br/&gt;(models the resolution — paper §5)"| mrbp
+
+    style BP fill:#2d5,stroke:#333</pre><div class="mermaid-fallback-note">Diagram (renders automatically when online; source shown above as plain text otherwise — also viewable pre-rendered on GitHub)</div></div>
+<p>Notes on this diagram:</p>
+<ul>
+<li><strong>Solid arrows</strong> are confirmed file-based dependencies (cited with
+file:line in the pipeline docs); the <code>mr_st → mr_BP</code> edge, previously
+drawn dotted as an inferred connection, is now solid — see §5.</li>
+<li><code>kos</code> and the four <code>mr_ex</code>/<code>e2p</code> boxes are <em>not</em> wired into the BP
+pipeline&#39;s data flow at all; they&#39;re an independent cross-check that
+happens to reuse the same generic framework — see §6.</li>
+<li><code>BPtab</code>/<code>mr_BP</code> is the only pipeline entirely self-contained and running at
+the prime the repo claims to be forked to (p=3) — see §6.</li>
+</ul>
+<h2 id="5-resolving-the-mr_st-mr_bp-connection">5. Resolving the <code>mr_st</code> ↔ <code>mr_BP</code> connection<a class="heading-anchor" href="#5-resolving-the-mr_st-mr_bp-connection">#</a></h2>
+<p><code>docs/pipelines/BP.md</code> previously flagged as an open question why no code in
+<code>BP.cpp</code>/<code>BP_init.cpp</code> visibly loads any <code>mr_st</code> output file, even though the
+README lists <code>mr_st</code> as a prerequisite phase (&quot;the minimal resolution for
+BP/I&quot;). The paper&#39;s <strong>§5, &quot;Optimization of the process&quot;</strong>, resolves this
+directly — it is exactly the technique implemented here:</p>
+<blockquote>
+<p>&quot;The complexity of computing a minimal resolution of <code>M/I</code> has smaller
+order than computing a minimal resolution of <code>M</code>. So the process can be
+optimized by computing a minimal resolution of <code>M/I</code> first, and then using
+it as a model for a resolution of <code>M</code>.&quot;</p>
+</blockquote>
+<p>Concretely:</p>
+<ul>
+<li><code>mr_st</code> (<code>docs/pipelines/STEENROD.md</code> §2) computes a minimal resolution of
+the trivial <code>P</code>-comodule <code>F_3</code> — i.e. of <code>M/I</code> for <code>M = BP_*</code> — and writes
+<code>&lt;maxdeg&gt;_gens_data</code> via <code>SteenrodInit::save_gens</code> (<code>steenrod_init.cpp:60-70</code>).
+This is precisely &quot;step 1&quot; and &quot;step 2&quot; of the paper&#39;s §4 construction,
+&quot;computed beforehand&quot; as the optimization describes.</li>
+<li><code>mr_BP</code> (<code>docs/pipelines/BP.md</code> §2.2) <em>requires</em> that same
+<code>&lt;halfT&gt;_gens_data</code> via <code>BPInit::load_gens</code> (<code>BPmain.cpp:23</code>,
+<code>BP_init.cpp:82-95</code>) — a file <code>BPtab</code> never produces — and uses it to
+<strong>lift</strong> the known <code>P</code>-comodule resolution structure to an actual
+<code>BP_*BP</code>-comodule resolution of <code>BP_*</code>, doing Gaussian elimination only for
+the (much smaller) adjustment data (paper §5, steps 3–4). In the code this
+is the <code>resolvor_modeled</code>/<code>pre_resolution_modeled</code> path
+(<code>FRAMEWORK.md</code> §5), with <code>mr_st</code>&#39;s resolution as the &quot;model.&quot;</li>
+<li><strong>Why this is valid, precisely:</strong> because minimality of a <code>BP_*BP</code>-comodule
+resolution is <em>defined</em> as minimality of its mod-<code>I</code> reduction (Definition
+7), a resolution of <code>M/I</code> that is already known to be minimal, together
+with cogenerators that are known (Proposition 8) to lift correctly because
+they do so mod <code>I</code>, is enough data to build the integral resolution
+without re-deriving its shape from scratch — only the specific lift (which
+generator maps to which integral element) needs computing. This is the
+same justification <code>MOTIVIC.md</code> §2&#39;s <code>mr_ex → mr_mot</code> &quot;modeled resolution&quot;
+relies on, and the same mechanism <code>FRAMEWORK.md</code> §5&#39;s
+<code>resolvor_modeled</code>/<code>pre_resolution_modeled</code> implement generically.</li>
+</ul>
+<h2 id="6-the-p2-vs-p3-split-now-explained-not-just-observed">6. The &quot;p=2 vs p=3&quot; split — now explained, not just observed<a class="heading-anchor" href="#6-the-p2-vs-p3-split-now-explained-not-just-observed">#</a></h2>
+<p>Despite the repo&#39;s framing as <strong>&quot;a p=3 fork&quot;</strong> of the original p=2 codebase,
+cross-referencing all four pipeline docs shows the fork is <strong>partial</strong> — and
+the paper explains <em>why</em>, rather than leaving it a mystery:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Pipeline</th>
+<th>Executable(s)</th>
+<th>Prime</th>
+<th>Role</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Classical Steenrod</td>
+<td><code>mr_st</code></td>
+<td><strong>3</strong></td>
+<td>Precomputes the &quot;model&quot; resolution <code>mr_BP</code> lifts (§5 above) — ported to p=3 because <code>mr_BP</code> needs it.</td>
+</tr>
+<tr>
+<td>BP Hopf algebroid</td>
+<td><code>BPtab</code>, <code>mr_BP</code></td>
+<td><strong>3</strong></td>
+<td><strong>The direct computation</strong> — the repo&#39;s actual deliverable.</td>
+</tr>
+<tr>
+<td>Koszul</td>
+<td><code>kos</code></td>
+<td>2</td>
+<td>Not documented in the paper at all (its §9 source walkthrough stops before <code>kosul.cpp</code>); purpose still open, see <code>STEENROD.md</code> §5–6.</td>
+</tr>
+<tr>
+<td>Ex/Ctau</td>
+<td><code>mr_ex</code></td>
+<td>2</td>
+<td>An <strong>independent cross-check</strong>, computed via motivic homotopy theory rather than directly over <code>BP_*BP</code> — see below.</td>
+</tr>
+<tr>
+<td>Motivic</td>
+<td><code>motTab</code>, <code>mr_mot</code>, <code>mot_comb</code>, <code>mot_mult</code>, <code>tauBoc</code></td>
+<td>2</td>
+<td>Same cross-check, continued.</td>
+</tr>
+</tbody>
+</table></div>
+<p>The paper&#39;s introduction states the motivation for that cross-check
+explicitly, citing Gheorghe–Wang–Xu [2]:</p>
+<blockquote>
+<p>&quot;it is proved in [2] that the algebraic Novikov spectral sequence for the
+sphere is isomorphic to the motivic Adams spectral sequence for the
+cofiber of τ.&quot;</p>
+</blockquote>
+<p>That is: the ex/ctau + motivic + τ-Bockstein machinery (<code>docs/pipelines/ MOTIVIC.md</code>, <code>docs/pipelines/EX_CTAU.md</code>) is not an unfinished or unrelated
+side project — it&#39;s a <strong>second, independently-implemented route to the same
+E2 page</strong> the BP pipeline computes directly, via the motivic Adams spectral
+sequence for the cofiber of τ, which [2] proves is isomorphic to the
+algebraic Novikov SS for the sphere. The paper&#39;s own §9 source-code
+walkthrough only documents files through <code>Qp.h</code>/<code>BPQ.h</code>/<code>Z2.h</code> (the original
+p=2 codebase&#39;s direct-BP-pipeline files) and never mentions <code>ex_*.cpp</code>,
+<code>ctau_steenrod.*</code>, <code>mot_*.cpp</code>, <code>tao_bockstein.*</code>, or <code>kosul.cpp</code> at all —
+consistent with these being either a later addition built to substantiate
+[2]&#39;s theorem computationally, or simply not yet carried over when this
+repo&#39;s p=3 fork ported the direct BP pipeline (<code>mr_st</code>, <code>BPtab</code>, <code>mr_BP</code>)
+but left the motivic cross-check and <code>kos</code> as p=2 legacy code.</p>
+<p><strong>Practical implication, unchanged:</strong> if you&#39;re trying to reproduce or
+extend the p=3 algebraic-Novikov E2-page computation, the pipeline you want
+is exclusively <strong><code>mr_st</code> → <code>BPtab</code> → <code>mr_BP</code></strong>. The ex/ctau and motivic
+pipelines, and <code>kos</code>, compute a related but currently p=2-only result, and
+porting them to p=3 (if desired) is a separate undertaking from anything
+<code>mr_BP</code> itself needs.</p>
+<h2 id="7-known-deadduplicate-code-worth-cleaning-up">7. Known dead/duplicate code (worth cleaning up)<a class="heading-anchor" href="#7-known-deadduplicate-code-worth-cleaning-up">#</a></h2>
+<p>Found while documenting, not something introduced by this documentation
+effort — listed here so it&#39;s in one place instead of scattered across four
+docs:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>File(s)</th>
+<th>Issue</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>others.h</code></td>
+<td>Dead, incompatible second <code>curtis_table</code>/<code>matrix_array</code>/<code>quasi_table</code> hierarchy under nonexistent namespaces; <code>#include</code>s a nonexistent <code>filedmatrices.h</code>; not included anywhere</td>
+<td><code>FRAMEWORK.md</code> §3 note</td>
+</tr>
+<tr>
+<td><code>lift.h</code></td>
+<td>Looks non-compiling as written (wrong-arity call, references a nonexistent member)</td>
+<td><code>FRAMEWORK.md</code> §3 note</td>
+</tr>
+<tr>
+<td><code>expoly.h</code></td>
+<td>Byte-for-byte duplicate of <code>ex_exponents.h</code>, unreferenced by any file</td>
+<td><code>EX_CTAU.md</code> §3/§5</td>
+</tr>
+<tr>
+<td><code>ex_test.cpp</code></td>
+<td>Orphaned scratch test, not in any compile script</td>
+<td><code>EX_CTAU.md</code> §5</td>
+</tr>
+<tr>
+<td><code>tao_boc.cpp</code></td>
+<td>Pre-refactor snapshot superseded by <code>tao_bockstein.cpp</code>, uses namespaces/types that no longer exist</td>
+<td><code>EX_CTAU.md</code> §5</td>
+</tr>
+<tr>
+<td><code>Qptest.cpp</code></td>
+<td>References <code>Q2_Op</code>/<code>Q2_int</code>, which don&#39;t exist in current <code>Qp.h</code>. The paper&#39;s own §9.14 documents the p=2 original as <code>Z2.h</code>/<code>Z2.cpp</code>; <code>Qptest.cpp</code> is a leftover test for a <code>Q2</code>-named counterpart that predates the p=3 fork&#39;s rename to <code>Z3</code>/<code>Q3</code>, and isn&#39;t in any compile script</td>
+<td><code>BP.md</code> §6</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="8-the-numbered-fragment-file-convention">8. The numbered-fragment file convention<a class="heading-anchor" href="#8-the-numbered-fragment-file-convention">#</a></h2>
+<p>If you haven&#39;t read it yet, <code>FRAMEWORK.md</code> §2 explains a convention used
+throughout the framework layer: headers like <code>matrices.h</code>, <code>modules.h</code>,
+<code>hopf_algebroid.h</code> are pure <code>#include</code> manifests over a directory of
+numbered fragment files (<code>matrices/1.h</code>...<code>matrices/9.h</code>, etc.) where most
+fragments are out-of-line method bodies for a class declared in an
+earlier-numbered fragment — <strong>except</strong> <code>matrices/9.h</code>, which is a trap: it&#39;s
+an entirely separate class (<code>curtis_table</code>) that just happens to share the
+directory. Read that section before diving into any of the framework
+source files.</p>
+<h2 id="9-references">9. References<a class="heading-anchor" href="#9-references">#</a></h2>
+<p>The four works <code>MinimalResolution.pdf</code> cites, for anyone going deeper into
+the underlying mathematics:</p>
+<ol>
+<li>Edward B. Curtis, Paul Goerss, Mark Mahowald, and James R. Milgram,
+<em>Calculations of unstable Adams E2 terms for spheres</em>, in Algebraic
+topology (Seattle, Wash., 1985), 208–266, Lecture Notes in Math. 1286,
+Springer, 1987. — origin of the &quot;Curtis table&quot; algorithm/name (§2 point 3
+above).</li>
+<li>Bogdan Gheorghe, Guozhen Wang, and Zhouli Xu, <em>The special fiber of the
+motivic deformation of the stable homotopy category is algebraic</em>,
+preprint, arXiv:1809.09290 (2018). — proves the algebraic Novikov SS for
+the sphere is isomorphic to the motivic Adams SS for the cofiber of τ;
+the mathematical basis for the ex/ctau + motivic cross-check (§6 above).</li>
+<li>Douglas C. Ravenel, <em>Complex cobordism and stable homotopy groups of
+spheres</em>, Pure and Applied Mathematics 121, Academic Press, 1986. — the
+standard reference for <code>BP_*BP</code>-comodules and the classical cobar-complex
+approach this whole codebase supersedes.</li>
+<li>Guozhen Wang and Zhouli Xu, <em>The algebraic Atiyah-Hirzebruch spectral
+sequence of real projective spectra</em>, preprint, arXiv:1601.02185 (2016).
+— the Curtis-table/spectral-sequence correspondence (Propositions 9–10)
+and the Atiyah-Hirzebruch multiplicative-structure machinery (§2 points 3
+and 5 above) this repo&#39;s <code>multiplication.cpp</code> implements.</li>
+</ol>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>

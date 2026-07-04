@@ -29,20 +29,32 @@ described in `docs/FRAMEWORK.md` (`matrix<ring>`, `ModuleOp`,
   (`mot_steenrod.cpp:31-34`) and `lift()`'s `x%2!=0` test
   (`mot_steenrod.cpp:270-273`) — i.e. despite the `F3`/`F_p` naming
   throughout, the actual coefficient arithmetic implemented is mod **2**,
-  not mod 3. See §6 and the parallel finding in `EX_CTAU.md` §1 — nothing in
-  this file states why a repo billed as "p=3 fork" computes this pipeline's
-  coefficients mod 2.
+  not mod 3. **Context from `MinimalResolution.pdf`:** the paper's own §9
+  source-code walkthrough documents only the direct `BP_*BP` pipeline's files
+  (through `Qp.h`/`BPQ.h`/`Z2.h`) and never mentions `mot_steenrod.*` or any
+  motivic construction — see `docs/ARCHITECTURE.md` §6 for why: this whole
+  layer implements an independent cross-check via Gheorghe–Wang–Xu's theorem
+  that the algebraic Novikov SS for the sphere is isomorphic to the motivic
+  Adams SS for the cofiber of τ (paper's introduction, citing [2]), and per
+  the p=2/p=3 split analysis it appears to be inherited unmodified from the
+  original p=2 codebase rather than ported. This explains *why* it's
+  plausible for the motivic layer to remain mod-2 while the direct BP
+  pipeline runs at p=3, but doesn't confirm the specific claim from the code
+  alone — that remains a `TODO(code)` to verify empirically.
 - `MotSteenrodOp` (`mot_steenrod.h:83-140`) is the `Hopf_Algebroid<tauPoly,
   motSteenrod>` structure on this ring: a cofree-comodule coaction table
   (`cofree_coaction`, loaded from disk, `generate_cofree_coaction`,
   `mot_steenrod.cpp:191-213`) built from a **separately precomputed**
   comultiplication table (see `mot_coactions.cpp`, §2). `mr_mot` then
   resolves the trivial comodule (§4) to compute (bigraded) `Ext` groups
-  `Ext_{A_*^mot}^{s,(t,w)}(F_p, F_p)` — the intended **E2 page of the
-  motivic/algebraic-Novikov-style Adams spectral sequence** for the motivic
-  sphere. **TODO(math):** no file states the precise SS this feeds (motivic
-  Adams vs. algebraic-Novikov-for-BP-motivic); it is inferred purely from
-  the bigrading and the `tau`-Bockstein tooling built on top (see below).
+  `Ext_{A_*^mot}^{s,(t,w)}(F_p, F_p)` — the **E2 page of the motivic Adams
+  spectral sequence** for the motivic sphere. **Resolved
+  (`MinimalResolution.pdf`, introduction, citing Gheorghe–Wang–Xu [2]):**
+  "the algebraic Novikov spectral sequence for the sphere is isomorphic to
+  the motivic Adams spectral sequence for the cofiber of tau" — so this
+  `Ext` computation, followed by the τ-Bockstein spectral sequence below,
+  is precisely the alternative route to the same target `mr_BP` computes
+  directly (`docs/ARCHITECTURE.md` §6).
 - `tao_bockstein.{h,cpp}` / `taubocmain.cpp` (`tauBoc`) then treat the
   resulting minimal resolution as a **complex over `F_p[tau]`**
   (`motComplex`, `tao_bockstein.h:19-26`) and run a **tau-Bockstein spectral
@@ -55,10 +67,15 @@ described in `docs/FRAMEWORK.md` (`matrix<ring>`, `ModuleOp`,
   Bockstein-SS bookkeeping (tag/cycle pairs with a "differential length" =
   power of `tau`) applied to the `tau`-adic filtration relating the motivic
   and classical (tau-inverted / tau=0) Adams `E2` pages.
-  **TODO(math):** the code never states which classical target this
-  Bockstein SS converges to (presumably the classical p-primary Adams `E2`
-  page via `tau=1`, dual to setting weight aside) — it's inferred from the
-  name and structure only.
+  **Resolved:** per [2] (see above), this τ-Bockstein spectral sequence's
+  target is exactly the **algebraic Novikov spectral sequence for the
+  sphere** — the same `algNov_table` object the BP pipeline computes
+  directly (`docs/pipelines/BP.md` §3). The motivic resolution's E2 page is
+  the "cofiber of τ" side of [2]'s isomorphism; running the τ-Bockstein
+  filtration on it recovers the classical (τ-independent) algebraic Novikov
+  page as its target, mirroring how `Boc_table` recovers the classical
+  Bockstein SS from the same primitive complex in the BP pipeline
+  (`docs/pipelines/BP.md` §6).
 - `mot_mult.cpp` (`mot_mult`) additionally computes **Massey-product-free
   multiplications** by fixed classes `h_i = MOP.hi(i)` (`mot_steenrod.h:124`,
   constructed as the monomial `x_{2^i}` with coefficient `tau^{-2^{i-1}}`,
@@ -254,31 +271,42 @@ All four share the `<maxdeg>_`-prefixed file-naming convention
 
 ## 5. Open math questions
 
-- **TODO(math):** Why do `tauOper`'s arithmetic (`mot_steenrod.cpp:7-12`),
-  `unit(n)`'s parity test, and `MotSteenrodOp::lift`'s `x%2!=0` test all
-  operate mod 2, when the surrounding type is named `F3` (`mot_steenrod.h:7,
-  typedef Fp F3`) and the repo is framed as a "p=3 fork"? Is the entire
-  motivic pipeline still computing at `p=2` (unported), or is there a
-  mod-3-compatible reading of "add of equal terms → 0" that isn't literally
-  mod-2 arithmetic?
+Two questions previously listed here are now resolved by
+`MinimalResolution.pdf` — see §1: the τ-Bockstein SS's target is the
+algebraic Novikov SS for the sphere (via Gheorghe–Wang–Xu [2]'s
+cofiber-of-τ isomorphism), and that same reference is *why* this whole
+pipeline exists as an independent cross-check of `mr_BP`. What remains
+open:
+
+- **TODO(code):** Whether `tauOper`'s arithmetic (`mot_steenrod.cpp:7-12`),
+  `unit(n)`'s parity test, and `MotSteenrodOp::lift`'s `x%2!=0` test
+  operating mod 2 (despite the surrounding type being named `F3`,
+  `mot_steenrod.h:7`) means this pipeline is *still actually computing at
+  p=2* while claiming p=3 naming, or whether there's a mod-3-compatible
+  reading of "add of equal terms → 0" that isn't literally mod-2 arithmetic.
+  `docs/ARCHITECTURE.md` §6 gives the likely explanation (this is
+  unported p=2 legacy code, consistent with the paper's own source docs
+  never mentioning this file), but doesn't confirm the arithmetic claim
+  itself — that would need running the code or a line-by-line audit beyond
+  this pass.
 - **TODO(math):** What is the precise motivic coproduct formula
   `mot_coactions.cpp:20-27` computing, relative to a standard reference for
   the motivic dual Steenrod algebra (e.g. Voevodsky) — in particular the
-  role of the negative powers of `tau` (`τ^{-2^{i-1}}`) and whether the
-  resulting `Ext` groups are literally `Ext_{A_*^mot}(F_p,F_p)` (motivic
-  Adams `E2`) or something else bigraded compatibly.
-- **TODO(math):** What SS the tau-Bockstein tooling (`tao_bockstein.*`,
-  `tauBoc`) is computing the differentials of — is it the motivic
-  analogue of the classical mod-`p`-Bockstein SS (converging the mod-`p^k`
-  Adams `E2` pages), or the "tau-Bockstein SS" relating motivic and
-  classical Adams `E2` pages via inverting `tau`? No file states the target.
+  role of the negative powers of `tau` (`τ^{-2^{i-1}}`). `MinimalResolution.pdf`
+  does not discuss the motivic dual Steenrod algebra's construction at all
+  (only the classical `BP_*BP`/`P` case), so this remains unverified against
+  a primary source.
 - **TODO(math)/TODO(code):** Why does `mot_comb` exist as a separate
   executable from `mr_mot`'s tail rather than a flag/mode of `mr_mot` —
   purely a resumability/recomputation-avoidance tool, or something else?
 - **TODO(math):** The exact justification for "modeling" the motivic
   resolution's generator choices and cell structure on the ex/ctau
   pipeline's `F_2` resolution (`pre_resolution_modeled`, `extables`,
-  `gens_data_ctau`) — presumably because `A_*^mot` reduces to (a
-  square-root cover of) the classical mod-2 dual Steenrod algebra when
-  `tau` is inverted/forgotten, so the same minimal generating set works,
-  but no comment states this identification explicitly.
+  `gens_data_ctau`) is now understood *mechanically* (it's the same
+  §5-optimization pattern as `mr_st → mr_BP`, `docs/ARCHITECTURE.md` §5),
+  but the specific mathematical fact that licenses it here — presumably that
+  `A_*^mot` reduces to (a square-root cover of) the classical mod-2 dual
+  Steenrod algebra when `tau` is inverted/forgotten, so the same minimal
+  generating set works — is, like the coproduct formula above, not
+  something `MinimalResolution.pdf` discusses; it remains this document's
+  own inference.
