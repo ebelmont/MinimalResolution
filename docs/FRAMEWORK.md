@@ -332,11 +332,14 @@ classDiagram
 
 The framework computes a **minimal relative-injective (cofree) resolution**
 of a comodule `X` over a Hopf algebroid, one step at a time. Everything below
-is read directly off `hopf_algebroid/*.h`; the *mathematical* justification
-(why this specific construction gives a minimal resolution, why the "cofree"
-comodules used are the relative injectives for this category, etc.) is
-external (`MinimalResolution.pdf`, not present in this repo) — flagged with
-`TODO(math)` below wherever the code doesn't itself explain the "why".
+is read directly off `hopf_algebroid/*.h`, and is now cross-checked against
+`MinimalResolution.pdf` (added to the repo after this document was first
+written) — citations to its Definitions/Propositions appear inline below.
+The paper works specifically with `BP_*BP`-comodules and their reduction mod
+the invariant ideal `I` (see `docs/ARCHITECTURE.md` §1–2); this framework
+layer is the same construction made generic over an arbitrary
+`Hopf_Algebroid<ring, algebroid>`, so every citation below should be read as
+"the paper's `BP_*BP`/`I` case of this generic mechanism."
 
 ### `curtis_table<ring>`: what it stores
 
@@ -388,14 +391,18 @@ block starts (`position_of_gens`), and the total underlying rank
 in (`findPos`, binary search, `hopf_algebroid/11.h:40-54`) and shift/reindex
 the static cofree data accordingly (`hopf_algebroid/11.h:62-75`).
 
-**TODO(math):** the code assumes (via `adjoint`, see below) that
-`Hom_{comod}(X, cofree-on-degree-d-generator) ≅ (X in degree d, as a
-base-ring vector)`, i.e. an adjunction between "cofree on one generator" and
-"evaluate the coaction at one coordinate". This adjunction (and why cofree
-comodules are the relative injectives needed for a resolution in this
-category) is not derived in the code — it is simply implemented as the
-`adjoint` method. The precise categorical statement should come from
-`MinimalResolution.pdf`.
+**Resolved (`MinimalResolution.pdf` §4, "cogenerators"):** the code assumes
+(via `adjoint`, see below) that `Hom_{comod}(X, cofree-on-degree-d-generator)
+≅ (X in degree d, as a base-ring vector)`. The paper calls the target of such
+an adjoint map a set of **cogenerators**: a `BP_*`-module map `M → X` exhibits
+`X` as cogenerators of `M` if the adjoint `M → BP_*BP ⊗_{BP_*} X` is strongly
+injective (a split injection of underlying `BP_*`-modules). This is exactly
+"cofree on one generator" (`X` a single degree's worth of generators,
+`BP_*BP ⊗ X` the cofree comodule they co-generate) paired with "evaluate the
+coaction," which is exactly `adjoint`'s definition below. The paper doesn't
+frame this as an abstract categorical adjunction/relative-injectivity
+statement so much as a direct construction, and neither does the code — but
+the two now visibly match construction-for-construction.
 
 ### `adjoint`: the embedding-detection map
 
@@ -440,12 +447,21 @@ are attempted:
 This is precisely "add generators only when the current map fails to be
 surjective onto the needed target in this degree" — the minimality condition.
 
-**TODO(math):** why "reduces to a non-boundary" (step 3) is the correct
-criterion for "already covered", as opposed to some other test, and why
-processing by increasing degree suffices for correctness/termination (rather
-than needing degree-by-degree completion certificates), is not spelled out in
-comments — likely covered by the minimal-resolution construction in
-`MinimalResolution.pdf`.
+**Resolved (`MinimalResolution.pdf` §3, Definitions 6–7):** a cofree
+resolution of a `P`-comodule (or, lifted, a `BP_*BP`-comodule) is *minimal*
+iff at every stage the induced map `Prim(M̃_i) → Prim(F̃_i)` is bijective.
+"Reduces to a non-boundary" (step 3) is precisely the failure of that
+bijectivity check on one basis element at a time: if `irow` still reduces to
+something nonzero against the existing cofree summands, element `i` is
+already hit (no new primitive needed); if it collapses to zero, `i` is a new
+primitive that must be cogenerated. Processing in increasing degree is what
+makes this a *sequential*, one-generator-at-a-time certificate of
+bijectivity in each degree — lower degrees are fully settled (and hence
+correctly reflected in the running `curtis_table`) before higher ones are
+attempted, which is exactly what bijectivity-checked-degree-by-degree
+requires. The paper doesn't spell out termination/correctness as a formal
+induction either, but Definitions 6–7 are precisely the condition this loop
+enforces one element at a time.
 
 ### `resolvor`: one full resolution step (embed + quotient)
 
@@ -477,12 +493,17 @@ which is exactly one step `Ω⁻¹` of a cobar/relative-injective resolution: `F
 is the `s`-th term of the resolution, `inj` the `s`-th differential (into the
 cofree term), and `X'` becomes the input to the next call.
 
-**TODO(math):** the precise sense in which `F` is "the injective hull" (i.e.
-why this particular cofree comodule, built exactly as in `embed2cofree`, is
-guaranteed to be relative-injective and why the resulting resolution is
-*minimal* in the technical sense used for the Adams-Novikov / algebraic
-Novikov spectral sequence) is not present in code comments and should be
-looked up in `MinimalResolution.pdf`.
+**Resolved (`MinimalResolution.pdf` §3–4, Propositions 3 & 8):** `F` is
+cofree by construction (`embed2cofree` builds it as a direct sum of
+cofree-on-one-generator summands), and cofree comodules are always the
+relative injectives needed here — the paper's whole point is that checking
+strong injectivity/surjectivity of a comodule map (Remark 3.1, Proposition
+3) and cogenerator-ness (Proposition 8) can both be done by reduction mod
+`I`, which is exactly the mod-`I`/`P`-side computation `curtis_table`
+performs. The resolution is minimal in the precise sense of Definition 7:
+its reduction mod `I` is a minimal `P`-comodule resolution, which is what
+the degree-by-degree bijectivity check in `embed2cofree` (previous section)
+directly enforces.
 
 ### `pre_resolution_tab`: iterating steps into a resolution
 
@@ -504,9 +525,14 @@ degree-by-degree cycle search and instead reuse a previously-computed
 `curtis_table<table_type>` (from a *different*, "model" Hopf algebroid, via a
 `transformer` function converting the model's ring elements into the current
 ring) — i.e. transporting a known resolution shape from one setting to
-another rather than recomputing it from scratch. **TODO(math):** the
-conditions under which a resolution computed for one Hopf algebroid can be
-validly transported ("modeled") onto another are not stated in the code.
+another rather than recomputing it from scratch. **Resolved
+(`MinimalResolution.pdf` §5, "Optimization of the process"):** this is
+precisely the paper's optimization — compute the minimal resolution of a
+cheaper mod-`I` object first, then use its known cofree structure and
+cogenerators as a *model* to lift a resolution of the full object, needing
+only a Gaussian-elimination-scale adjustment rather than a full
+degree-by-degree search. See `docs/ARCHITECTURE.md` §5 for this worked out
+concretely for `mr_st` (model) → `mr_BP` (lift).
 
 ## 6. Key method reference
 

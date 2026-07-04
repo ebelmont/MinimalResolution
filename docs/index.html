@@ -135,12 +135,14 @@
 </p>
 
 <div class="callout">
-  <strong>⚠ Read this first: the "p=3 fork" is partial.</strong>
+  <strong>⚠ Read this first: the "p=3 fork" is partial — and now explained.</strong>
   Only <code>mr_st</code> and the BP pipeline (<code>BPtab</code>/<code>mr_BP</code>)
   actually run at p=3. <code>kos</code>, <code>mr_ex</code>, and the entire
-  motivic pipeline are hardcoded to p=2. See
-  <a href="ARCHITECTURE.html#5-the-p2-vs-p3-split-the-most-important-thing-to-know-before-reading-code">Architecture &sect;5</a>
-  for the evidence, file by file.
+  motivic pipeline are hardcoded to p=2 because they're an independent
+  cross-check via the motivic Adams spectral sequence for the cofiber of τ
+  (Gheorghe&ndash;Wang&ndash;Xu), not an unfinished part of the port. See
+  <a href="ARCHITECTURE.html#6-the-p2-vs-p3-split-now-explained-not-just-observed">Architecture &sect;6</a>
+  for the full story.
 </div>
 
 <h2>Start here</h2>
@@ -242,7 +244,7 @@
 </table>
 
 <h2>Known issues worth cleaning up</h2>
-<p>Found while documenting (see <a href="ARCHITECTURE.html#6-known-deadduplicate-code-worth-cleaning-up">Architecture &sect;6</a> for details): <code>others.h</code> (dead, incompatible duplicate framework classes), <code>lift.h</code> (looks non-compiling), <code>expoly.h</code> (byte-for-byte duplicate of <code>ex_exponents.h</code>), <code>ex_test.cpp</code> and <code>tao_boc.cpp</code> (orphaned, superseded), <code>Qptest.cpp</code> (references types that no longer exist).</p>
+<p>Found while documenting (see <a href="ARCHITECTURE.html#7-known-deadduplicate-code-worth-cleaning-up">Architecture &sect;7</a> for details): <code>others.h</code> (dead, incompatible duplicate framework classes), <code>lift.h</code> (looks non-compiling), <code>expoly.h</code> (byte-for-byte duplicate of <code>ex_exponents.h</code>), <code>ex_test.cpp</code> and <code>tao_boc.cpp</code> (orphaned, superseded), <code>Qptest.cpp</code> (references types that no longer exist).</p>
 
 <footer>
   Generated documentation for a research codebase with no prior architecture docs.

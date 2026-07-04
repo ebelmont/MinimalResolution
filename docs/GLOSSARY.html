@@ -19,7 +19,11 @@
 <h1 id="glossary-math-code">Glossary: Math ↔ Code<a class="heading-anchor" href="#glossary-math-code">#</a></h1>
 <p>A term index mapping mathematical concepts to the identifiers that implement
 them, and vice versa. See the linked doc section for full context on each
-entry — this page is a lookup table, not an explanation.</p>
+entry — this page is a lookup table, not an explanation. Definitions/
+Propositions cited by number refer to <code>MinimalResolution.pdf</code> (Guozhen Wang,
+<em>Computations of the Adams-Novikov E2-term</em>, April 2020), added to the repo
+after this glossary was first written — see <code>docs/ARCHITECTURE.md</code> §2 for a
+guided summary and §9 for the full reference list.</p>
 <h2 id="math-concept-code-identifier">Math concept → code identifier<a class="heading-anchor" href="#math-concept-code-identifier">#</a></h2>
 <div class="table-wrap"><table>
 <thead><tr>
@@ -54,8 +58,8 @@ entry — this page is a lookup table, not an explanation.</p>
 <td><code>FRAMEWORK.md</code> §3</td>
 </tr>
 <tr>
-<td>Cofree (extended/induced) comodule</td>
-<td><code>cofree_comodule&lt;algebroid,degree_type&gt;</code></td>
+<td>Cofree comodule = direct sum of copies of Γ (and shifts)</td>
+<td><code>cofree_comodule&lt;algebroid,degree_type&gt;</code> (Definition, paper §2)</td>
 <td><code>FRAMEWORK.md</code> §3/§5</td>
 </tr>
 <tr>
@@ -79,6 +83,26 @@ entry — this page is a lookup table, not an explanation.</p>
 <td><code>FRAMEWORK.md</code> §3</td>
 </tr>
 <tr>
+<td><code>Prim(M)</code>, the primitive elements of a comodule <code>M</code></td>
+<td><code>BPComplex</code>/<code>primitive_data</code> computes the complex of primitives of a resolution (paper §2, §7)</td>
+<td><code>BP.md</code> §1/§3, <code>FRAMEWORK.md</code> §5</td>
+</tr>
+<tr>
+<td>Strong injection/surjection (split injection/surjection of underlying <code>BP_*</code>-modules)</td>
+<td>criterion <code>matrix&lt;R&gt;::gaussian</code>/pivot structure implements; checkable mod <code>I</code> (Remark 3.1, Proposition 3)</td>
+<td><code>FRAMEWORK.md</code> §5</td>
+</tr>
+<tr>
+<td>Cogenerators of a comodule <code>M</code> (an <code>X</code> with <code>M → BP_*BP ⊗ X</code> strongly injective)</td>
+<td><code>Hopf_Algebroid::adjoint</code>&#39;s target (Definitions/Prop. 8)</td>
+<td><code>FRAMEWORK.md</code> §5</td>
+</tr>
+<tr>
+<td>Minimal (cofree) resolution — reduction mod <code>I</code> is a minimal <code>P</code>-comodule resolution</td>
+<td><code>Hopf_Algebroid::embed2cofree</code>&#39;s degree-by-degree bijectivity check (Definitions 6–7)</td>
+<td><code>FRAMEWORK.md</code> §5</td>
+</tr>
+<tr>
 <td>Minimal relative-injective resolution, one step</td>
 <td><code>Hopf_Algebroid::resolvor</code> (embed + Gaussian-eliminate + quotient)</td>
 <td><code>FRAMEWORK.md</code> §5</td>
@@ -89,14 +113,14 @@ entry — this page is a lookup table, not an explanation.</p>
 <td><code>FRAMEWORK.md</code> §5</td>
 </tr>
 <tr>
-<td>Gröbner/leading-term reduction table for one resolution step</td>
-<td><code>curtis_table&lt;ring&gt;</code></td>
+<td>Curtis table (entries <code>a</code> = surviving cycle, <code>a → b</code> = differential; Curtis–Goerss–Mahowald–Milgram [1])</td>
+<td><code>curtis_table&lt;ring&gt;</code> (Proposition 9–10 give the cycle/differential correspondence)</td>
 <td><code>FRAMEWORK.md</code> §3/§5</td>
 </tr>
 <tr>
-<td>&quot;Resolution transported from a related Hopf algebroid&quot;</td>
+<td>&quot;Compute the minimal resolution of <code>M/I</code> first, use it as a model to lift a resolution of <code>M</code>&quot; (paper §5, &quot;Optimization of the process&quot;)</td>
 <td><code>resolvor_modeled</code> / <code>pre_resolution_modeled</code> (a <code>transformer</code> converts the model&#39;s ring elements)</td>
-<td><code>FRAMEWORK.md</code> §5, <code>MOTIVIC.md</code> §2, <code>EX_CTAU.md</code> §1</td>
+<td><code>FRAMEWORK.md</code> §5, <code>ARCHITECTURE.md</code> §5, <code>MOTIVIC.md</code> §2, <code>EX_CTAU.md</code> §1</td>
 </tr>
 <tr>
 <td><code>BP_* = Z_(3)[v_1,v_2,...]</code></td>
@@ -116,12 +140,22 @@ entry — this page is a lookup table, not an explanation.</p>
 <tr>
 <td>The invariant ideal <code>I = (p, v1, v2, ...)</code></td>
 <td>tracked via <code>algNov_table</code>&#39;s cycle name <code>(filtration, v0-valuation, v1-exp,...,v5-exp)</code></td>
-<td><code>BP.md</code> §1/§3</td>
+<td><code>BP.md</code> §1/§3, <code>ARCHITECTURE.md</code> §1</td>
 </tr>
 <tr>
-<td>Algebraic Novikov filtration / associated-graded Ext</td>
-<td><code>algNov_table</code> / <code>algNov_tables</code></td>
-<td><code>BP.md</code> §1/§3</td>
+<td><code>P := BP_*BP/I = F_p[t1,t2,...]</code>, a sub-Hopf-algebra of the dual Steenrod algebra (= the whole thing, doubled degrees, at <code>p=2</code>)</td>
+<td><code>P = polynomial&lt;Fp&gt;</code>, <code>Steenrod_Op</code> (<code>steenrod.h</code>)</td>
+<td><code>STEENROD.md</code> §1, <code>ARCHITECTURE.md</code> §1 (paper §2)</td>
+</tr>
+<tr>
+<td>Algebraic Adams-Novikov filtration: <code>v0^{i0}v1^{i1}···vk^{ik}·a</code> has filtration <code>i0+i1+...+ik</code> (<code>v0 = p</code>)</td>
+<td><code>algNov_table</code> / <code>algNov_tables</code> (paper §7)</td>
+<td><code>BP.md</code> §1/§3, <code>ARCHITECTURE.md</code> §2</td>
+</tr>
+<tr>
+<td>Bockstein spectral sequence = same construction, ordered lexicographically instead (paper §7, Remark 7.1)</td>
+<td><code>Boc_table</code> / <code>Boc_tables</code> (= <code>algNov_table</code> with <code>v_valuation</code> counting only powers of <code>p</code>)</td>
+<td><code>BP.md</code> §3/§6, <code>ARCHITECTURE.md</code> §2</td>
 </tr>
 <tr>
 <td>Complex of primitives of the BP resolution</td>
@@ -129,34 +163,19 @@ entry — this page is a lookup table, not an explanation.</p>
 <td><code>BP.md</code> §1/§3</td>
 </tr>
 <tr>
-<td>Bockstein spectral sequence (mod-3 reduction)</td>
-<td><code>Boc_table</code> / <code>Boc_tables</code> (= <code>algNov_table</code> with <code>v_valuation</code> counting only powers of <code>p</code>)</td>
+<td>Atiyah-Hirzebruch differential = multiplication by the extension class <code>h</code> of a two-step filtration (Proposition 12)</td>
+<td><code>BP_Op::h0()</code>, <code>BP_Op::thetas()</code>, <code>multiplication.cpp</code></td>
+<td><code>BP.md</code> §4/§6, <code>ARCHITECTURE.md</code> §2</td>
+</tr>
+<tr>
+<td>3-adic integers (truncated; <code>p=2</code> original documented as <code>Z2.h</code> in paper §9.14)</td>
+<td><code>Z3</code> (alias for <code>uint64_t</code>), <code>Z3_Op</code></td>
 <td><code>BP.md</code> §3/§6</td>
 </tr>
 <tr>
-<td><code>h0</code> (the class <code>α_1</code>-ish element from <code>η_R(v1)-η_L(v1)</code>)</td>
-<td><code>BP_Op::h0()</code></td>
-<td><code>BP.md</code> §4</td>
-</tr>
-<tr>
-<td>&quot;Theta&quot; elements (Greek-letter/Massey-product-like classes)</td>
-<td><code>BP_Op::thetas()</code></td>
-<td><code>BP.md</code> §4/§6</td>
-</tr>
-<tr>
-<td>3-adic integers (truncated)</td>
-<td><code>Z3</code> (alias for <code>uint64_t</code>), <code>Z3_Op</code></td>
-<td><code>BP.md</code> §3</td>
-</tr>
-<tr>
-<td><code>p</code>-local rationals (exact, GMP-backed)</td>
+<td><code>p</code>-local rationals (exact, GMP-backed; original <code>Qp</code>/Hazewinkel-generator construction, paper §9.12-13)</td>
 <td><code>Qp</code> struct, <code>Qp_Op</code>/<code>Q3_Op</code>/<code>Qp_int</code>/<code>Q3_int</code></td>
 <td><code>BP.md</code> §3</td>
-</tr>
-<tr>
-<td>Dual Steenrod algebra <code>A_* = F_p[ξ_1,ξ_2,...]</code> (polynomial part only, <code>p=3</code>, ≤5 generators)</td>
-<td><code>P = polynomial&lt;Fp&gt;</code>, <code>Steenrod_Op</code></td>
-<td><code>STEENROD.md</code> §1/§3</td>
 </tr>
 <tr>
 <td>Milnor coproduct <code>Δ(ξ_j) = Σ ξ_{j-i}^{p^i} ⊗ ξ_i</code></td>
@@ -164,12 +183,12 @@ entry — this page is a lookup table, not an explanation.</p>
 <td><code>STEENROD.md</code> §4</td>
 </tr>
 <tr>
-<td><code>Ext_{A_*}(F_p, F_p)</code> (input to algebraic Novikov E1)</td>
+<td><code>Ext_P(F_3, F_3)</code> (the model resolution <code>mr_BP</code> lifts, paper §5)</td>
 <td>output of <code>mr_st</code> / <code>SteenrodInit::resolve</code></td>
-<td><code>STEENROD.md</code> §1/§4</td>
+<td><code>STEENROD.md</code> §1/§4, <code>ARCHITECTURE.md</code> §5</td>
 </tr>
 <tr>
-<td>Dual Steenrod algebra with exterior part, <code>F_2[x_i] ⊗ Λ(z_i)</code> (speculative: <code>x_i = z_i²</code> square-root presentation)</td>
+<td>Mod-2 dual Steenrod algebra via square-root presentation <code>x_i = z_i²</code> (best-effort inference, not paper-confirmed; a <em>different</em> ring from <code>steenrod.h</code>&#39;s <code>P</code>, used by the independent p=2 cross-check)</td>
 <td><code>P = poly&lt;ex_poly,Fp&gt;</code>, <code>Steenrod_Op</code> (in <code>ctau_steenrod.h</code>)</td>
 <td><code>EX_CTAU.md</code> §1/§4</td>
 </tr>
@@ -194,9 +213,9 @@ entry — this page is a lookup table, not an explanation.</p>
 <td><code>MOTIVIC.md</code> §1/§3</td>
 </tr>
 <tr>
-<td>τ-Bockstein spectral sequence (τ-adic filtration on the motivic resolution)</td>
+<td>τ-Bockstein spectral sequence (τ-adic filtration on the motivic resolution; converges to the algebraic Novikov SS via Gheorghe–Wang–Xu [2]&#39;s cofiber-of-τ isomorphism)</td>
 <td><code>tau_table</code> / <code>tau_table_entry</code>, <code>tao_bockstein.*</code></td>
-<td><code>MOTIVIC.md</code> §1/§3</td>
+<td><code>MOTIVIC.md</code> §1/§3, <code>ARCHITECTURE.md</code> §6</td>
 </tr>
 <tr>
 <td>Multiplication by <code>h_i</code> on the E2/associated-graded page</td>
@@ -309,11 +328,11 @@ top-down.</p>
 </tr>
 <tr>
 <td><code>Steenrod_Op</code> (in <code>steenrod.h</code>)</td>
-<td>Classical (p=3, polynomial-part-only) dual Steenrod algebra structure</td>
+<td>Structure on <code>P = BP_*BP/I</code> (p=3) — the model resolution for <code>mr_BP</code></td>
 </tr>
 <tr>
 <td><code>Steenrod_Op</code> (in <code>ctau_steenrod.h</code>)</td>
-<td>Ex/ctau (p=2, poly+exterior) dual Steenrod algebra structure</td>
+<td>Structure on a <em>different</em> ring, <code>poly&lt;ex_poly,Fp&gt;</code> (p=2, poly+exterior) — the independent motivic-cross-check pipeline, unrelated to <code>steenrod.h</code>&#39;s <code>P</code> despite the shared class name</td>
 </tr>
 <tr>
 <td><code>SteenrodInit</code> / <code>ComodInit</code> (either variant)</td>

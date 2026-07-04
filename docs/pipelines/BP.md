@@ -18,18 +18,19 @@ structure. It assumes the generic template framework (`matrix<ring>`, `ModuleOp`
   `naming` track — the cycle name tuple is `(filtration, v0-valuation, v1-exp, ..., v5-exp)`,
   algNov.cpp:15-35).
 - `BP_* = Z3[v1,v2,...]` and `BP_*BP = BP_*[t1,t2,...]` are constructed as polynomial rings
-  (BP.h:11-15). The associated graded of the I-adic filtration on a `BP_*BP`-comodule is a
-  comodule over `BP_*BP/I`, which is (up to regrading) the dual Steenrod algebra `A_*` — this
-  is why the README's *first* phase (`mr_st`, built from `steenrod.cpp`/`steenrod_init.cpp`/
-  `stmain.cpp` via `st_compiling`) is described as computing "the minimal resolution for BP/I":
-  it resolves `F3` over `(F3, A_*)`, not over `(BP_*, BP_*BP)`. That resolution and its driver
-  files (`steenrod*.cpp`, `stmain.cpp`, `ex_*`, `curtis.h`) are **outside** the BP files read for
-  this document; they are noted here only because the README lists `mr_st` as a prerequisite
-  phase.
-  **TODO(math):** confirm precisely how (or whether) `mr_st`'s output is consumed by `BPtab`/
-  `mr_BP` — no `load_*` call in `BP.cpp`/`BP_init.cpp` reads any `mr_st` output file, so the two
-  phases may be independent computations that are only compared/interleaved by hand or by a tool
-  not covered here.
+  (BP.h:11-15), matching `MinimalResolution.pdf` §2's notation exactly. `P := BP_*BP/I =
+  F_p[t1,t2,...]` is a sub-Hopf-algebra of the dual Steenrod algebra (the paper's §2; see
+  `docs/pipelines/STEENROD.md` §1) — this is why the README's *first* phase (`mr_st`, built from
+  `steenrod.cpp`/`steenrod_init.cpp`/`stmain.cpp` via `st_compiling`) is described as computing
+  "the minimal resolution for BP/I": it resolves the trivial comodule over `P`, not directly
+  over `(BP_*, BP_*BP)`.
+  **Resolved (`MinimalResolution.pdf` §5, "Optimization of the process"):** `mr_st`'s output
+  *is* consumed by `mr_BP`, just not via a comodule "load" — it's the **model resolution**
+  `mr_BP` lifts. `mr_st` writes `<maxdeg>_gens_data` (`SteenrodInit::save_gens`,
+  `steenrod_init.cpp:60-70`); `mr_BP` requires that exact file (`BPInit::load_gens`, §2.2 below)
+  to seed its own resolution's generator choices, exactly the "compute a minimal resolution of
+  `M/I` first, then use it as a model for a resolution of `M`" optimization the paper describes.
+  See `docs/ARCHITECTURE.md` §5 for the full mechanism and why it's valid.
 - **`BPComplex` is not "BP/I".** Reading `BPcomplex.cpp` shows `primitive_data` /
   `BPComplex` build the **complex of primitives of the resolution itself**: for each cofree
   generator of each term of the `BP_*BP`-comodule resolution, it enumerates monomials
@@ -66,10 +67,11 @@ everything is already reduced to `Z3` (64-bit fixed-precision 3-adic integers, Z
   calls `BP_Op::initialize` → `load_etaL`/`load_R2L`/`load_delta` (BP_init.cpp:20,
   BP.cpp:30-51). These are exactly the three files `BPtab` wrote. `mr_BP` additionally expects a
   `<halfT>_gens_data` file (`BPInit::load_gens`, BPmain.cpp:23, BP_init.cpp:82-95) that is **not**
-  produced by `BPtab` at all — it must come from elsewhere (hand-authored seed generators for
-  the resolution; not covered by the files read here).
-  **TODO(math)/TODO(build):** no file in this pipeline appears to write `<halfT>_gens_data`;
-  confirm its origin (likely produced by the `mr_st`/steenrod phase or supplied by hand).
+  produced by `BPtab` at all. **Resolved:** this file is written by `mr_st` (the classical
+  Steenrod pipeline, `docs/pipelines/STEENROD.md` §2, `SteenrodInit::save_gens`,
+  `steenrod_init.cpp:60-70`), matching filename convention and required run order
+  (`mr_st` before `mr_BP`, per the README) — this is the "model" resolution `mr_BP` lifts,
+  per `MinimalResolution.pdf` §5. See §1 above and `docs/ARCHITECTURE.md` §5.
   All of `mr_BP`'s own output is written under a *second* prefix, `filename = "<halfT>_BP"`
   (BPmain.cpp:15, BP_init.cpp:9's `dirname` argument), e.g. `<halfT>_BPetaL_matrix`,
   `<halfT>_BPmaps`, `<halfT>_BPgens`, `<halfT>_BPres`, `<halfT>_BPcpx`,
@@ -270,21 +272,31 @@ classDiagram
 
 ## 6. Open math questions
 
-- **TODO(math):** What exactly is "Boc"? The code only tells us mechanically that `Boc_table`
-  is `algNov_table` with `v_valuation` redefined to count powers of `p` alone instead of the
-  full v-adic filtration (Boc.cpp:4-6), i.e. it appears to be the **Bockstein spectral
-  sequence** associated to reduction mod 3 (consistent with the name), used to detect
-  multiplication-by-3 (`three_extension`) differentials on top of the algebraic Novikov page.
-  The precise relationship between "Bockstein SS here" and the classical mod-p Bockstein SS for
-  computing integral vs. mod-p Ext, and why it's derived from the *same* primitive complex as
-  algNov rather than an independent computation, isn't stated in comments anywhere read.
-- **TODO(math):** The exact mathematical role of `BP/I` (`I=(p,v1,v2,...)`) as a *second
-  resolution phase* (the README's `mr_st`/"minimal resolution for BP/I") relative to this BP
-  pipeline is not fully recoverable from the files read here — no code in `BP.cpp`/`BP_init.cpp`
-  consumes `mr_st`'s output, and `BPComplex` (despite superficially resembling a "BP/I" object)
-  is actually the primitive-basis presentation of the BP resolution itself, not a BP/I quotient.
-  Confirm with `steenrod.cpp`/`steenrod_init.cpp`/`ex_*` (out of scope here) whether/how the two
-  phases' outputs are meant to be compared.
+Three questions previously listed here are now resolved by `MinimalResolution.pdf`:
+
+- **Resolved — what "Boc" is:** `MinimalResolution.pdf` §7 Remark 7.1 states it directly: the
+  algebraic Novikov SS orders primitives by `(Adams-Novikov filtration, then lexicographic)`,
+  while "we can also introduce an order[ing], by taking the lexicographic order directly[, which]
+  results in the Bockstein spectral sequence." `Boc_table::v_valuation` counting only powers of
+  `p` (Boc.cpp:4-6) is exactly that lexicographic-primarily-by-`p`-power order — both `algNov_table`
+  and `Boc_table` are the *same* Curtis-table-on-primitives construction (§6 of the paper) with two
+  different term orders, which is exactly why `Boc_tables` subclasses `algNov_tables` and both are
+  built from the same `BPComplex` (§4 data flow above): they're not independent computations.
+- **Resolved — the role of `BP/I` as a "second resolution phase":** it's the model-then-lift
+  optimization from `MinimalResolution.pdf` §5, not a separate quotient object to compare against.
+  See §1 above and `docs/ARCHITECTURE.md` §5 for the full mechanism; `BPComplex` genuinely is the
+  primitive-basis presentation of the (lifted, integral) BP resolution itself, as originally
+  documented here, not a BP/I quotient.
+- **Partially resolved — `h0()`/`thetas()`/multiplicative structure:** `MinimalResolution.pdf` §8,
+  Proposition 12, gives the general principle: for a two-step filtration
+  `0 → BP_* → M → Σ^j BP_* → 0` classified by an extension class `h ∈ Ext^{j,1}(BP_*)`, the
+  Atiyah-Hirzebruch differentials for `M` correspond to multiplication by `h`. `BP_Op::h0()`
+  (`= (η_R(v1)-η_L(v1))/p`) and `BP_Op::thetas()` are extension classes of specific such
+  filtrations, and `multiplication.cpp`'s tables compute multiplication by them per this recipe —
+  this is *why* the code is structured as "compute an extension class, then tabulate multiplication
+  by it" rather than constructing Massey products directly. The paper does not, however, work out
+  the specific `v1`/`p`-divisibility bookkeeping below for these particular Greek-letter elements,
+  so that part remains open:
 - **TODO(math):** `BP_Op::divide_power_p` and `BP_Op::divide_v1` (BP.cpp:343-382) implicitly
   assume their arguments are actually divisible by `p^n` / `v1^n` (no remainder is checked for
   `divide_power_p`; `divide_v1` prints `"not v1-divisible"` to stderr but does not abort or
@@ -295,11 +307,19 @@ classDiagram
   `v1`-divisible exactly once vs. three times (the `beta_i` vs `beta_i/3` naming in `thetas()`,
   BP.cpp:264-334) — this reflects specific Novikov/Greek-letter element computations not
   explained in-line.
-- **TODO(math):** `Z3_Op::divide` (Z3.cpp:144-147) is flagged by an existing reviewer comment
-  ("I'm concerned because I have no idea what that comment refers to... FIXME", Z3.cpp:141-143)
-  as using signed 64-bit division to approximate an exact p-adic division; whether this can
-  silently produce a wrong low-order digit for values near the `2^63`/`3^40` boundary is not
-  resolved in this pass.
+- **TODO(math), now with context:** `Z3_Op::divide` (Z3.cpp:144-147) is flagged by an existing
+  reviewer comment ("I'm concerned because I have no idea what that comment refers to... FIXME",
+  Z3.cpp:141-143) as using signed 64-bit division to approximate an exact p-adic division;
+  whether this can silently produce a wrong low-order digit for values near the `2^63`/`3^40`
+  boundary is not resolved in this pass. `MinimalResolution.pdf` §9.14 describes exactly this
+  design for the original p=2 code (`Z2.h`/`Z2.cpp`, this file's direct ancestor): "we use
+  `Z/2^64` to play the role of the 2-adic numbers... as the `E2` term ... is torsion in positive
+  degrees, we are alerted [to] a flow-out issue [by] the vanishing of a 2-Bockstein... unsigned
+  integers are automatically truncated when flowing out in the C++ standard." So the
+  truncated-integer approach and reliance on overflow being *detectable* (rather than prevented) is an
+  intentional, paper-documented design choice, not an oversight — but the paper doesn't address
+  this specific division edge case, so whether `Z3_Op::divide` correctly inherits that safety
+  property remains open.
 - **Stale/orphaned file noted in passing:** `Qptest.cpp` references `Q2_Op`/`Q2_int`, which do
   not exist anywhere in `Qp.h`/`Qp.cpp` (only `Q3_Op`/`Q3_int` are defined) — it is not part of
   either compile script (`BP_compile`, `BPtable_compile`) and appears to predate the p=3 fork

@@ -505,11 +505,14 @@ look like it compiles as written; treat it as unfinished/unverified).</li>
 <h2 id="5-the-resolution-algorithm-in-this-frameworks-terms">5. The resolution algorithm in this framework&#39;s terms<a class="heading-anchor" href="#5-the-resolution-algorithm-in-this-frameworks-terms">#</a></h2>
 <p>The framework computes a <strong>minimal relative-injective (cofree) resolution</strong>
 of a comodule <code>X</code> over a Hopf algebroid, one step at a time. Everything below
-is read directly off <code>hopf_algebroid/*.h</code>; the <em>mathematical</em> justification
-(why this specific construction gives a minimal resolution, why the &quot;cofree&quot;
-comodules used are the relative injectives for this category, etc.) is
-external (<code>MinimalResolution.pdf</code>, not present in this repo) — flagged with
-<code>TODO(math)</code> below wherever the code doesn&#39;t itself explain the &quot;why&quot;.</p>
+is read directly off <code>hopf_algebroid/*.h</code>, and is now cross-checked against
+<code>MinimalResolution.pdf</code> (added to the repo after this document was first
+written) — citations to its Definitions/Propositions appear inline below.
+The paper works specifically with <code>BP_*BP</code>-comodules and their reduction mod
+the invariant ideal <code>I</code> (see <code>docs/ARCHITECTURE.md</code> §1–2); this framework
+layer is the same construction made generic over an arbitrary
+<code>Hopf_Algebroid&lt;ring, algebroid&gt;</code>, so every citation below should be read as
+&quot;the paper&#39;s <code>BP_*BP</code>/<code>I</code> case of this generic mechanism.&quot;</p>
 <h3 id="curtis_tablering-what-it-stores"><code>curtis_table&lt;ring&gt;</code>: what it stores<a class="heading-anchor" href="#curtis_tablering-what-it-stores">#</a></h3>
 <p>A <code>curtis_table</code> (<code>matrices/9.h:1-263</code>) stores <strong>one Gröbner-basis-like
 reduction table for one resolution step</strong>: a set of <code>entry { cycle, tag, full_cycle, full_tag }</code> records where</p>
@@ -554,13 +557,17 @@ block starts (<code>position_of_gens</code>), and the total underlying rank
 (<code>total_rank</code>). <code>coaction(i)</code>/<code>degree(i)</code> locate which summand index <code>i</code> falls
 in (<code>findPos</code>, binary search, <code>hopf_algebroid/11.h:40-54</code>) and shift/reindex
 the static cofree data accordingly (<code>hopf_algebroid/11.h:62-75</code>).</p>
-<p><strong>TODO(math):</strong> the code assumes (via <code>adjoint</code>, see below) that
-<code>Hom_{comod}(X, cofree-on-degree-d-generator) ≅ (X in degree d, as a base-ring vector)</code>, i.e. an adjunction between &quot;cofree on one generator&quot; and
-&quot;evaluate the coaction at one coordinate&quot;. This adjunction (and why cofree
-comodules are the relative injectives needed for a resolution in this
-category) is not derived in the code — it is simply implemented as the
-<code>adjoint</code> method. The precise categorical statement should come from
-<code>MinimalResolution.pdf</code>.</p>
+<p><strong>Resolved (<code>MinimalResolution.pdf</code> §4, &quot;cogenerators&quot;):</strong> the code assumes
+(via <code>adjoint</code>, see below) that <code>Hom_{comod}(X, cofree-on-degree-d-generator) ≅ (X in degree d, as a base-ring vector)</code>. The paper calls the target of such
+an adjoint map a set of <strong>cogenerators</strong>: a <code>BP_*</code>-module map <code>M → X</code> exhibits
+<code>X</code> as cogenerators of <code>M</code> if the adjoint <code>M → BP_*BP ⊗_{BP_*} X</code> is strongly
+injective (a split injection of underlying <code>BP_*</code>-modules). This is exactly
+&quot;cofree on one generator&quot; (<code>X</code> a single degree&#39;s worth of generators,
+<code>BP_*BP ⊗ X</code> the cofree comodule they co-generate) paired with &quot;evaluate the
+coaction,&quot; which is exactly <code>adjoint</code>&#39;s definition below. The paper doesn&#39;t
+frame this as an abstract categorical adjunction/relative-injectivity
+statement so much as a direct construction, and neither does the code — but
+the two now visibly match construction-for-construction.</p>
 <h3 id="adjoint-the-embedding-detection-map"><code>adjoint</code>: the embedding-detection map<a class="heading-anchor" href="#adjoint-the-embedding-detection-map">#</a></h3>
 <p><code>Hopf_Algebroid::adjoint(X, n, adjoint_map, shift)</code> (<code>hopf_algebroid/8.h:1-20</code>)
 builds, for a single base generator <code>n</code> of <code>X</code>, the cofree comodule
@@ -599,12 +606,21 @@ cycle/tag.</li>
 </ol>
 <p>This is precisely &quot;add generators only when the current map fails to be
 surjective onto the needed target in this degree&quot; — the minimality condition.</p>
-<p><strong>TODO(math):</strong> why &quot;reduces to a non-boundary&quot; (step 3) is the correct
-criterion for &quot;already covered&quot;, as opposed to some other test, and why
-processing by increasing degree suffices for correctness/termination (rather
-than needing degree-by-degree completion certificates), is not spelled out in
-comments — likely covered by the minimal-resolution construction in
-<code>MinimalResolution.pdf</code>.</p>
+<p><strong>Resolved (<code>MinimalResolution.pdf</code> §3, Definitions 6–7):</strong> a cofree
+resolution of a <code>P</code>-comodule (or, lifted, a <code>BP_*BP</code>-comodule) is <em>minimal</em>
+iff at every stage the induced map <code>Prim(M̃_i) → Prim(F̃_i)</code> is bijective.
+&quot;Reduces to a non-boundary&quot; (step 3) is precisely the failure of that
+bijectivity check on one basis element at a time: if <code>irow</code> still reduces to
+something nonzero against the existing cofree summands, element <code>i</code> is
+already hit (no new primitive needed); if it collapses to zero, <code>i</code> is a new
+primitive that must be cogenerated. Processing in increasing degree is what
+makes this a <em>sequential</em>, one-generator-at-a-time certificate of
+bijectivity in each degree — lower degrees are fully settled (and hence
+correctly reflected in the running <code>curtis_table</code>) before higher ones are
+attempted, which is exactly what bijectivity-checked-degree-by-degree
+requires. The paper doesn&#39;t spell out termination/correctness as a formal
+induction either, but Definitions 6–7 are precisely the condition this loop
+enforces one element at a time.</p>
 <h3 id="resolvor-one-full-resolution-step-embed-quotient"><code>resolvor</code>: one full resolution step (embed + quotient)<a class="heading-anchor" href="#resolvor-one-full-resolution-step-embed-quotient">#</a></h3>
 <p><code>Hopf_Algebroid::resolvor</code> (<code>hopf_algebroid/5.h:1-41</code>) is one full step:</p>
 <ol>
@@ -633,12 +649,17 @@ input <code>X</code> in place with the next comodule in the resolution.</li>
 which is exactly one step <code>Ω⁻¹</code> of a cobar/relative-injective resolution: <code>F</code>
 is the <code>s</code>-th term of the resolution, <code>inj</code> the <code>s</code>-th differential (into the
 cofree term), and <code>X&#39;</code> becomes the input to the next call.</p>
-<p><strong>TODO(math):</strong> the precise sense in which <code>F</code> is &quot;the injective hull&quot; (i.e.
-why this particular cofree comodule, built exactly as in <code>embed2cofree</code>, is
-guaranteed to be relative-injective and why the resulting resolution is
-<em>minimal</em> in the technical sense used for the Adams-Novikov / algebraic
-Novikov spectral sequence) is not present in code comments and should be
-looked up in <code>MinimalResolution.pdf</code>.</p>
+<p><strong>Resolved (<code>MinimalResolution.pdf</code> §3–4, Propositions 3 &amp; 8):</strong> <code>F</code> is
+cofree by construction (<code>embed2cofree</code> builds it as a direct sum of
+cofree-on-one-generator summands), and cofree comodules are always the
+relative injectives needed here — the paper&#39;s whole point is that checking
+strong injectivity/surjectivity of a comodule map (Remark 3.1, Proposition
+3) and cogenerator-ness (Proposition 8) can both be done by reduction mod
+<code>I</code>, which is exactly the mod-<code>I</code>/<code>P</code>-side computation <code>curtis_table</code>
+performs. The resolution is minimal in the precise sense of Definition 7:
+its reduction mod <code>I</code> is a minimal <code>P</code>-comodule resolution, which is what
+the degree-by-degree bijectivity check in <code>embed2cofree</code> (previous section)
+directly enforces.</p>
 <h3 id="pre_resolution_tab-iterating-steps-into-a-resolution"><code>pre_resolution_tab</code>: iterating steps into a resolution<a class="heading-anchor" href="#pre_resolution_tab-iterating-steps-into-a-resolution">#</a></h3>
 <p><code>Hopf_Algebroid::pre_resolution_tab</code> (<code>hopf_algebroid/4.h:49-96</code>) just calls
 <code>resolvor</code> <code>resolution_length+1</code> times in a loop, each time re-using (and
@@ -657,9 +678,14 @@ degree-by-degree cycle search and instead reuse a previously-computed
 <code>curtis_table&lt;table_type&gt;</code> (from a <em>different</em>, &quot;model&quot; Hopf algebroid, via a
 <code>transformer</code> function converting the model&#39;s ring elements into the current
 ring) — i.e. transporting a known resolution shape from one setting to
-another rather than recomputing it from scratch. <strong>TODO(math):</strong> the
-conditions under which a resolution computed for one Hopf algebroid can be
-validly transported (&quot;modeled&quot;) onto another are not stated in the code.</p>
+another rather than recomputing it from scratch. <strong>Resolved
+(<code>MinimalResolution.pdf</code> §5, &quot;Optimization of the process&quot;):</strong> this is
+precisely the paper&#39;s optimization — compute the minimal resolution of a
+cheaper mod-<code>I</code> object first, then use its known cofree structure and
+cogenerators as a <em>model</em> to lift a resolution of the full object, needing
+only a Gaussian-elimination-scale adjustment rather than a full
+degree-by-degree search. See <code>docs/ARCHITECTURE.md</code> §5 for this worked out
+concretely for <code>mr_st</code> (model) → <code>mr_BP</code> (lift).</p>
 <h2 id="6-key-method-reference">6. Key method reference<a class="heading-anchor" href="#6-key-method-reference">#</a></h2>
 <h3 id="matrixr-matrices2h-unless-noted"><code>matrix&lt;R&gt;</code> (<code>matrices/2.h</code> unless noted)<a class="heading-anchor" href="#matrixr-matrices2h-unless-noted">#</a></h3>
 <div class="table-wrap"><table>

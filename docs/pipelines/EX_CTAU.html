@@ -55,11 +55,22 @@ confirm against <code>ctau_steenrod.cpp:52-77</code>&#39;s coproduct formulas (<
 z_k⊗x_{j-k}^{power_p(k-1)}<code>are exactly the shape of the classical Milnor coproduct on</code>ξ_j<code>and</code>τ_j<code>(odd-primary dual Steenrod algebra), with</code>power_p(i)=prime^i<code>— and</code>ex_main.cpp:11<code>hardcodes</code>prime=2<code>regardless of</code>argv<code>, so </code>power_p(i)=2^i`.</li>
 </ul>
 </li>
-<li>This directly answers (with a plausible mechanism, not proof) the open
-question left in <code>docs/pipelines/STEENROD.md</code> §6 about why the
-classical pipeline&#39;s <code>P = polynomial&lt;Fp&gt;</code> (<code>steenrod.h:10</code>) has <em>no</em>
-exterior <code>tau_i</code> part: <strong>the exterior part is handled here, in this
-separate ex/ctau pipeline</strong>, not in <code>steenrod.h</code>.</li>
+<li><strong>Correction after reading <code>MinimalResolution.pdf</code>:</strong> this document
+previously suggested that ctau&#39;s exterior part was &quot;the missing exterior
+part&quot; of the classical pipeline&#39;s <code>P</code>, as if the two <code>P</code>s were the same
+object split across two files. They are not. The paper (§2) establishes
+that <code>steenrod.h</code>&#39;s <code>P</code> is specifically <code>BP_*BP/I</code> — a sub-Hopf-algebra
+of the dual Steenrod algebra that is <strong>purely polynomial by
+construction</strong>, with no exterior part <em>by definition</em>, not because the
+exterior part lives elsewhere (see <code>docs/pipelines/STEENROD.md</code> §1). The
+<code>ctau_steenrod.h</code> object documented here is a genuinely <strong>different</strong>
+ring, used by a genuinely different (p=2, cross-check) pipeline — it is
+not the &quot;other half&quot; of <code>steenrod.h</code>&#39;s <code>P</code>. The degree-doubling relation
+<code>|x_i| = 2|z_i|</code> noted above is real and, per the paper, is exactly the
+relation between <code>BP_*BP/I</code> and the (undoubled) dual Steenrod algebra at
+<code>p=2</code> — so <code>ctau_steenrod.h</code>&#39;s <code>P</code> is best read as (a square-root
+presentation of) the actual, full mod-2 dual Steenrod algebra, entirely
+separate from the p=3 <code>BP_*BP/I</code> object <code>steenrod.h</code> models.</li>
 </ul>
 </li>
 <li>Relation to the motivic pipeline (<code>MOTIVIC.md</code>): <code>mr_mot</code> explicitly
@@ -73,9 +84,16 @@ the strongest, code-verified relationship between the two pipelines.</li>
 <li>Relation to the classical pipeline (<code>steenrod.h</code>/<code>mr_st</code>, <code>p=3</code>): same
 class names (<code>P_Op</code>, <code>PP_Op</code>, <code>Steenrod_Op</code>, <code>ComodInit</code>, <code>SteenrodInit</code>)
 and same overall driver shape, but a structurally different ring (<code>P = poly&lt;ex_poly,Fp&gt;</code> here vs. <code>polynomial&lt;Fp&gt;</code> there) and — per <code>ex_main.cpp: 11</code> — a hardcoded <strong><code>p=2</code></strong>, whereas <code>stmain.cpp:11</code> hardcodes <code>p=3</code>
-(see <code>STEENROD.md</code> §2). <strong>TODO(math):</strong> is <code>mr_ex</code> intentionally a
-<code>p=2</code>-only auxiliary tool (independent of the <code>p=3</code> fork&#39;s main target),
-or a leftover from the pre-fork p=2 codebase not (yet) ported to p=3?</li>
+(see <code>STEENROD.md</code> §2). <strong>Resolved (<code>docs/ARCHITECTURE.md</code> §6, citing
+<code>MinimalResolution.pdf</code>&#39;s introduction and Gheorghe–Wang–Xu [2]):</strong>
+<code>mr_ex</code> is intentionally p=2 — it&#39;s part of the independent motivic
+cross-check of the algebraic Novikov SS (via the cofiber-of-τ isomorphism
+[2] proves), which was evidently developed/retained at p=2 rather than
+ported when this repo forked the <em>direct</em> <code>BP_*BP</code> pipeline
+(<code>mr_st</code>/<code>BPtab</code>/<code>mr_BP</code>) to p=3. The paper&#39;s own §9 source-code
+walkthrough never mentions <code>ctau_steenrod.*</code> or <code>ex_*</code> at all, consistent
+with this being either a later addition validating [2]&#39;s theorem
+computationally, or simply not carried over by the fork.</li>
 </ul>
 <h2 id="2-executable">2. Executable<a class="heading-anchor" href="#2-executable">#</a></h2>
 <h3 id="mr_ex-from-ex_maincpp-header-comment-still-says-stmaincpp"><code>mr_ex</code> (from <code>ex_main.cpp</code>, header comment still says <code>stmain.cpp</code>)<a class="heading-anchor" href="#mr_ex-from-ex_maincpp-header-comment-still-says-stmaincpp">#</a></h3>
@@ -297,17 +315,21 @@ any of the 10 compile scripts in the repo, and <code>tao_boc.cpp</code> in parti
 is clearly superseded by <code>tao_bockstein.cpp</code> (same filename family, totally
 different/older API).</p>
 <h2 id="6-open-math-questions">6. Open math questions<a class="heading-anchor" href="#6-open-math-questions">#</a></h2>
+<p>The prime-hardcoding question is now resolved — see §1&#39;s corrected
+discussion and <code>docs/ARCHITECTURE.md</code> §6: <code>mr_ex</code> is p=2 because it&#39;s part
+of an independent, p=2, motivic cross-check of the algebraic Novikov SS
+(Gheorghe–Wang–Xu [2]), not unported p=3 work in the same sense as the
+direct BP pipeline. <code>MinimalResolution.pdf</code> does not, however, discuss the
+ex/ctau construction itself (its §9 source walkthrough stops before this
+pipeline), so the following remain genuinely open:</p>
 <ul>
-<li><strong>TODO(math):</strong> Confirm or refute the central speculative claim of §1 —
-that <code>ctau_steenrod.h</code>&#39;s <code>P = poly&lt;ex_poly,Fp&gt;</code> is the ordinary mod-2 dual
-Steenrod algebra presented via square-root generators <code>x_i=z_i^2</code>,
-by checking <code>ctau_steenrod.cpp:52-77</code>&#39;s coproduct formulas against a
-known reference for the Milnor coproduct at <code>p=2</code>.</li>
-<li><strong>TODO(math):</strong> Why is the prime hardcoded to <code>2</code> in <code>ex_main.cpp:11</code>
-in a repository whose stated purpose is a <code>p=3</code> fork? Is <code>mr_ex</code> an
-intentionally <code>p=2</code>-specific auxiliary computation feeding the motivic
-pipeline (which itself appears to also be stuck at <code>p=2</code>, see
-<code>MOTIVIC.md</code> §1/§6), or unported legacy code?</li>
+<li><strong>TODO(math):</strong> Confirm or refute the central claim of §1 — that
+<code>ctau_steenrod.h</code>&#39;s <code>P = poly&lt;ex_poly,Fp&gt;</code> is the ordinary mod-2 dual
+Steenrod algebra presented via square-root generators <code>x_i=z_i^2</code> — by
+checking <code>ctau_steenrod.cpp:52-77</code>&#39;s coproduct formulas against a known
+reference for the Milnor coproduct at <code>p=2</code>. This is now corroborated by
+the paper&#39;s degree-doubling fact for <code>BP_*BP/I</code> at p=2 (§1 above) but not
+directly confirmed, since the paper never discusses <code>ctau_steenrod.h</code>.</li>
 <li><strong>TODO(math):</strong> What, precisely, does &quot;modeling&quot; the motivic resolution
 on this pipeline&#39;s curtis tables/generator choices (<code>gens_data_ctau</code>,
 <code>extables</code>, consumed by <code>mr_mot</code>) mathematically justify — i.e. why
