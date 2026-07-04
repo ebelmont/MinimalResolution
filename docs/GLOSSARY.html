@@ -1,0 +1,344 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Glossary: Math ↔ Code — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">GLOSSARY</span></div>
+  <div class="actions">
+    <a class="src-link" href="GLOSSARY.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="glossary-math-code">Glossary: Math ↔ Code<a class="heading-anchor" href="#glossary-math-code">#</a></h1>
+<p>A term index mapping mathematical concepts to the identifiers that implement
+them, and vice versa. See the linked doc section for full context on each
+entry — this page is a lookup table, not an explanation.</p>
+<h2 id="math-concept-code-identifier">Math concept → code identifier<a class="heading-anchor" href="#math-concept-code-identifier">#</a></h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Math concept</th>
+<th>Code identifier(s)</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Abelian group (abstract)</td>
+<td><code>AbGroupOp&lt;A&gt;</code></td>
+<td><code>FRAMEWORK.md</code> §3</td>
+</tr>
+<tr>
+<td>Ring (abstract)</td>
+<td><code>RingOp&lt;R&gt;</code></td>
+<td><code>FRAMEWORK.md</code> §3</td>
+</tr>
+<tr>
+<td>Module over a ring</td>
+<td><code>ModuleOp&lt;index,R&gt;</code>, elements are <code>vectors&lt;index,R&gt;</code></td>
+<td><code>FRAMEWORK.md</code> §3</td>
+</tr>
+<tr>
+<td>Polynomial ring</td>
+<td><code>polynomial&lt;R&gt;</code> (= <code>vectors&lt;exponent,R&gt;</code>), <code>PolyOp</code>/<code>PolyOp_Para</code></td>
+<td><code>FRAMEWORK.md</code> §3</td>
+</tr>
+<tr>
+<td>Comodule over a Hopf algebroid</td>
+<td><code>CoModule&lt;algebroid,degree_type&gt;</code>, concretely <code>comodule_generic</code></td>
+<td><code>FRAMEWORK.md</code> §3</td>
+</tr>
+<tr>
+<td>Cofree (extended/induced) comodule</td>
+<td><code>cofree_comodule&lt;algebroid,degree_type&gt;</code></td>
+<td><code>FRAMEWORK.md</code> §3/§5</td>
+</tr>
+<tr>
+<td>Hopf algebroid <code>(A, Γ)</code></td>
+<td><code>Hopf_Algebroid&lt;ring, algebroid&gt;</code> (<code>ring</code>=A, <code>algebroid</code>=Γ)</td>
+<td><code>FRAMEWORK.md</code> §3/§5</td>
+</tr>
+<tr>
+<td>Left unit <code>η_L : A → Γ</code></td>
+<td><code>Hopf_Algebroid::etaL</code></td>
+<td><code>FRAMEWORK.md</code> §3, <code>BP.md</code> §3</td>
+</tr>
+<tr>
+<td>Right unit <code>η_R : A → Γ</code></td>
+<td><code>Hopf_Algebroid::etaR</code></td>
+<td><code>FRAMEWORK.md</code> §3, <code>BP.md</code> §3</td>
+</tr>
+<tr>
+<td>Comultiplication <code>Δ : Γ → Γ ⊗_A Γ</code></td>
+<td><code>Hopf_Algebroid::delta</code></td>
+<td><code>FRAMEWORK.md</code> §3</td>
+</tr>
+<tr>
+<td>Minimal relative-injective resolution, one step</td>
+<td><code>Hopf_Algebroid::resolvor</code> (embed + Gaussian-eliminate + quotient)</td>
+<td><code>FRAMEWORK.md</code> §5</td>
+</tr>
+<tr>
+<td>Embedding a comodule into a cofree comodule</td>
+<td><code>Hopf_Algebroid::embed2cofree</code></td>
+<td><code>FRAMEWORK.md</code> §5</td>
+</tr>
+<tr>
+<td>Gröbner/leading-term reduction table for one resolution step</td>
+<td><code>curtis_table&lt;ring&gt;</code></td>
+<td><code>FRAMEWORK.md</code> §3/§5</td>
+</tr>
+<tr>
+<td>&quot;Resolution transported from a related Hopf algebroid&quot;</td>
+<td><code>resolvor_modeled</code> / <code>pre_resolution_modeled</code> (a <code>transformer</code> converts the model&#39;s ring elements)</td>
+<td><code>FRAMEWORK.md</code> §5, <code>MOTIVIC.md</code> §2, <code>EX_CTAU.md</code> §1</td>
+</tr>
+<tr>
+<td><code>BP_* = Z_(3)[v_1,v_2,...]</code></td>
+<td><code>typedef polynomial&lt;Z3&gt; BP</code></td>
+<td><code>BP.md</code> §1/§3</td>
+</tr>
+<tr>
+<td><code>BP_*BP = BP_*[t_1,t_2,...]</code></td>
+<td><code>typedef polynomial&lt;BP&gt; BPBP</code></td>
+<td><code>BP.md</code> §1/§3</td>
+</tr>
+<tr>
+<td><code>BP_*⊗Q</code> (rational BP, used to derive structure maps)</td>
+<td><code>BPQ = polynomial&lt;Qp&gt;</code>, <code>BPQ_Op</code></td>
+<td><code>BP.md</code> §2/§3</td>
+</tr>
+<tr>
+<td>The invariant ideal <code>I = (p, v1, v2, ...)</code></td>
+<td>tracked via <code>algNov_table</code>&#39;s cycle name <code>(filtration, v0-valuation, v1-exp,...,v5-exp)</code></td>
+<td><code>BP.md</code> §1/§3</td>
+</tr>
+<tr>
+<td>Algebraic Novikov filtration / associated-graded Ext</td>
+<td><code>algNov_table</code> / <code>algNov_tables</code></td>
+<td><code>BP.md</code> §1/§3</td>
+</tr>
+<tr>
+<td>Complex of primitives of the BP resolution</td>
+<td><code>BPComplex</code> / <code>primitive_data</code> / <code>prim_entry</code> (<strong>not</strong> &quot;BP/I&quot; — see <code>BP.md</code> §1)</td>
+<td><code>BP.md</code> §1/§3</td>
+</tr>
+<tr>
+<td>Bockstein spectral sequence (mod-3 reduction)</td>
+<td><code>Boc_table</code> / <code>Boc_tables</code> (= <code>algNov_table</code> with <code>v_valuation</code> counting only powers of <code>p</code>)</td>
+<td><code>BP.md</code> §3/§6</td>
+</tr>
+<tr>
+<td><code>h0</code> (the class <code>α_1</code>-ish element from <code>η_R(v1)-η_L(v1)</code>)</td>
+<td><code>BP_Op::h0()</code></td>
+<td><code>BP.md</code> §4</td>
+</tr>
+<tr>
+<td>&quot;Theta&quot; elements (Greek-letter/Massey-product-like classes)</td>
+<td><code>BP_Op::thetas()</code></td>
+<td><code>BP.md</code> §4/§6</td>
+</tr>
+<tr>
+<td>3-adic integers (truncated)</td>
+<td><code>Z3</code> (alias for <code>uint64_t</code>), <code>Z3_Op</code></td>
+<td><code>BP.md</code> §3</td>
+</tr>
+<tr>
+<td><code>p</code>-local rationals (exact, GMP-backed)</td>
+<td><code>Qp</code> struct, <code>Qp_Op</code>/<code>Q3_Op</code>/<code>Qp_int</code>/<code>Q3_int</code></td>
+<td><code>BP.md</code> §3</td>
+</tr>
+<tr>
+<td>Dual Steenrod algebra <code>A_* = F_p[ξ_1,ξ_2,...]</code> (polynomial part only, <code>p=3</code>, ≤5 generators)</td>
+<td><code>P = polynomial&lt;Fp&gt;</code>, <code>Steenrod_Op</code></td>
+<td><code>STEENROD.md</code> §1/§3</td>
+</tr>
+<tr>
+<td>Milnor coproduct <code>Δ(ξ_j) = Σ ξ_{j-i}^{p^i} ⊗ ξ_i</code></td>
+<td><code>Steenrod_Op::make_delta</code></td>
+<td><code>STEENROD.md</code> §4</td>
+</tr>
+<tr>
+<td><code>Ext_{A_*}(F_p, F_p)</code> (input to algebraic Novikov E1)</td>
+<td>output of <code>mr_st</code> / <code>SteenrodInit::resolve</code></td>
+<td><code>STEENROD.md</code> §1/§4</td>
+</tr>
+<tr>
+<td>Dual Steenrod algebra with exterior part, <code>F_2[x_i] ⊗ Λ(z_i)</code> (speculative: <code>x_i = z_i²</code> square-root presentation)</td>
+<td><code>P = poly&lt;ex_poly,Fp&gt;</code>, <code>Steenrod_Op</code> (in <code>ctau_steenrod.h</code>)</td>
+<td><code>EX_CTAU.md</code> §1/§4</td>
+</tr>
+<tr>
+<td>Exterior generator <code>z_i</code> with <code>z_i² = 0</code></td>
+<td><code>ex_poly</code>&#39;s packed exterior bitmask, enforced in <code>ExPolyOp_Para::mon_multiply</code></td>
+<td><code>EX_CTAU.md</code> §4</td>
+</tr>
+<tr>
+<td>Motivic dual Steenrod algebra <code>F_p[τ][ξ_1,ξ_2,...]</code></td>
+<td><code>motSteenrod = polynomial&lt;tauPoly&gt;</code>, <code>MotSteenrodOp</code></td>
+<td><code>MOTIVIC.md</code> §1/§3</td>
+</tr>
+<tr>
+<td>Motivic bidegree <code>(t, weight)</code></td>
+<td><code>MotDegree</code></td>
+<td><code>MOTIVIC.md</code> §3</td>
+</tr>
+<tr>
+<td>The τ variable, encoded as (a monomial in) its own tiny &quot;ring&quot;</td>
+<td><code>tauPoly</code> (packed exponent, <code>int16_t</code>), <code>tauOper</code></td>
+<td><code>MOTIVIC.md</code> §1/§3</td>
+</tr>
+<tr>
+<td>τ-Bockstein spectral sequence (τ-adic filtration on the motivic resolution)</td>
+<td><code>tau_table</code> / <code>tau_table_entry</code>, <code>tao_bockstein.*</code></td>
+<td><code>MOTIVIC.md</code> §1/§3</td>
+</tr>
+<tr>
+<td>Multiplication by <code>h_i</code> on the E2/associated-graded page</td>
+<td><code>MotSteenrodOp::hi(i)</code>, <code>multiplication_table</code></td>
+<td><code>MOTIVIC.md</code> §1/§4</td>
+</tr>
+<tr>
+<td>Monomial enumeration/indexing scheme</td>
+<td><code>monomial_index</code> (two independent implementations: <code>mon_index.h</code> for non-exterior rings, <code>ex_index.h</code> for exterior-augmented rings)</td>
+<td><code>FRAMEWORK.md</code> §3, <code>EX_CTAU.md</code> §3</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="code-identifier-math-concept-reverse-index">Code identifier → math concept (reverse index)<a class="heading-anchor" href="#code-identifier-math-concept-reverse-index">#</a></h2>
+<p>For quickly answering &quot;what is this class actually <em>for</em>&quot; when reading code
+top-down.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Identifier</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>AbGroupOp&lt;A&gt;</code></td>
+<td>Abstract abelian group interface</td>
+</tr>
+<tr>
+<td><code>RingOp&lt;R&gt;</code></td>
+<td>Abstract ring interface (extends <code>AbGroupOp</code>)</td>
+</tr>
+<tr>
+<td><code>ModuleOp&lt;index,R&gt;</code></td>
+<td>Operations on free-module sparse vectors</td>
+</tr>
+<tr>
+<td><code>vectors&lt;index,R&gt;</code></td>
+<td>A sparse vector (the universal &quot;row/column&quot; datatype)</td>
+</tr>
+<tr>
+<td><code>matrix&lt;R&gt;</code> / <code>matrix_mem</code> / <code>matrix_stream</code> / <code>matrix_file</code></td>
+<td>Matrix over a ring; three storage backends</td>
+</tr>
+<tr>
+<td><code>polynomial&lt;R&gt;</code></td>
+<td>A polynomial ring, represented as <code>vectors&lt;exponent,R&gt;</code></td>
+</tr>
+<tr>
+<td><code>PolyOp</code> / <code>PolyOp_Para</code></td>
+<td>Ring structure on <code>polynomial&lt;R&gt;</code> (serial / OpenMP-parallel)</td>
+</tr>
+<tr>
+<td><code>CoModule</code> / <code>comodule_generic</code> / <code>cofree_comodule</code></td>
+<td>Comodule interface / explicit-coaction impl / cofree-summand impl</td>
+</tr>
+<tr>
+<td><code>Hopf_Algebroid&lt;ring,algebroid&gt;</code></td>
+<td><strong>The resolution engine</strong> — structure maps + generic resolution algorithm</td>
+</tr>
+<tr>
+<td><code>curtis_table</code> (+ <code>_mem</code>, <code>curtisTable_stream</code>)</td>
+<td>Leading-term reduction table for one resolution step</td>
+</tr>
+<tr>
+<td><code>SS_table</code> / <code>SS_entry</code></td>
+<td>Generic spectral-sequence-page storage, subclassed by <code>algNov_table</code></td>
+</tr>
+<tr>
+<td><code>monomial_index</code></td>
+<td>Enumerates/indexes monomials of a graded polynomial ring</td>
+</tr>
+<tr>
+<td><code>con_streams</code> / <code>con_fstreams</code></td>
+<td>Thread-safe stream/file wrapper</td>
+</tr>
+<tr>
+<td><code>Fp_Op</code></td>
+<td>Arithmetic on <code>F_p</code></td>
+</tr>
+<tr>
+<td><code>Z3_Op</code></td>
+<td>Arithmetic on (truncated) 3-adic integers</td>
+</tr>
+<tr>
+<td><code>Qp_Op</code> / <code>Q3_Op</code> / <code>Qp_int</code> / <code>Q3_int</code></td>
+<td>Arithmetic on p-local rationals (GMP-backed)</td>
+</tr>
+<tr>
+<td><code>BP_Op</code> / <code>BPBP_Op</code> / <code>BPBPBP_Op</code></td>
+<td>The <code>BP_*</code>/<code>BP_*BP</code> Hopf algebroid structure and ring ops</td>
+</tr>
+<tr>
+<td><code>BPQ_Op</code> / <code>BPBPQ_Op</code> / <code>BPBPBPQ_Op</code></td>
+<td>The rational (<code>⊗Q</code>) version, used to derive <code>BP_Op</code>&#39;s structure maps</td>
+</tr>
+<tr>
+<td><code>BPComplex</code> / <code>primitive_data</code> / <code>prim_entry</code></td>
+<td>Complex of primitives of the BP resolution</td>
+</tr>
+<tr>
+<td><code>algNov_table</code> / <code>algNov_tables</code></td>
+<td>Algebraic-Novikov E1/E2-page table(s)</td>
+</tr>
+<tr>
+<td><code>Boc_table</code> / <code>Boc_tables</code></td>
+<td>Bockstein-SS variant of the above</td>
+</tr>
+<tr>
+<td><code>multiplication</code> / <code>multiplication_table_entry</code></td>
+<td>Multiplicative structure on algNov/Boc tables</td>
+</tr>
+<tr>
+<td><code>Steenrod_Op</code> (in <code>steenrod.h</code>)</td>
+<td>Classical (p=3, polynomial-part-only) dual Steenrod algebra structure</td>
+</tr>
+<tr>
+<td><code>Steenrod_Op</code> (in <code>ctau_steenrod.h</code>)</td>
+<td>Ex/ctau (p=2, poly+exterior) dual Steenrod algebra structure</td>
+</tr>
+<tr>
+<td><code>SteenrodInit</code> / <code>ComodInit</code> (either variant)</td>
+<td>Driver: builds the coproduct table, resolves the trivial comodule</td>
+</tr>
+<tr>
+<td><code>MotSteenrodOp</code></td>
+<td>Motivic dual Steenrod algebra structure</td>
+</tr>
+<tr>
+<td><code>motComplex</code></td>
+<td>A resolution loaded as a complex over <code>F_p[τ]</code> for Bockstein analysis</td>
+</tr>
+</tbody>
+</table></div>
+<p>See <a href="CLASSES.html"><code>CLASSES.md</code></a> for the full class-by-class catalog with file
+locations, template parameters, and base classes.</p>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>

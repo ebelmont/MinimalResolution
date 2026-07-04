@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The BP Pipeline — MinimalResolution docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="../index.html">docs</a><span class="sep">/</span><span>pipelines</span><span class="sep">/</span><span class="current">BP</span></div>
+  <div class="actions">
+    <a class="src-link" href="BP.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="the-bp-pipeline">The BP Pipeline<a class="heading-anchor" href="#the-bp-pipeline">#</a></h1>
+<p>This document covers the Brown–Peterson (BP) Hopf-algebroid subsystem: the code that computes
+the structure maps of <code>(BP_*, BP_*BP)</code> at p=3, runs a minimal resolution of <code>F3</code> over that
+Hopf algebroid, and packages the result as the E2-page of the algebraic Novikov spectral
+sequence (algNov), plus a secondary Bockstein spectral sequence (Boc) and multiplicative
+structure. It assumes the generic template framework (<code>matrix&lt;ring&gt;</code>, <code>ModuleOp</code>,
+<code>CoModule</code>/<code>comodule_generic</code>, <code>Hopf_Algebroid&lt;ring,algebroid&gt;</code>, <code>curtis_table</code>,
+<code>monomial_index</code>, <code>polynomial&lt;ring&gt;</code>, <code>RingOp</code>/<code>AbGroupOp</code>, <code>SS_table</code>) described in
+<code>docs/FRAMEWORK.md</code> and only documents how the BP-specific code instantiates and drives it.</p>
+<h2 id="1-purpose">1. Purpose<a class="heading-anchor" href="#1-purpose">#</a></h2>
+<ul>
+<li><strong>Deliverable</strong>: the repo&#39;s end goal is the E2-page of the Adams–Novikov spectral sequence
+for the sphere at p=3, computed via the <strong>algebraic Novikov spectral sequence</strong>: filter
+<code>Ext_{BP_*BP}(BP_*,BP_*)</code> by powers of the invariant regular ideal <code>I = (p, v1, v2, ...)</code>
+(README.md:5-7; the ideal generators are literally what <code>algNov_table::v_valuation</code> and
+<code>naming</code> track — the cycle name tuple is <code>(filtration, v0-valuation, v1-exp, ..., v5-exp)</code>,
+algNov.cpp:15-35).</li>
+<li><code>BP_* = Z3[v1,v2,...]</code> and <code>BP_*BP = BP_*[t1,t2,...]</code> are constructed as polynomial rings
+(BP.h:11-15). The associated graded of the I-adic filtration on a <code>BP_*BP</code>-comodule is a
+comodule over <code>BP_*BP/I</code>, which is (up to regrading) the dual Steenrod algebra <code>A_*</code> — this
+is why the README&#39;s <em>first</em> phase (<code>mr_st</code>, built from <code>steenrod.cpp</code>/<code>steenrod_init.cpp</code>/
+<code>stmain.cpp</code> via <code>st_compiling</code>) is described as computing &quot;the minimal resolution for BP/I&quot;:
+it resolves <code>F3</code> over <code>(F3, A_*)</code>, not over <code>(BP_*, BP_*BP)</code>. That resolution and its driver
+files (<code>steenrod*.cpp</code>, <code>stmain.cpp</code>, <code>ex_*</code>, <code>curtis.h</code>) are <strong>outside</strong> the BP files read for
+this document; they are noted here only because the README lists <code>mr_st</code> as a prerequisite
+phase.
+<strong>TODO(math):</strong> confirm precisely how (or whether) <code>mr_st</code>&#39;s output is consumed by <code>BPtab</code>/
+<code>mr_BP</code> — no <code>load_*</code> call in <code>BP.cpp</code>/<code>BP_init.cpp</code> reads any <code>mr_st</code> output file, so the two
+phases may be independent computations that are only compared/interleaved by hand or by a tool
+not covered here.</li>
+<li><strong><code>BPComplex</code> is not &quot;BP/I&quot;.</strong> Reading <code>BPcomplex.cpp</code> shows <code>primitive_data</code> /
+<code>BPComplex</code> build the <strong>complex of primitives of the resolution itself</strong>: for each cofree
+generator of each term of the <code>BP_*BP</code>-comodule resolution, it enumerates monomials
+<code>v^e</code> (<code>monomial_index::mon_array</code>) up to the degree budget, i.e. the underlying free
+<code>BP_*</code>-module basis of that resolution term (BPcomplex.cpp:45-52, 61-66). The differential
+on primitives is <code>etaR(v^e)</code> shifted into the next term (BPcomplex.cpp:16-33). This complex is
+the input the algebraic Novikov filtration (I = (p,v1,...)) is read off of — it is the
+BP_*-linear resolution, not a BP/I quotient object.</li>
+</ul>
+<h2 id="2-executables">2. Executables<a class="heading-anchor" href="#2-executables">#</a></h2>
+<h3 id="21-build">2.1 Build<a class="heading-anchor" href="#21-build">#</a></h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Executable</th>
+<th>Compile command</th>
+<th>Source files</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>BPtab</code></td>
+<td><code>g++ -std=c++11 -O2 -fopenmp Z3.cpp mon_index.cpp BP.cpp BPQ.cpp BPtable.cpp exponents.cpp Qp.cpp Fp.cpp -I./ -lgmp -lgmpxx -Wall -Wfatal-errors -oBPtab</code> (BPtable_compile:1)</td>
+<td><code>BPtable.cpp</code> (main)</td>
+</tr>
+<tr>
+<td><code>mr_BP</code></td>
+<td><code>g++ -O2 BPcomplex.cpp streams.cpp algNov.cpp Boc.cpp multiplication.cpp exponents.cpp Fp.cpp mon_index.cpp Z3.cpp BP.cpp BP_init.cpp BPmain.cpp -std=c++11 -I./ -Wall -Wfatal-errors -fopenmp -omr_BP</code> (BP_compile:1)</td>
+<td><code>BPmain.cpp</code> (main)</td>
+</tr>
+</tbody>
+</table></div>
+<p><code>BPtab</code> links GMP (<code>-lgmp -lgmpxx</code>) because it works with the rational Hopf algebroid <code>BPQ</code>
+(exact <code>mpz_class</code> numerators, Qp.h:9); <code>mr_BP</code> does not need GMP because by the time it runs,
+everything is already reduced to <code>Z3</code> (64-bit fixed-precision 3-adic integers, Z3.h:8).</p>
+<h3 id="22-args-and-required-run-order">2.2 Args and required run order<a class="heading-anchor" href="#22-args-and-required-run-order">#</a></h3>
+<ul>
+<li><code>./BPtab &lt;halfT&gt;</code> — <code>halfT</code> is used directly as <code>max_degree</code> for <code>monomial_index</code> and for the
+<code>BPQ_Op</code>/<code>BP_Op</code> constructors (BPtable.cpp:8-20,40). Output files are all prefixed
+<code>&quot;&lt;halfT&gt;_&quot;</code> (BPtable.cpp:14-15): <code>&lt;halfT&gt;_structures</code>, <code>&lt;halfT&gt;_R2L_gen</code>,
+<code>&lt;halfT&gt;_delta_gen</code> (rational intermediate tables, BPtable.cpp:23-35), then
+<code>&lt;halfT&gt;_Ls</code>, <code>&lt;halfT&gt;_etaL</code>, <code>&lt;halfT&gt;_R2L</code>, <code>&lt;halfT&gt;_delta</code> (final integral structure-map
+tables, written by <code>BP_Op::make_tables</code>, BPtable.cpp:44-45).</li>
+<li><code>./mr_BP &lt;halfT&gt; &lt;resolution_length&gt;</code> — must be called with the <strong>same <code>&lt;halfT&gt;</code></strong> as the
+<code>BPtab</code> run whose output it loads. <code>BPmain.cpp:13-18</code> builds <code>filename0 = &quot;&lt;halfT&gt;_&quot;</code> and
+passes <code>filename0+&quot;etaL&quot;</code>, <code>filename0+&quot;R2L&quot;</code>, <code>filename0+&quot;delta&quot;</code> into <code>BPInit</code>, which in turn
+calls <code>BP_Op::initialize</code> → <code>load_etaL</code>/<code>load_R2L</code>/<code>load_delta</code> (BP_init.cpp:20,
+BP.cpp:30-51). These are exactly the three files <code>BPtab</code> wrote. <code>mr_BP</code> additionally expects a
+<code>&lt;halfT&gt;_gens_data</code> file (<code>BPInit::load_gens</code>, BPmain.cpp:23, BP_init.cpp:82-95) that is <strong>not</strong>
+produced by <code>BPtab</code> at all — it must come from elsewhere (hand-authored seed generators for
+the resolution; not covered by the files read here).
+<strong>TODO(math)/TODO(build):</strong> no file in this pipeline appears to write <code>&lt;halfT&gt;_gens_data</code>;
+confirm its origin (likely produced by the <code>mr_st</code>/steenrod phase or supplied by hand).
+All of <code>mr_BP</code>&#39;s own output is written under a <em>second</em> prefix, <code>filename = &quot;&lt;halfT&gt;_BP&quot;</code>
+(BPmain.cpp:15, BP_init.cpp:9&#39;s <code>dirname</code> argument), e.g. <code>&lt;halfT&gt;_BPetaL_matrix</code>,
+<code>&lt;halfT&gt;_BPmaps</code>, <code>&lt;halfT&gt;_BPgens</code>, <code>&lt;halfT&gt;_BPres</code>, <code>&lt;halfT&gt;_BPcpx</code>,
+<code>&lt;halfT&gt;_BPAANSS_table_binary</code>/<code>.txt</code>, <code>&lt;halfT&gt;_BPBocSS_table_binary</code>/<code>.txt</code>, etc.</li>
+<li><strong>Why the order matters</strong>: <code>BP_Op</code> is constructed in &quot;structure-tables-unknown&quot; mode by
+<code>BPtable.cpp:40</code> (<code>etaL_mat</code> set, <code>delta_mat</code>/<code>R2L_mat</code> = <code>NULL</code>) purely to <em>compute</em> the
+tables; <code>BPmain.cpp</code> constructs a fresh <code>BP_Op</code> (inside <code>BPInit</code>) that is unusable until
+<code>load_etaL</code>/<code>load_R2L</code>/<code>load_delta</code> succeed, i.e. until <code>BPtab</code> has already produced those
+three files for the matching <code>&lt;halfT&gt;</code>. There is no dependency the other way.</li>
+<li><strong>Degree convention</strong>: <code>&lt;halfT&gt;</code> is passed straight through as <code>max_degree</code> to
+<code>monomial_index</code> (BPtable.cpp:10, BP_init.cpp:9), and <code>monomial_index</code> bounds monomials by
+<code>total_deg(e)</code> using <code>xnDeg(n) = 2(3^n-1)</code> (exponents.cpp:29, the <em>un-halved</em> topological
+degree <code>|v_n|</code>). The README&#39;s &quot;first parameter is half of t&quot; warning appears to be inherited
+verbatim from Guozhen Wang&#39;s original p=2 code; nothing in this p=3 BP code path visibly
+halves the degree again before comparing to <code>xnDeg</code>.
+<strong>TODO(math):</strong> determine whether &quot;half of t&quot; is still literally correct for this p=3 fork or
+is a stale carry-over from the p=2 version (the README itself flags this uncertainty at
+README.md:52).</li>
+<li><strong>Segfault mechanism (mismatched parameters)</strong>: <code>matrix&lt;R&gt;::load(reader, rk)</code> (matrices/4.h:
+30-37) reads exactly <code>rk</code> rows by repeatedly calling <code>ModuleOp&lt;index,R&gt;::load</code> (modules/5.h:
+40-49), which reads a <strong>raw, unchecked <code>int32_t length</code></strong> from the stream and then loops
+<code>length</code> times reading <code>(index, coefficient)</code> pairs — there is no check that <code>length</code> is
+sane or that the stream has that much data left. <code>rk</code> itself is
+<code>mon_index.number_of_all_mons()</code> (BP.cpp:33,41,49), which is a function of the <code>&lt;halfT&gt;</code>/
+<code>max_degree</code> passed to the <em>currently running</em> executable, not of the file&#39;s actual contents.
+If <code>mr_BP</code> is invoked with a <code>&lt;halfT&gt;</code> different from the one used to generate the <code>etaL</code>/
+<code>R2L</code>/<code>delta</code> files (or if those files are truncated/from a different max-degree run), the
+read cursor desyncs from record boundaries; the next <code>length</code> field read is then essentially
+garbage (can be enormous or negative-as-huge-unsigned), and the subsequent per-term read loop
+attempts to allocate/read far past the file, producing a crash (typically <code>std::bad_alloc</code>,
+an out-of-bounds read, or a straightforward segmentation fault) — matching the README&#39;s
+&quot;unpredictable behaviour ... usually a break-down ... such as a segmentation error&quot;
+(README.md:50).</li>
+</ul>
+<h2 id="3-class-catalog">3. Class catalog<a class="heading-anchor" href="#3-class-catalog">#</a></h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Class</th>
+<th>File</th>
+<th>Template Params</th>
+<th>Base Classes</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>Z3_Op</code></td>
+<td>Z3.h:13</td>
+<td>— (ring = <code>uint64_t</code> alias <code>Z3</code>)</td>
+<td><code>virtual RingOp&lt;Z3&gt;</code></td>
+<td>Ring of 3-adic integers truncated mod <code>3^40</code> (fits in 64 bits); add/multiply/invert/valuation/<code>divide</code> by <code>p^n</code>, lift from residue field <code>F3=Fp</code> (Z3.cpp:5-152).</td>
+</tr>
+<tr>
+<td><code>Qp_Op</code></td>
+<td>Qp.h:18</td>
+<td>— (ring = <code>Qp</code> struct: <code>mpz_class</code> numerator + <code>int16_t</code> valuation)</td>
+<td><code>virtual RingOp&lt;Qp&gt;</code></td>
+<td>Arbitrary-precision p-local rationals via GMP; <code>prime()</code> is pure virtual (abstract over p).</td>
+</tr>
+<tr>
+<td><code>Q3_Op</code></td>
+<td>Qp.h:62</td>
+<td>—</td>
+<td><code>virtual public Qp_Op</code></td>
+<td>Fixes <code>prime()=3</code>.</td>
+</tr>
+<tr>
+<td><code>Qp_int</code></td>
+<td>Qp.h:67</td>
+<td>—</td>
+<td><code>virtual public Qp_Op</code></td>
+<td>Overrides <code>save</code> to serialize only the truncated 64-bit integer part (<code>int_part</code>), not the full <code>Qp</code>.</td>
+</tr>
+<tr>
+<td><code>Q3_int</code></td>
+<td>Qp.h:73</td>
+<td>—</td>
+<td><code>virtual public Qp_int, virtual public Q3_Op</code></td>
+<td>p=3 + integral-IO combination; overrides <code>output</code> to print the truncated integer.</td>
+</tr>
+<tr>
+<td><code>BPQ_Op</code></td>
+<td>BPQ.h:38</td>
+<td>— (rings <code>BPQ=polynomial&lt;Qp&gt;</code>, <code>BPBPQ=polynomial&lt;BPQ&gt;</code>, <code>BPBPBPQ=polynomial&lt;BPBPQ&gt;</code>)</td>
+<td><code>virtual public PolynomialOp_Para&lt;Qp&gt;</code></td>
+<td>The <strong>rational</strong> Hopf algebroid <code>BP_*⊗Q</code>. Builds <code>li</code>⇄<code>vn</code> change-of-basis tables and the rational <code>etaR</code>/<code>delta</code> structure maps by direct recursive formulas over <code>Q</code>(BPQ.cpp:17-83), so no mod-p division problems arise.</td>
+</tr>
+<tr>
+<td><code>BPBPQ_Op</code></td>
+<td>BPQ.h:18</td>
+<td>—</td>
+<td><code>PolynomialOp_Para&lt;BPQ&gt;</code></td>
+<td>Ring ops on <code>BP_*BP⊗Q</code>; <code>construct(n,s1,k,s2,coef)</code> builds <code>coef·v_n^{s1}[t_k^{s2}]</code>.</td>
+</tr>
+<tr>
+<td><code>BPBPBPQ_Op</code></td>
+<td>BPQ.h:28</td>
+<td>—</td>
+<td><code>PolynomialOp_Para&lt;BPBPQ&gt;</code></td>
+<td>Ring ops on <code>BP_*BP⊗BP_*BP⊗Q</code> (used for <code>delta</code>); <code>construct</code> builds `v_n^s[t_{k1}^{i1}</td>
+</tr>
+<tr>
+<td><code>BP_Op</code></td>
+<td>BP.h:33</td>
+<td>— (rings <code>BP=polynomial&lt;Z3&gt;</code>, <code>BPBP=polynomial&lt;BP&gt;</code>, <code>BPBPBP=polynomial&lt;BPBP&gt;</code>)</td>
+<td><code>virtual public Hopf_Algebroid&lt;BP,BPBP&gt;</code>, <code>public PolynomialOp_Para&lt;Z3&gt;</code></td>
+<td>The <strong>integral/mod-3ⁿ</strong> Hopf algebroid <code>(BP_*,BP_*BP)</code>; owns the loaded <code>etaL_table</code>/<code>delta_table</code>/<code>R2L_table</code> matrices, implements <code>etaL</code>, <code>etaR</code>, <code>R2L</code>, <code>delta</code>, <code>algebroid2vector</code>, <code>divide_power_p</code>, <code>divide_v1</code>, <code>h0()</code>, <code>thetas()</code>.</td>
+</tr>
+<tr>
+<td><code>BPBP_Op</code></td>
+<td>BP.h:21</td>
+<td>—</td>
+<td><code>PolynomialOp_Para&lt;BP&gt;</code></td>
+<td>Ring ops on <code>BP_*BP</code>.</td>
+</tr>
+<tr>
+<td><code>BPBPBP_Op</code></td>
+<td>BP.h:27</td>
+<td>—</td>
+<td><code>PolynomialOp_Para&lt;BPBP&gt;</code></td>
+<td>Ring ops on <code>BP_*BP⊗_{BP_*}BP_*BP</code> (target of <code>delta</code>).</td>
+</tr>
+<tr>
+<td><code>BPComodInit</code></td>
+<td>BP_init.h:11</td>
+<td>—</td>
+<td><code>BPCoMod_generic</code> = <code>comodule_generic&lt;BPBP,int&gt;</code></td>
+<td>Loads a generic <code>BP_*BP</code>-comodule&#39;s coaction matrix from a file (constructed once, initialized to the trivial rank-1 comodule by <code>BP_Op::set_to_trivial</code>).</td>
+</tr>
+<tr>
+<td><code>BPInit</code></td>
+<td>BP_init.h:19</td>
+<td>—</td>
+<td>(none; a plain driver/aggregator class)</td>
+<td>Owns every operator/table object for one <code>mr_BP</code> run (<code>Z3_Op</code>, <code>BP_Op</code>, matrix files, <code>BPComplex</code>, <code>algNov_table</code>s/<code>algNov_tables</code>, <code>Boc_table</code>s/<code>Boc_tables</code>, <code>multiplication</code>); exposes <code>resolve()</code>, <code>resolution()</code>, <code>make_algNov()</code>, <code>make_Boc()</code>, <code>mult_table()</code>, <code>mult_theta()</code> as the pipeline steps.</td>
+</tr>
+<tr>
+<td><code>prim_entry</code></td>
+<td>BPcomplex.h:6</td>
+<td>—</td>
+<td>(none)</td>
+<td>One primitive basis element <code>v^coeficient[gen_pos]</code>: a monomial exponent paired with a generator index.</td>
+</tr>
+<tr>
+<td><code>primitive_data</code></td>
+<td>BPcomplex.h:21</td>
+<td>—</td>
+<td><code>public std::vector&lt;prim_entry&gt;</code></td>
+<td>The full primitive basis of one resolution term (list of <code>prim_entry</code> + parallel <code>gen_shift</code>/<code>gen_deg</code> arrays + a <code>prim_index</code> lookup map); static <code>BPoper</code>/<code>Z3Mod_oper</code> shared across all instances.</td>
+</tr>
+<tr>
+<td><code>BPComplex</code></td>
+<td>BPcomplex.h:56</td>
+<td>—</td>
+<td>(none)</td>
+<td>The chain complex of primitives: <code>Prims[i]</code> (basis) and <code>Maps[i]</code> (<code>matrix&lt;Z3&gt;*</code>, the differential in terms of primitives) for each homological degree, built from a stored comodule resolution (<code>load</code>) or from disk (<code>load_matrix</code>).</td>
+</tr>
+<tr>
+<td><code>algNov_table</code></td>
+<td>algNov.h:12</td>
+<td><code>cycle_name = pair&lt;vector&lt;int&gt;,int&gt;</code>, <code>ring=Z3</code> (via <code>SS_table&lt;cycle_name,Z3&gt;</code>)</td>
+<td><code>virtual SS_table&lt;cycle_name,Z3&gt;</code></td>
+<td>One homological degree&#39;s algebraic-Novikov E1/Curtis table: names cycles by <code>(v-adic filtration, v0-valuation, v1-exp,...,v5-exp, gen_pos)</code> (algNov.cpp:20-35), implements the <code>SS_table</code> pure-virtual hooks (<code>naming</code>, <code>leading_term</code>, <code>save</code>/<code>load</code>, <code>output</code>, <code>valid</code>, <code>tagged</code>, <code>invalid</code>, <code>cycle_pot</code>, <code>get_tag</code>).</td>
+</tr>
+<tr>
+<td><code>algNov_tables</code></td>
+<td>algNov.h:84</td>
+<td>—</td>
+<td>(none)</td>
+<td>Owns one <code>algNov_table*</code> per homological degree; <code>table_of_complex</code> wires <code>Ptag</code>/<code>Pcyc</code> (adjacent <code>BPComplex::Prims</code>) and calls <code>SS_table::make_table</code> per degree (algNov.cpp:183-195); aggregate <code>save</code>/<code>load</code>/<code>output_tables</code>.</td>
+</tr>
+<tr>
+<td><code>Boc_table</code></td>
+<td>Boc.h:8</td>
+<td>(inherits algNov_table&#39;s)</td>
+<td><code>public algNov_table</code></td>
+<td>Bockstein spectral sequence table: same cycle-name machinery but <code>v_valuation</code> overridden to count <strong>only</strong> powers of <code>v0=p</code> (Boc.cpp:4-6), so filtration tracks 3-divisibility, not the full v_i-adic filtration; adds <code>Bname2Aname</code> to relate Bockstein names back to algebraic-Novikov names.</td>
+</tr>
+<tr>
+<td><code>Boc_tables</code></td>
+<td>Boc.h:29</td>
+<td>—</td>
+<td><code>public algNov_tables</code></td>
+<td>Same aggregation as <code>algNov_tables</code> but over <code>Boc_table</code>s; explicitly poisons the inherited <code>set_table(vector&lt;algNov_table&gt;*)</code> overload (Boc.cpp:8-10) to stop misuse, requiring the <code>vector&lt;Boc_table&gt;*</code> overload.</td>
+</tr>
+<tr>
+<td><code>multiplication_table_entry&lt;cycle_name&gt;</code></td>
+<td>multiplication.h:8</td>
+<td><code>cycle_name</code></td>
+<td>(none)</td>
+<td>One row of a multiplication table: an <code>original_name</code> and the <code>(tag-names, cycle-names)</code> pair it multiplies to.</td>
+</tr>
+<tr>
+<td><code>multiplication</code></td>
+<td>multiplication.h:20</td>
+<td>—</td>
+<td>(none)</td>
+<td>Computes multiplicative structure on the algNov/Boc tables: <code>make_eta_R_multiplier</code> (matrix of <code>x ↦ η_R(x)·(given BPBP element)</code>), <code>mult_extension</code>/<code>mult_extension1</code> (push a table&#39;s entries through a multiplier matrix and re-name the result in the next table), <code>three_extension</code> (multiplication by the integer 3), and various <code>output_multiplication_table*</code> pretty-printers.</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="4-data-flow">4. Data flow<a class="heading-anchor" href="#4-data-flow">#</a></h2>
+<pre><code>BPtab &lt;halfT&gt;                                                   [BPtable.cpp]
+ 1. monomial_index mon_index(halfT)                                        (BPtable.cpp:10)
+ 2. Q3_Op/Q3_int + BPQ_Op(maxVar) — RATIONAL Hopf algebroid              (BPtable.cpp:18-20)
+      BPQ_Op ctor recursively builds li&lt;-&gt;vn change of basis and the
+      rational etaR/delta tables purely over Q                        (BPQ.cpp:17-83)
+ 3. write &lt;halfT&gt;_structures  (human-readable li/vn/etaR)              (BPtable.cpp:23-27)
+ 4. write &lt;halfT&gt;_R2L_gen, &lt;halfT&gt;_delta_gen                             (BPtable.cpp:30-35)
+      (rational etaR-in-terms-of-vn and delta-in-terms-of-vn generators,
+       output_R2L / output_delta on BPQ_Op                              BPQ.cpp:248-263)
+ 5. fresh BP_Op(halfT, etaL_mat, delta_mat=NULL, R2L_mat=NULL)          (BPtable.cpp:40)
+ 6. BP_Op::make_tables(...)                                             (BP.cpp:126-209)
+      - loads &lt;halfT&gt;_R2L_gen / &lt;halfT&gt;_delta_gen generator values
+      - RECURSIVELY computes etaL_gen[i] from R2L_gen using the Hopf-
+        algebroid identity  etaL(v_n) = v_n - etaR(v_n) + etaR(v_n)   (BP.cpp:153-176)
+      - expands every generator's formula to ALL monomials up to halfT
+        via monomial_index::substitution_table                        (BP.cpp:177-208, mon_index.h:37-63)
+      - writes the 3 FINAL binary tables read by mr_BP:
+          &lt;halfT&gt;_etaL, &lt;halfT&gt;_R2L, &lt;halfT&gt;_delta                     (BP.cpp:180-192,206-208)
+      - also writes &lt;halfT&gt;_Ls (human-readable etaR(v_i)/delta(t_i))    (BPtable.cpp:44-45)
+
+mr_BP &lt;halfT&gt; &lt;resolution_length&gt;                                [BPmain.cpp]
+ 1. BPInit ctor: BP_Op::initialize(&lt;halfT&gt;_etaL,&lt;halfT&gt;_R2L,&lt;halfT&gt;_delta)
+      -&gt; load_etaL/load_R2L/load_delta  == the exact 3 files BPtab wrote (BP.cpp:30-51, BP_init.cpp:20)
+      -&gt; init_cofree_data (framework: Hopf_Algebroid, hopf_algebroid/12.h)
+      Also sets up primitive_data::set_oper, algNov_table::set_op,
+      trivial rank-1 comodule at degree 0 via BP_Op::set_to_trivial   (BP_init.cpp:23,30,33)
+ 2. BPoper.load_gens(&lt;halfT&gt;_gens_data)                                (BPmain.cpp:23)  -- external input, not produced by BPtab
+ 3. BPoper.resolve()
+      -&gt; Hopf_Algebroid&lt;BP,BPBP&gt;::pre_resolution_modeled(...)         (BP_init.cpp:50, hopf_algebroid/6.h:41)
+         builds the minimal resolution of BP_*BP-comodules term by
+         term, writing &lt;halfT&gt;_BPmaps / &lt;halfT&gt;_BPgens / &lt;halfT&gt;_BPtables
+      -&gt; gens_file_combiner                                            (BP_init.cpp:53, hopf_algebroid/6.h:123)
+ 4. BPoper.resolution()
+      -&gt; Hopf_Algebroid&lt;...&gt;::resolution(...)                          (BP_init.cpp:60, hopf_algebroid/8.h:4)
+         re-walks the stored maps/gens and materializes matrices in mapses[]
+      -&gt; BPComplex::load(...)                                          (BP_init.cpp:67, BPcomplex.cpp:121-150)
+         converts the comodule resolution into the COMPLEX OF PRIMITIVES
+         (free BP_*-module basis per generator + differential matrices Maps[i])
+      -&gt; Complex.save_matrix(&lt;halfT&gt;_BPcpx)                            (BP_init.cpp:68, BPcomplex.cpp:153-157)
+ 5. BPoper.make_algNov()                                               (BP_init.cpp:98-109)
+      -&gt; Complex.load_matrix(...)
+      -&gt; AANtables.table_of_complex(Complex, resolution_length)
+           per-degree SS_table&lt;cycle_name,Z3&gt;::make_table using the
+           I=(p,v1,...)-adic filtration naming                        (algNov.cpp:183-195, algNov.cpp:15-35)
+      -&gt; save &lt;halfT&gt;_BPAANSS_table_binary / .txt (the algNov E2-page tables)
+      -&gt; multp.three_extension(...) -&gt; &lt;halfT&gt;_BPAANSS_a0.txt (mult-by-3 / a0 extension)
+ 6. BPoper.make_Boc()                                                  (BP_init.cpp:112-127)
+      -&gt; Btables.table_of_complex(Complex, resolution_length)
+           same machinery, but Boc_table::v_valuation counts ONLY
+           powers of p (Boc.cpp:4-6) =&gt; Bockstein spectral sequence
+      -&gt; save &lt;halfT&gt;_BPBocSS_table_binary / .txt
+      -&gt; Btables.Bname2Anames(...) -&gt; &lt;halfT&gt;_BPB2A_table.txt (Boc name -&gt; algNov name map)
+      -&gt; multp.three_extension(...) -&gt; &lt;halfT&gt;_BPBocSS_a0.txt
+ 7. BPoper.mult_table() / mult_theta(resolution_length)                (BP_init.cpp:129-187)
+      -&gt; BP_Op::h0() = (etaR(v1)-etaL(v1))/p                            (BP.cpp:240-250)
+      -&gt; BP_Op::thetas() = d(v2^k)/v1^j  Massey-product-like elements   (BP.cpp:253-340)
+      -&gt; multp.make_eta_R_multiplier + mult_extension/mult_extension1
+         -&gt; &lt;halfT&gt;_BPAANSS_h0.txt, &lt;halfT&gt;_BPBocSS_h0.txt,
+            &lt;halfT&gt;_BPBocSS_theta{2..7}.txt  (multiplication-by-h0 / theta_i tables)</code></pre>
+<h2 id="5-key-relationships">5. Key relationships<a class="heading-anchor" href="#5-key-relationships">#</a></h2>
+<div class="mermaid-wrap"><pre class="mermaid">classDiagram
+    class RingOp~ring~ { &lt;&lt;framework, see FRAMEWORK.md&gt;&gt; }
+    class Hopf_Algebroid~ring,algebroid~ { &lt;&lt;framework, see FRAMEWORK.md&gt;&gt; }
+    class SS_table~cycle_name,ring~ { &lt;&lt;framework, see FRAMEWORK.md&gt;&gt; }
+    class PolynomialOp_Para~ring~ { &lt;&lt;framework, see FRAMEWORK.md&gt;&gt; }
+
+    RingOp~Z3~ &lt;|-- Z3_Op
+    RingOp~Qp~ &lt;|-- Qp_Op
+    Qp_Op &lt;|-- Q3_Op
+    Qp_Op &lt;|-- Qp_int
+    Qp_int &lt;|-- Q3_int
+    Q3_Op &lt;|-- Q3_int
+
+    PolynomialOp_Para~Qp~ &lt;|-- BPQ_Op
+    PolynomialOp_Para~BPQ~ &lt;|-- BPBPQ_Op
+    PolynomialOp_Para~BPBPQ~ &lt;|-- BPBPBPQ_Op
+
+    Hopf_Algebroid~BP_BPBP~ &lt;|-- BP_Op
+    PolynomialOp_Para~Z3~ &lt;|-- BP_Op
+    PolynomialOp_Para~BP~ &lt;|-- BPBP_Op
+    PolynomialOp_Para~BPBP~ &lt;|-- BPBPBP_Op
+    BP_Op *-- BPBP_Op
+    BP_Op *-- BPBPBP_Op
+    BP_Op ..&gt; BPQ_Op : structure maps computed rationally first (BPtable.cpp)
+
+    SS_table~cycle_name_Z3~ &lt;|-- algNov_table
+    algNov_table &lt;|-- Boc_table
+    algNov_tables o-- algNov_table
+    Boc_tables --|&gt; algNov_tables
+    Boc_tables o-- Boc_table
+
+    class BPComplex {
+      Prims: vector~primitive_data~
+      Maps: vector~matrix~Z3~*~
+    }
+    class primitive_data {
+      vector~prim_entry~
+      gen_shift, gen_deg
+    }
+    BPComplex *-- primitive_data
+    primitive_data --&gt; BP_Op : static BPoper
+    algNov_tables ..&gt; BPComplex : table_of_complex()
+    Boc_tables ..&gt; BPComplex : table_of_complex()
+    multiplication ..&gt; BPComplex
+    multiplication ..&gt; algNov_table
+    multiplication ..&gt; Boc_table
+
+    class BPInit {
+      BP_Op BP_oper
+      BPComplex Complex
+      vector~algNov_table~ AAN_table
+      algNov_tables AANtables
+      vector~Boc_table~ B_table
+      Boc_tables Btables
+      multiplication multp
+      resolve()
+      resolution()
+      make_algNov()
+      make_Boc()
+    }
+    BPInit *-- BP_Op
+    BPInit *-- BPComplex
+    BPInit *-- algNov_tables
+    BPInit *-- Boc_tables
+    BPInit *-- multiplication
+    BPInit o-- BPComodInit
+    class BPComodInit
+    comodule_generic~BPBP_int~ &lt;|-- BPComodInit</pre><div class="mermaid-fallback-note">Diagram (renders automatically when online; source shown above as plain text otherwise — also viewable pre-rendered on GitHub)</div></div>
+<h2 id="6-open-math-questions">6. Open math questions<a class="heading-anchor" href="#6-open-math-questions">#</a></h2>
+<ul>
+<li><strong>TODO(math):</strong> What exactly is &quot;Boc&quot;? The code only tells us mechanically that <code>Boc_table</code>
+is <code>algNov_table</code> with <code>v_valuation</code> redefined to count powers of <code>p</code> alone instead of the
+full v-adic filtration (Boc.cpp:4-6), i.e. it appears to be the <strong>Bockstein spectral
+sequence</strong> associated to reduction mod 3 (consistent with the name), used to detect
+multiplication-by-3 (<code>three_extension</code>) differentials on top of the algebraic Novikov page.
+The precise relationship between &quot;Bockstein SS here&quot; and the classical mod-p Bockstein SS for
+computing integral vs. mod-p Ext, and why it&#39;s derived from the <em>same</em> primitive complex as
+algNov rather than an independent computation, isn&#39;t stated in comments anywhere read.</li>
+<li><strong>TODO(math):</strong> The exact mathematical role of <code>BP/I</code> (<code>I=(p,v1,v2,...)</code>) as a <em>second
+resolution phase</em> (the README&#39;s <code>mr_st</code>/&quot;minimal resolution for BP/I&quot;) relative to this BP
+pipeline is not fully recoverable from the files read here — no code in <code>BP.cpp</code>/<code>BP_init.cpp</code>
+consumes <code>mr_st</code>&#39;s output, and <code>BPComplex</code> (despite superficially resembling a &quot;BP/I&quot; object)
+is actually the primitive-basis presentation of the BP resolution itself, not a BP/I quotient.
+Confirm with <code>steenrod.cpp</code>/<code>steenrod_init.cpp</code>/<code>ex_*</code> (out of scope here) whether/how the two
+phases&#39; outputs are meant to be compared.</li>
+<li><strong>TODO(math):</strong> <code>BP_Op::divide_power_p</code> and <code>BP_Op::divide_v1</code> (BP.cpp:343-382) implicitly
+assume their arguments are actually divisible by <code>p^n</code> / <code>v1^n</code> (no remainder is checked for
+<code>divide_power_p</code>; <code>divide_v1</code> prints <code>&quot;not v1-divisible&quot;</code> to stderr but does not abort or
+correct the computation, BP.cpp:377). Why these divisions are always mathematically valid at
+their call sites (<code>h0()</code>, <code>thetas()</code> — both differences of <code>etaL</code>/<code>etaR</code> on elements known to
+be primitive/invariant mod the relevant power) is a consequence of the Hopf-algebroid identity
+<code>etaR - etaL ≡ 0 mod I</code>, but the code does not document <em>why</em> e.g. <code>d(v2^k)</code> is always
+<code>v1</code>-divisible exactly once vs. three times (the <code>beta_i</code> vs <code>beta_i/3</code> naming in <code>thetas()</code>,
+BP.cpp:264-334) — this reflects specific Novikov/Greek-letter element computations not
+explained in-line.</li>
+<li><strong>TODO(math):</strong> <code>Z3_Op::divide</code> (Z3.cpp:144-147) is flagged by an existing reviewer comment
+(&quot;I&#39;m concerned because I have no idea what that comment refers to... FIXME&quot;, Z3.cpp:141-143)
+as using signed 64-bit division to approximate an exact p-adic division; whether this can
+silently produce a wrong low-order digit for values near the <code>2^63</code>/<code>3^40</code> boundary is not
+resolved in this pass.</li>
+<li><strong>Stale/orphaned file noted in passing:</strong> <code>Qptest.cpp</code> references <code>Q2_Op</code>/<code>Q2_int</code>, which do
+not exist anywhere in <code>Qp.h</code>/<code>Qp.cpp</code> (only <code>Q3_Op</code>/<code>Q3_int</code> are defined) — it is not part of
+either compile script (<code>BP_compile</code>, <code>BPtable_compile</code>) and appears to predate the p=3 fork
+(would not compile as-is).</li>
+</ul>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="../index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="../assets/page.js"></script>
+</body>
+</html>

@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Architecture — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">ARCHITECTURE</span></div>
+  <div class="actions">
+    <a class="src-link" href="ARCHITECTURE.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="architecture">Architecture<a class="heading-anchor" href="#architecture">#</a></h1>
+<p>This document is the map of the whole repository: what it computes, how its
+11 build targets relate, and where the actual prime <code>p</code> each computation runs
+at diverges from the &quot;p=3 fork&quot; framing in the top-level README. It assumes
+you&#39;ll click through to the detail docs for anything beyond the big picture:</p>
+<ul>
+<li><a href="FRAMEWORK.html"><code>FRAMEWORK.md</code></a> — the generic, math-agnostic template layer
+(rings, modules, matrices, comodules, <code>Hopf_Algebroid</code>, <code>curtis_table</code>).</li>
+<li><a href="pipelines/STEENROD.html"><code>pipelines/STEENROD.md</code></a> — <code>mr_st</code>, <code>kos</code>.</li>
+<li><a href="pipelines/BP.html"><code>pipelines/BP.md</code></a> — <code>BPtab</code>, <code>mr_BP</code> (the repo&#39;s main deliverable).</li>
+<li><a href="pipelines/MOTIVIC.html"><code>pipelines/MOTIVIC.md</code></a> — <code>motTab</code>, <code>mr_mot</code>, <code>mot_comb</code>, <code>mot_mult</code>, <code>tauBoc</code>.</li>
+<li><a href="pipelines/EX_CTAU.html"><code>pipelines/EX_CTAU.md</code></a> — <code>mr_ex</code>, <code>e2p</code>.</li>
+<li><a href="BUILD_AND_RUN.html"><code>BUILD_AND_RUN.md</code></a> — concrete build/run instructions.</li>
+<li><a href="CLASSES.html"><code>CLASSES.md</code></a> — full class catalog across all four docs.</li>
+<li><a href="GLOSSARY.html"><code>GLOSSARY.md</code></a> — math term ↔ code identifier index.</li>
+</ul>
+<h2 id="1-what-this-repo-computes">1. What this repo computes<a class="heading-anchor" href="#1-what-this-repo-computes">#</a></h2>
+<p>This is Guozhen Wang&#39;s minimal-resolution machinery for computing the
+<strong>Adams–Novikov E2 page for the sphere spectrum</strong>, forked to the prime 3, via
+the <strong>algebraic Novikov spectral sequence</strong>: filter
+<code>Ext_{BP_*BP}(BP_*, BP_*)</code> by powers of the invariant regular ideal
+<code>I = (p, v1, v2, ...)</code> and read off the associated-graded Ext groups
+(<code>docs/pipelines/BP.md</code> §1). The BP pipeline (<code>BPtab</code> → <code>mr_BP</code>) is the actual
+deliverable; everything else in the repo is either infrastructure it&#39;s built
+on (the generic framework) or a related/adjacent computation (classical
+Steenrod-algebra Ext, the motivic Adams E2 page, a Koszul cross-check) that
+shares the same resolution engine.</p>
+<h2 id="2-the-four-layer-structure">2. The four-layer structure<a class="heading-anchor" href="#2-the-four-layer-structure">#</a></h2>
+<pre><code>┌─────────────────────────────────────────────────────────────────────┐
+│  Layer 4: concrete pipelines (each ties a ring + Hopf-algebroid       │
+│  structure + a main() driver to the framework below)                 │
+│                                                                       │
+│    Steenrod (p=3)      BP (p=3)         Ex/Ctau (p=2)   Motivic (p=2)│
+│    steenrod.*           BP.*, BPQ.*      ctau_steenrod.* mot_steenrod.*│
+│    steenrod_init.*      BP_init.*        ex_steenrod_init.* tao_bockstein.*│
+│    stmain.cpp           BPmain.cpp       ex_main.cpp     mot_main.cpp │
+│    kosul.cpp            BPtable.cpp                      + 4 more    │
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 3: base rings                                                 │
+│    Fp (F_p field)   Z3 (3-adic ints)   Qp/Q3 (p-local rationals, GMP)│
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 2: generic algebraic structures (math-agnostic, templated)    │
+│    RingOp/AbGroupOp · ModuleOp · matrix (mem/stream/file backends)   │
+│    polynomial/PolyOp_Para · CoModule/comodule_generic/cofree_comodule│
+│    Hopf_Algebroid  (the resolution ALGORITHM lives here)             │
+│    curtis_table (mem/stream backends) · SS_table · monomial_index    │
+├─────────────────────────────────────────────────────────────────────┤
+│  Layer 1: plumbing                                                   │
+│    con_streams/con_fstreams (thread-safe file/stream IO)             │
+└─────────────────────────────────────────────────────────────────────┘</code></pre>
+<p>Every concrete pipeline instantiates <code>Hopf_Algebroid&lt;ring, algebroid&gt;</code> for
+its own ring/algebroid pair and gets the entire resolution algorithm
+(<code>embed2cofree</code>, <code>resolvor</code>, <code>pre_resolution_tab</code>, <code>quotient</code>, ...) for free —
+see <code>FRAMEWORK.md</code> §5 for exactly what that algorithm computes and where the
+math-level justification (external to this repo — <code>MinimalResolution.pdf</code>) is
+needed to fully understand <em>why</em> it&#39;s correct.</p>
+<h2 id="3-executable-pipeline-and-data-flow">3. Executable pipeline and data flow<a class="heading-anchor" href="#3-executable-pipeline-and-data-flow">#</a></h2>
+<p>11 build targets total (9 &quot;primary&quot; executables plus 2 upstream helper tools,
+<code>motTab</code> and <code>e2p</code>, that other docs found were required but not in the
+original brief):</p>
+<div class="mermaid-wrap"><pre class="mermaid">flowchart TB
+    subgraph Steenrod["Classical Steenrod (p=3)"]
+        mrst["mr_st &amp;lt;halfT&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;stmain.cpp"]
+        kos["kos &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;kosul.cpp — hardcoded p=2&lt;br/&gt;(likely unported)"]
+    end
+
+    subgraph BP["BP Hopf algebroid (p=3) — MAIN DELIVERABLE"]
+        bptab["BPtab &amp;lt;halfT&amp;gt;&lt;br/&gt;BPtable.cpp"]
+        mrbp["mr_BP &amp;lt;halfT&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;BPmain.cpp"]
+        bptab --&gt;|"&amp;lt;halfT&amp;gt;_etaL/_R2L/_delta"| mrbp
+    end
+
+    subgraph ExCtau["Ex/Ctau (p=2 hardcoded)"]
+        mrex["mr_ex &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;ex_main.cpp"]
+        e2p["e2p &amp;lt;maxdeg&amp;gt;&lt;br/&gt;ex2poly.cpp"]
+    end
+
+    subgraph Motivic["Motivic tau-graded (p=2 hardcoded)"]
+        mottab["motTab &amp;lt;maxdeg&amp;gt;&lt;br/&gt;mot_coactions.cpp"]
+        mrmot["mr_mot &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;mot_main.cpp"]
+        motcomb["mot_comb &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;mot_combine.cpp&lt;br/&gt;(resume/recombine only)"]
+        motmult["mot_mult &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;mot_mult.cpp"]
+        taub["tauBoc &amp;lt;maxdeg&amp;gt; &amp;lt;len&amp;gt;&lt;br/&gt;taubocmain.cpp"]
+        mottab --&gt;|"_mot_deltas/_poly_exponents"| mrmot
+        mrmot --&gt;|"_mot_gens/_mot_res"| motcomb
+        mrmot --&gt;|"_mot_gens/_mot_res"| motmult
+        mrmot --&gt;|"_mot_gens/_mot_res"| taub
+    end
+
+    mrex --&gt;|"_gens_data_ctau, _extables&lt;br/&gt;(models the resolution)"| mrmot
+    e2p --&gt;|"_ex2poly_index"| mrmot
+
+    mrst -.-&gt;|"_gens_data&lt;br/&gt;(same filename convention —&lt;br/&gt;see §4 below)"| mrbp
+
+    style BP fill:#2d5,stroke:#333</pre><div class="mermaid-fallback-note">Diagram (renders automatically when online; source shown above as plain text otherwise — also viewable pre-rendered on GitHub)</div></div>
+<p>Notes on this diagram:</p>
+<ul>
+<li><strong>Solid arrows</strong> are confirmed file-based dependencies (cited with
+file:line in the pipeline docs). <strong>Dotted arrows</strong> are inferred from
+matching filename conventions rather than a direct <code>load</code> call — see §4.</li>
+<li><code>kos</code> and the four <code>mr_ex</code>/<code>e2p</code> boxes are <em>not</em> wired into the BP
+pipeline&#39;s data flow at all; they&#39;re separate computations that happen to
+reuse the same generic framework.</li>
+<li><code>BPtab</code>/<code>mr_BP</code> is the only pipeline entirely self-contained and running at
+the prime the repo claims to be forked to (p=3) — see §5.</li>
+</ul>
+<h2 id="4-resolving-the-mr_st-mr_bp-connection">4. Resolving the <code>mr_st</code> ↔ <code>mr_BP</code> connection<a class="heading-anchor" href="#4-resolving-the-mr_st-mr_bp-connection">#</a></h2>
+<p><code>docs/pipelines/BP.md</code> flagged as <code>TODO(math)</code> that no code in <code>BP.cpp</code>/
+<code>BP_init.cpp</code> visibly loads any <code>mr_st</code> output file, even though the README
+lists <code>mr_st</code> as a prerequisite phase (&quot;the minimal resolution for BP/I&quot;).
+Cross-referencing the two docs resolves the <em>mechanism</em>, if not the full
+mathematical justification:</p>
+<ul>
+<li><code>mr_st</code> (<code>docs/pipelines/STEENROD.md</code> §2) writes <code>&lt;maxdeg&gt;_gens_data</code> via
+<code>SteenrodInit::save_gens</code> (<code>steenrod_init.cpp:60-70</code>).</li>
+<li><code>mr_BP</code> (<code>docs/pipelines/BP.md</code> §2.2) <em>requires</em> <code>&lt;halfT&gt;_gens_data</code> via
+<code>BPInit::load_gens</code> (<code>BPmain.cpp:23</code>, <code>BP_init.cpp:82-95</code>) — a file that
+<code>BPtab</code> never produces.</li>
+<li>The filenames match exactly (same <code>&lt;degree-argument&gt;_gens_data</code> pattern),
+and the README instructs running <code>mr_st</code> before <code>mr_BP</code> on the same
+half-degree argument. This strongly suggests <strong><code>mr_st</code>&#39;s <code>_gens_data</code>
+output is literally the file <code>mr_BP</code> expects</strong> — i.e. the classical
+Steenrod-algebra resolution&#39;s generators (computed via the
+<code>BP_*BP/I ≅ A_*</code> identification, <code>docs/pipelines/STEENROD.md</code> §1) seed the
+BP resolution&#39;s generator choices, the same &quot;modeled resolution&quot; pattern
+used elsewhere in this codebase (<code>mr_ex</code> → <code>mr_mot</code>, <code>docs/pipelines/ MOTIVIC.md</code> §2).</li>
+<li><strong>Still open (<code>TODO(math)</code>):</strong> <em>why</em> this transport is mathematically
+valid — i.e. why a minimal generating set for <code>Ext_{A_*}(F_3,F_3)</code> doubles
+as a minimal generating set for the <code>BP_*BP</code> resolution — is the same kind
+of &quot;modeled resolution&quot; justification flagged as unresolved in both
+<code>FRAMEWORK.md</code> §5 (<code>resolvor_modeled</code>) and <code>MOTIVIC.md</code> §5. This is exactly
+the kind of thing <code>MinimalResolution.pdf</code> (referenced by the README, not
+present in this repo) would explain.</li>
+</ul>
+<h2 id="5-the-p2-vs-p3-split-the-most-important-thing-to-know-before-reading-code">5. The &quot;p=2 vs p=3&quot; split — the most important thing to know before reading code<a class="heading-anchor" href="#5-the-p2-vs-p3-split-the-most-important-thing-to-know-before-reading-code">#</a></h2>
+<p>Despite the repo&#39;s framing as <strong>&quot;a p=3 fork&quot;</strong> of the original p=2 codebase,
+cross-referencing all four pipeline docs shows the fork is <strong>partial</strong>:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Pipeline</th>
+<th>Executable(s)</th>
+<th>Prime</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>Classical Steenrod</td>
+<td><code>mr_st</code></td>
+<td><strong>3</strong></td>
+<td><code>stmain.cpp:11</code>, <code>SteenrodInit st(3, ...)</code></td>
+</tr>
+<tr>
+<td>BP Hopf algebroid</td>
+<td><code>BPtab</code>, <code>mr_BP</code></td>
+<td><strong>3</strong></td>
+<td><code>Z3</code> = 3-adic integers throughout; <code>BPtable.cpp</code>/<code>BPmain.cpp</code></td>
+</tr>
+<tr>
+<td>Koszul</td>
+<td><code>kos</code></td>
+<td>2</td>
+<td><code>kosul.cpp:47</code>, <code>SteenrodInit st(2, ...)</code></td>
+</tr>
+<tr>
+<td>Ex/Ctau</td>
+<td><code>mr_ex</code></td>
+<td>2</td>
+<td><code>ex_main.cpp:11</code>, <code>SteenrodInit st(2, ...)</code></td>
+</tr>
+<tr>
+<td>Motivic</td>
+<td><code>motTab</code>, <code>mr_mot</code>, <code>mot_comb</code>, <code>mot_mult</code>, <code>tauBoc</code></td>
+<td>2 (?)</td>
+<td><code>mot_steenrod.cpp</code>&#39;s <code>tauOper::add</code> and <code>MotSteenrodOp::lift</code> implement mod-2 arithmetic (<code>x%2!=0</code> tests) despite <code>F3</code>-named types — see <code>MOTIVIC.md</code> §1</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Practical implication:</strong> if you&#39;re trying to reproduce or extend the p=3
+algebraic-Novikov E2-page computation (the repo&#39;s stated goal), the pipeline
+you want is exclusively <strong><code>mr_st</code> → <code>BPtab</code> → <code>mr_BP</code></strong>. The ex/ctau and
+motivic pipelines, and <code>kos</code>, are auxiliary/adjacent computations that — per
+current code — are not actually running at p=3, and it&#39;s an open question
+(flagged <code>TODO(math)</code>/<code>TODO(code)</code> in the respective docs) whether that&#39;s
+intentional (e.g. deliberately kept at p=2 because the motivic story is only
+being explored at p=2 for now) or simply an unfinished part of the port.</p>
+<h2 id="6-known-deadduplicate-code-worth-cleaning-up">6. Known dead/duplicate code (worth cleaning up)<a class="heading-anchor" href="#6-known-deadduplicate-code-worth-cleaning-up">#</a></h2>
+<p>Found while documenting, not something introduced by this documentation
+effort — listed here so it&#39;s in one place instead of scattered across four
+docs:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>File(s)</th>
+<th>Issue</th>
+<th>Detail</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>others.h</code></td>
+<td>Dead, incompatible second <code>curtis_table</code>/<code>matrix_array</code>/<code>quasi_table</code> hierarchy under nonexistent namespaces; <code>#include</code>s a nonexistent <code>filedmatrices.h</code>; not included anywhere</td>
+<td><code>FRAMEWORK.md</code> §3 note</td>
+</tr>
+<tr>
+<td><code>lift.h</code></td>
+<td>Looks non-compiling as written (wrong-arity call, references a nonexistent member)</td>
+<td><code>FRAMEWORK.md</code> §3 note</td>
+</tr>
+<tr>
+<td><code>expoly.h</code></td>
+<td>Byte-for-byte duplicate of <code>ex_exponents.h</code>, unreferenced by any file</td>
+<td><code>EX_CTAU.md</code> §3/§5</td>
+</tr>
+<tr>
+<td><code>ex_test.cpp</code></td>
+<td>Orphaned scratch test, not in any compile script</td>
+<td><code>EX_CTAU.md</code> §5</td>
+</tr>
+<tr>
+<td><code>tao_boc.cpp</code></td>
+<td>Pre-refactor snapshot superseded by <code>tao_bockstein.cpp</code>, uses namespaces/types that no longer exist</td>
+<td><code>EX_CTAU.md</code> §5</td>
+</tr>
+<tr>
+<td><code>Qptest.cpp</code></td>
+<td>References <code>Q2_Op</code>/<code>Q2_int</code>, which don&#39;t exist in current <code>Qp.h</code> — predates the p=3 fork, not in any compile script</td>
+<td><code>BP.md</code> §6</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="7-the-numbered-fragment-file-convention">7. The numbered-fragment file convention<a class="heading-anchor" href="#7-the-numbered-fragment-file-convention">#</a></h2>
+<p>If you haven&#39;t read it yet, <code>FRAMEWORK.md</code> §2 explains a convention used
+throughout the framework layer: headers like <code>matrices.h</code>, <code>modules.h</code>,
+<code>hopf_algebroid.h</code> are pure <code>#include</code> manifests over a directory of
+numbered fragment files (<code>matrices/1.h</code>...<code>matrices/9.h</code>, etc.) where most
+fragments are out-of-line method bodies for a class declared in an
+earlier-numbered fragment — <strong>except</strong> <code>matrices/9.h</code>, which is a trap: it&#39;s
+an entirely separate class (<code>curtis_table</code>) that just happens to share the
+directory. Read that section before diving into any of the framework
+source files.</p>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>
