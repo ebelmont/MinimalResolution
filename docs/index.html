@@ -131,7 +131,7 @@
   Adams&ndash;Novikov E<sub>2</sub> page for the sphere, via the algebraic
   Novikov spectral sequence. This page is the entry point into documentation
   generated from the actual source (with file:line citations) &mdash; start
-  with <a href="ARCHITECTURE.md">Architecture</a> if you're new here.
+  with <a href="ARCHITECTURE.html">Architecture</a> if you're new here.
 </p>
 
 <div class="callout">
@@ -139,26 +139,26 @@
   Only <code>mr_st</code> and the BP pipeline (<code>BPtab</code>/<code>mr_BP</code>)
   actually run at p=3. <code>kos</code>, <code>mr_ex</code>, and the entire
   motivic pipeline are hardcoded to p=2. See
-  <a href="ARCHITECTURE.md#5-the-p2-vs-p3-split--the-most-important-thing-to-know-before-reading-code">Architecture &sect;5</a>
+  <a href="ARCHITECTURE.html#5-the-p2-vs-p3-split-the-most-important-thing-to-know-before-reading-code">Architecture &sect;5</a>
   for the evidence, file by file.
 </div>
 
 <h2>Start here</h2>
 <div class="card-grid">
   <div class="card">
-    <h3><a href="ARCHITECTURE.md">Architecture</a></h3>
+    <h3><a href="ARCHITECTURE.html">Architecture</a></h3>
     <p>The big picture: what this computes, the 4-layer structure, the full executable pipeline diagram, and the p=2/p=3 split.</p>
   </div>
   <div class="card">
-    <h3><a href="BUILD_AND_RUN.md">Build &amp; Run</a></h3>
+    <h3><a href="BUILD_AND_RUN.html">Build &amp; Run</a></h3>
     <p>Concrete build/run instructions for all 11 executables, argument conventions, and the segfault mechanism explained.</p>
   </div>
   <div class="card">
-    <h3><a href="CLASSES.md">Class Catalog</a></h3>
+    <h3><a href="CLASSES.html">Class Catalog</a></h3>
     <p>Every class in the repo (~65), grouped by layer, with an inheritance diagram.</p>
   </div>
   <div class="card">
-    <h3><a href="GLOSSARY.md">Glossary</a></h3>
+    <h3><a href="GLOSSARY.html">Glossary</a></h3>
     <p>Math concept &harr; code identifier lookup table, both directions.</p>
   </div>
 </div>
@@ -168,31 +168,31 @@
   <thead><tr><th>Doc</th><th>Prime</th><th>Executables</th><th>Role</th></tr></thead>
   <tbody>
     <tr class="p3">
-      <td><a href="pipelines/BP.md">BP.md</a></td>
+      <td><a href="pipelines/BP.html">BP.md</a></td>
       <td>p=3</td>
       <td><code>BPtab</code>, <code>mr_BP</code></td>
       <td><strong>Main deliverable.</strong> The BP Hopf algebroid resolution, algebraic Novikov + Bockstein SS tables.</td>
     </tr>
     <tr class="p3">
-      <td><a href="pipelines/STEENROD.md">STEENROD.md</a></td>
+      <td><a href="pipelines/STEENROD.html">STEENROD.md</a></td>
       <td>p=3 / p=2*</td>
       <td><code>mr_st</code>, <code>kos</code>*</td>
       <td>Classical dual-Steenrod-algebra Ext; seeds the BP resolution's generators. (*<code>kos</code> hardcodes p=2.)</td>
     </tr>
     <tr class="p2">
-      <td><a href="pipelines/EX_CTAU.md">EX_CTAU.md</a></td>
+      <td><a href="pipelines/EX_CTAU.html">EX_CTAU.md</a></td>
       <td>p=2</td>
       <td><code>mr_ex</code>, <code>e2p</code></td>
       <td>Exterior+polynomial dual-Steenrod-algebra variant; models the motivic resolution's generators.</td>
     </tr>
     <tr class="p2">
-      <td><a href="pipelines/MOTIVIC.md">MOTIVIC.md</a></td>
+      <td><a href="pipelines/MOTIVIC.html">MOTIVIC.md</a></td>
       <td>p=2</td>
       <td><code>motTab</code>, <code>mr_mot</code>, <code>mot_comb</code>, <code>mot_mult</code>, <code>tauBoc</code></td>
       <td>Motivic (&tau;-graded) dual Steenrod algebra Ext + &tau;-Bockstein spectral sequence.</td>
     </tr>
     <tr>
-      <td><a href="FRAMEWORK.md">FRAMEWORK.md</a></td>
+      <td><a href="FRAMEWORK.html">FRAMEWORK.md</a></td>
       <td>&mdash;</td>
       <td>(none &mdash; library code)</td>
       <td>Generic, math-agnostic template layer every pipeline above builds on: rings, modules, matrices, comodules, <code>Hopf_Algebroid</code>, <code>curtis_table</code>.</td>
@@ -242,7 +242,7 @@
 </table>
 
 <h2>Known issues worth cleaning up</h2>
-<p>Found while documenting (see <a href="ARCHITECTURE.md#6-known-deaddup­licate-code-worth-cleaning-up">Architecture &sect;6</a> for details): <code>others.h</code> (dead, incompatible duplicate framework classes), <code>lift.h</code> (looks non-compiling), <code>expoly.h</code> (byte-for-byte duplicate of <code>ex_exponents.h</code>), <code>ex_test.cpp</code> and <code>tao_boc.cpp</code> (orphaned, superseded), <code>Qptest.cpp</code> (references types that no longer exist).</p>
+<p>Found while documenting (see <a href="ARCHITECTURE.html#6-known-deadduplicate-code-worth-cleaning-up">Architecture &sect;6</a> for details): <code>others.h</code> (dead, incompatible duplicate framework classes), <code>lift.h</code> (looks non-compiling), <code>expoly.h</code> (byte-for-byte duplicate of <code>ex_exponents.h</code>), <code>ex_test.cpp</code> and <code>tao_boc.cpp</code> (orphaned, superseded), <code>Qptest.cpp</code> (references types that no longer exist).</p>
 
 <footer>
   Generated documentation for a research codebase with no prior architecture docs.

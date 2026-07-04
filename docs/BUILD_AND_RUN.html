@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Build and Run — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">BUILD_AND_RUN</span></div>
+  <div class="actions">
+    <a class="src-link" href="BUILD_AND_RUN.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="build-and-run">Build and Run<a class="heading-anchor" href="#build-and-run">#</a></h1>
+<p>Concrete instructions for building and running every executable in the repo,
+consolidated from the individual pipeline docs. See
+<a href="ARCHITECTURE.html"><code>ARCHITECTURE.md</code></a> for how these fit together and the p=2
+vs p=3 caveat (§5 there) before you pick which pipeline to run.</p>
+<p>Requires GCC with C++11/C++14 support, OpenMP, and (for <code>BPtab</code> only) the GNU
+Multiple Precision library (<code>libgmp</code>, <code>libgmpxx</code>).</p>
+<p>All executables take degree parameters as <code>argv[1]</code>/<code>argv[2]</code> and read/write
+files in the <strong>current working directory</strong>, prefixed with the first
+argument (e.g. <code>25_etaL</code>, <code>25_maps</code>). Run everything for a given computation
+from the same directory, and don&#39;t mix output files from runs with different
+degree arguments.</p>
+<h2 id="quick-reference-build-scripts-executables">Quick reference: build scripts → executables<a class="heading-anchor" href="#quick-reference-build-scripts-executables">#</a></h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Script</th>
+<th>Executable</th>
+<th>Pipeline</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sh st_compiling</code></td>
+<td><code>mr_st</code></td>
+<td>Steenrod</td>
+</tr>
+<tr>
+<td><code>sh kos_compile</code></td>
+<td><code>kos</code></td>
+<td>Steenrod (Koszul variant)</td>
+</tr>
+<tr>
+<td><code>sh BPtable_compile</code></td>
+<td><code>BPtab</code></td>
+<td>BP</td>
+</tr>
+<tr>
+<td><code>sh BP_compile</code></td>
+<td><code>mr_BP</code></td>
+<td>BP</td>
+</tr>
+<tr>
+<td><code>sh ex_compile</code></td>
+<td><code>mr_ex</code></td>
+<td>Ex/Ctau</td>
+</tr>
+<tr>
+<td><code>sh e2p_compile</code></td>
+<td><code>e2p</code></td>
+<td>Ex/Ctau (helper for motivic)</td>
+</tr>
+<tr>
+<td><code>sh mottable_compile</code></td>
+<td><code>motTab</code></td>
+<td>Motivic (helper)</td>
+</tr>
+<tr>
+<td><code>sh mot_compile</code></td>
+<td><code>mr_mot</code></td>
+<td>Motivic</td>
+</tr>
+<tr>
+<td><code>sh mot_comb_compile</code></td>
+<td><code>mot_comb</code></td>
+<td>Motivic</td>
+</tr>
+<tr>
+<td><code>sh tau_mult_compile</code></td>
+<td><code>mot_mult</code></td>
+<td>Motivic</td>
+</tr>
+<tr>
+<td><code>sh tauboc_compile</code></td>
+<td><code>tauBoc</code></td>
+<td>Motivic</td>
+</tr>
+</tbody>
+</table></div>
+<p>Build everything:</p>
+<pre><code>for s in st_compiling kos_compile BPtable_compile BP_compile ex_compile \
+         e2p_compile mottable_compile mot_compile mot_comb_compile \
+         tau_mult_compile tauboc_compile; do
+  sh "$s"
+done</code></pre>
+<h2 id="pipeline-1-bp-the-repos-main-deliverable-p3">Pipeline 1: BP (the repo&#39;s main deliverable, p=3)<a class="heading-anchor" href="#pipeline-1-bp-the-repos-main-deliverable-p3">#</a></h2>
+<pre><code>sh BPtable_compile   # -&gt; BPtab
+sh BP_compile        # -&gt; mr_BP
+sh st_compiling      # -&gt; mr_st (produces the seed generators mr_BP needs)
+
+./mr_st 25 21        # writes 25_gens_data, among other 25_-prefixed files
+./BPtab 25           # writes 25_etaL, 25_R2L, 25_delta (structure maps)
+./mr_BP 25 20        # loads all of the above; writes 25_BP*-prefixed output</code></pre>
+<ul>
+<li><code>argv[1]</code> (here <code>25</code>) <strong>must be the same value</strong> across all three
+invocations — it&#39;s used directly as the max internal degree cutoff and
+determines the filenames each program looks for.</li>
+<li>The README calls <code>argv[1]</code> &quot;half of <code>t</code>&quot; — the max degree by which
+everything is truncated. Per <code>docs/pipelines/BP.md</code> §2.2, the <em>code itself</em>
+doesn&#39;t visibly halve anything again; treat this as the project&#39;s grading
+convention for choosing what value to pass, not a further transformation
+the programs perform.</li>
+<li><code>mr_BP</code>&#39;s second argument (<code>20</code> above) is the resolution length <code>s</code>; the
+README requires it to be <strong>at least one less than</strong> the <code>s</code> used for
+<code>mr_st</code>&#39;s second argument (<code>mr_st</code>&#39;s <code>21</code> above), matching the BP/I ↔ BP
+relationship described in <code>ARCHITECTURE.md</code> §4.</li>
+<li><strong>Getting the order or the degree argument wrong doesn&#39;t fail cleanly</strong> —
+<code>docs/pipelines/BP.md</code> §2.2 traces this to an unchecked bounds read in the
+binary matrix loader (<code>matrices/4.h:30-37</code>↔<code>modules/5.h:40-49</code>): a
+mismatched <code>&lt;halfT&gt;</code> desyncs the file&#39;s read cursor from its record
+boundaries, and the resulting garbage record-length can trigger a huge
+allocation or an out-of-bounds read — this is the mechanism behind the
+README&#39;s &quot;usually a break-down of the program such as a segmentation
+error&quot; warning. There is no argument validation to catch this earlier.</li>
+<li><code>mr_BP</code>&#39;s output includes the actual algebraic-Novikov E2-page tables
+(<code>&lt;halfT&gt;_BPAANSS_table_binary</code>/<code>.txt</code>), the Bockstein-SS tables
+(<code>&lt;halfT&gt;_BPBocSS_table_binary</code>/<code>.txt</code>), and multiplicative structure
+(<code>h0</code>, <code>theta_i</code> tables) — see <code>docs/pipelines/BP.md</code> §4 for the full
+output-file inventory and what each one is.</li>
+</ul>
+<h2 id="pipeline-2-classical-steenrod-ext-p3-standalone">Pipeline 2: Classical Steenrod Ext (p=3, standalone)<a class="heading-anchor" href="#pipeline-2-classical-steenrod-ext-p3-standalone">#</a></h2>
+<pre><code>sh st_compiling      # -&gt; mr_st
+./mr_st 25 21        # &lt;halfT&gt; &lt;resolution_length&gt;</code></pre>
+<p>Self-contained; computes <code>Ext_{A_*}(F_3,F_3)</code> (a truncation: only the
+polynomial part of the dual Steenrod algebra, <code>xi_1..xi_5</code>, no exterior
+generators — see <code>docs/pipelines/STEENROD.md</code> §1). Also the generator seed
+for the BP pipeline above (<code>ARCHITECTURE.md</code> §4).</p>
+<h2 id="pipeline-3-koszul-cross-check-p2-hardcoded-likely-legacy">Pipeline 3: Koszul cross-check (p=2 hardcoded — likely legacy)<a class="heading-anchor" href="#pipeline-3-koszul-cross-check-p2-hardcoded-likely-legacy">#</a></h2>
+<pre><code>sh kos_compile       # -&gt; kos
+./kos 25 21          # same argument shape as mr_st</code></pre>
+<p>Reuses the classical Steenrod machinery but resolves a different (&quot;doubled&quot;)
+comodule and self-checks with <code>check_splitting</code>. <strong>Hardcoded to p=2</strong>
+(<code>kosul.cpp:47</code>) regardless of arguments — see <code>docs/pipelines/STEENROD.md</code>
+§5/§6 for why this looks like unported p=2 legacy code rather than a
+p=3-valid cross-check.</p>
+<h2 id="pipeline-4-exctau-p2-hardcoded">Pipeline 4: Ex/Ctau (p=2 hardcoded)<a class="heading-anchor" href="#pipeline-4-exctau-p2-hardcoded">#</a></h2>
+<pre><code>sh ex_compile        # -&gt; mr_ex
+./mr_ex 25 21        # &lt;maxdeg&gt; &lt;resolution_length&gt;</code></pre>
+<p>Self-generates its coproduct table on first run. Outputs (<code>_gens_data_ctau</code>,
+<code>_extables</code>) are consumed by the motivic pipeline below. <strong>Hardcoded to
+p=2</strong> (<code>ex_main.cpp:11</code>) — see <code>docs/pipelines/EX_CTAU.md</code> §1/§6.</p>
+<h2 id="pipeline-5-motivic-p2-tau-graded">Pipeline 5: Motivic (p=2, tau-graded)<a class="heading-anchor" href="#pipeline-5-motivic-p2-tau-graded">#</a></h2>
+<p>Run order matters and spans three separate compiled tools before <code>mr_mot</code>
+can run:</p>
+<pre><code>sh ex_compile            # -&gt; mr_ex   (if not already built/run above)
+sh e2p_compile            # -&gt; e2p
+sh mottable_compile        # -&gt; motTab
+sh mot_compile              # -&gt; mr_mot
+sh mot_comb_compile          # -&gt; mot_comb   (optional, see below)
+sh tau_mult_compile           # -&gt; mot_mult
+sh tauboc_compile              # -&gt; tauBoc
+
+./mr_ex 25 21          # writes 25_gens_data_ctau, 25_extables
+./e2p 25               # writes 25_ex2poly_index
+./motTab 25            # writes 25_mot_deltas, 25_poly_exponents
+./mr_mot 25 21         # loads all of the above; writes 25_mot_gens, 25_mot_res, ...
+./mot_mult 25 21       # loads 25_mot_gens/25_mot_res; writes h0.txt..h3.txt
+./tauBoc 25 21         # loads 25_mot_gens/25_mot_res; writes tau_bockstein.txt etc.</code></pre>
+<ul>
+<li><code>mot_comb</code> is <strong>not</strong> a normal pipeline step — it re-runs only <code>mr_mot</code>&#39;s
+final combine/compose stage from an interrupted or partial run, without
+re-resolving. Only needed if a <code>mr_mot</code> run was cut short after producing
+per-step files but before finishing. See <code>docs/pipelines/MOTIVIC.md</code> §2.</li>
+<li>Every tool here is p=2 in the actual arithmetic implemented (see
+<code>ARCHITECTURE.md</code> §5), whatever the degree arguments — there is currently
+no p=3 motivic path.</li>
+</ul>
+<h2 id="degree-parameter-conventions-summarized">Degree-parameter conventions, summarized<a class="heading-anchor" href="#degree-parameter-conventions-summarized">#</a></h2>
+<ul>
+<li>All primary executables: <code>argv[1]</code> = max internal degree cutoff (the
+README calls it &quot;half of <code>t</code>&quot; as a project convention — see caveats
+above), <code>argv[2]</code> = resolution length <code>s</code> (number of resolution steps),
+except <code>BPtab</code> and <code>motTab</code>/<code>e2p</code>, which take only the degree argument
+(they don&#39;t run a resolution themselves).</li>
+<li>Always use the <strong>same degree argument</strong> across every tool in a pipeline
+run — this is how they find each other&#39;s output files (no other linkage
+mechanism exists).</li>
+<li>There is no runtime validation of matching degree arguments anywhere in
+the codebase (see the segfault mechanism above) — get this right by
+convention, not because the program will catch you if you don&#39;t.</li>
+</ul>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>
