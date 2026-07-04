@@ -579,7 +579,7 @@ concretely for `mr_st` (model) → `mr_BP` (lift).
 | `quotient`/`quotient_p` | Compute the coaction of the quotient comodule (serial / OpenMP-parallel) | `hopf_algebroid/12.h:4`, `:30` |
 | `resolution(...)` | Splice per-step short exact sequences into a chain complex | `hopf_algebroid/6.h:4` |
 | `make_multiplication_table(x, deg_x, result)` | Tabulate right-multiplication-by-`x` on all basis elements below a degree | `hopf_algebroid/13.h:3` |
-| `set_to_trivial(X, deg)` | Initialize `X` as the rank-1 trivial comodule (resolution starting point) | `hopf_algebroid/13.h:4` |
+| `set_to_trivial(X, deg)` | Initialize `X` as the rank-1 trivial comodule (resolution starting point) | `hopf_algebroid/12.h:1-12` |
 | `init_cofree_data(cofree_degree)` | Wire up `cofree_comodule`'s static coaction/degree functions to this algebroid's `delta` | `hopf_algebroid/13.h:17` |
 
 ### `curtis_table<ring>` (`matrices/9.h`)
