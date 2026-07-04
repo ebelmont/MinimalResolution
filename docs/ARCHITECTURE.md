@@ -7,6 +7,9 @@ you'll click through to the detail docs for anything beyond the big picture:
 
 - [`FRAMEWORK.md`](FRAMEWORK.md) — the generic, math-agnostic template layer
   (rings, modules, matrices, comodules, `Hopf_Algebroid`, `curtis_table`).
+- [`CODE_WALKTHROUGH.md`](CODE_WALKTHROUGH.md) — a slower, line-by-line
+  walkthrough of how comodules and Hopf algebroids are represented in C++,
+  written for readers who aren't fluent in reading the code itself.
 - [`pipelines/STEENROD.md`](pipelines/STEENROD.md) — `mr_st`, `kos`.
 - [`pipelines/BP.md`](pipelines/BP.md) — `BPtab`, `mr_BP` (the repo's main deliverable).
 - [`pipelines/MOTIVIC.md`](pipelines/MOTIVIC.md) — `motTab`, `mr_mot`, `mot_comb`, `mot_mult`, `tauBoc`.
