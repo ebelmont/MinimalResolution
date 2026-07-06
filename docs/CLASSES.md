@@ -142,7 +142,6 @@ classDiagram
     curtis_table <|-- curtisTable_stream
     CoModule <|-- comodule_generic
     CoModule <|-- cofree_comodule
-    "std::vector~SS_entry~" <|-- SS_table
     SS_table <|-- algNov_table
     algNov_table <|-- Boc_table
 
@@ -158,17 +157,21 @@ classDiagram
     Hopf_Algebroid <|-- BP_Op
     PolyOp_Para <|-- BP_Op
 
-    Hopf_Algebroid <|-- Steenrod_Op_classical["Steenrod_Op (steenrod.h)"]
+    class Steenrod_Op_classical["Steenrod_Op (steenrod.h)"]
+    Hopf_Algebroid <|-- Steenrod_Op_classical
     Fp_Op <|-- Steenrod_Op_classical
 
-    Hopf_Algebroid <|-- Steenrod_Op_ctau["Steenrod_Op (ctau_steenrod.h)"]
+    class Steenrod_Op_ctau["Steenrod_Op (ctau_steenrod.h)"]
+    Hopf_Algebroid <|-- Steenrod_Op_ctau
     Fp_Op <|-- Steenrod_Op_ctau
 
     Hopf_Algebroid <|-- MotSteenrodOp
 
+    class ComodInit_classical["ComodInit (steenrod_init.h)"]
+    class ComodInit_ex["ComodInit (ex_steenrod_init.h)"]
     comodule_generic <|-- BPComodInit
-    comodule_generic <|-- ComodInit_classical["ComodInit (steenrod_init.h)"]
-    comodule_generic <|-- ComodInit_ex["ComodInit (ex_steenrod_init.h)"]
+    comodule_generic <|-- ComodInit_classical
+    comodule_generic <|-- ComodInit_ex
 ```
 
 Full per-subsystem diagrams (with methods/fields shown) are in each detail
