@@ -516,7 +516,6 @@ full method references, follow the &quot;Details&quot; link into the relevant do
     curtis_table &lt;|-- curtisTable_stream
     CoModule &lt;|-- comodule_generic
     CoModule &lt;|-- cofree_comodule
-    "std::vector~SS_entry~" &lt;|-- SS_table
     SS_table &lt;|-- algNov_table
     algNov_table &lt;|-- Boc_table
 
@@ -532,17 +531,21 @@ full method references, follow the &quot;Details&quot; link into the relevant do
     Hopf_Algebroid &lt;|-- BP_Op
     PolyOp_Para &lt;|-- BP_Op
 
-    Hopf_Algebroid &lt;|-- Steenrod_Op_classical["Steenrod_Op (steenrod.h)"]
+    class Steenrod_Op_classical["Steenrod_Op (steenrod.h)"]
+    Hopf_Algebroid &lt;|-- Steenrod_Op_classical
     Fp_Op &lt;|-- Steenrod_Op_classical
 
-    Hopf_Algebroid &lt;|-- Steenrod_Op_ctau["Steenrod_Op (ctau_steenrod.h)"]
+    class Steenrod_Op_ctau["Steenrod_Op (ctau_steenrod.h)"]
+    Hopf_Algebroid &lt;|-- Steenrod_Op_ctau
     Fp_Op &lt;|-- Steenrod_Op_ctau
 
     Hopf_Algebroid &lt;|-- MotSteenrodOp
 
+    class ComodInit_classical["ComodInit (steenrod_init.h)"]
+    class ComodInit_ex["ComodInit (ex_steenrod_init.h)"]
     comodule_generic &lt;|-- BPComodInit
-    comodule_generic &lt;|-- ComodInit_classical["ComodInit (steenrod_init.h)"]
-    comodule_generic &lt;|-- ComodInit_ex["ComodInit (ex_steenrod_init.h)"]</pre><div class="mermaid-fallback-note">Diagram (renders automatically when online; source shown above as plain text otherwise — also viewable pre-rendered on GitHub)</div></div>
+    comodule_generic &lt;|-- ComodInit_classical
+    comodule_generic &lt;|-- ComodInit_ex</pre><div class="mermaid-fallback-note">Diagram (renders automatically when online; source shown above as plain text otherwise — also viewable pre-rendered on GitHub)</div></div>
 <p>Full per-subsystem diagrams (with methods/fields shown) are in each detail
 doc: <code>FRAMEWORK.md</code> §4, <code>BP.md</code> §5.</p>
 

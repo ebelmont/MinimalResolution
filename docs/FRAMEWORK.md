@@ -323,7 +323,6 @@ classDiagram
         +simplify(...) cycle_type
         +make_table(pric, M, T)
     }
-    SS_table --|> "std::vector~SS_entry~" : extends
     SS_table ..> ModuleOp : uses
     SS_table ..> curtis_table : structurally analogous (simplify ~ symplify_to_led)
 ```

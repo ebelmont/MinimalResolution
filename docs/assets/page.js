@@ -1,6 +1,12 @@
 (function () {
   "use strict";
 
+  // Resolve this script's own directory so mermaid.min.js (shipped alongside
+  // it, no CDN) can be loaded with the right relative path regardless of how
+  // deep the current page is nested (docs/ vs docs/pipelines/).
+  var thisScript = document.currentScript;
+  var assetsBase = thisScript ? thisScript.src.replace(/page\.js(\?.*)?$/, "") : "";
+
   // Theme toggle: explicit choice overrides prefers-color-scheme, persisted per-browser.
   var root = document.documentElement;
   var stored = null;
@@ -62,19 +68,21 @@
     headings.forEach(function (h) { obs.observe(h); });
   }
 
-  // Mermaid diagrams: progressive enhancement. If the CDN load fails (offline), the
-  // preformatted source text in .mermaid-wrap is already legible on its own.
+  // Mermaid diagrams: progressive enhancement, loaded from a local copy
+  // shipped in docs/assets/ (no CDN -- works offline and works when this
+  // page is hosted standalone). If the script fails to load for any reason,
+  // the preformatted source text in .mermaid-wrap is already legible on its own.
   function initMermaid() {
     var nodes = document.querySelectorAll(".mermaid");
     if (!nodes.length) return;
     var script = document.createElement("script");
-    script.type = "module";
-    script.textContent =
-      "import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';" +
-      "mermaid.initialize({ startOnLoad: false, theme: " +
-      "(document.documentElement.getAttribute('data-theme') === 'dark' || " +
-      "(!document.documentElement.getAttribute('data-theme') && window.matchMedia('(prefers-color-scheme: dark)').matches)) ? 'dark' : 'default' });" +
-      "mermaid.run({ querySelector: '.mermaid' }).catch(function(){});";
+    script.src = assetsBase + "mermaid.min.js";
+    script.onload = function () {
+      var dark = document.documentElement.getAttribute("data-theme") === "dark" ||
+          (!document.documentElement.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      window.mermaid.initialize({ startOnLoad: false, theme: dark ? "dark" : "default" });
+      window.mermaid.run({ querySelector: ".mermaid" }).catch(function () {});
+    };
     document.body.appendChild(script);
   }
 
