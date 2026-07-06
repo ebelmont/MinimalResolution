@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>A Second Hopf Algebroid: Resolving F_p over Gamma = F_p[x]/(x^n - 1) — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">TRUNCATED_HOPF_EXAMPLE</span></div>
+  <div class="actions">
+    <a class="src-link" href="TRUNCATED_HOPF_EXAMPLE.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="a-second-hopf-algebroid-resolving-f_p-over-gamma-f_pxxn---1">A Second Hopf Algebroid: Resolving F_p over Gamma = F_p[x]/(x^n - 1)<a class="heading-anchor" href="#a-second-hopf-algebroid-resolving-f_p-over-gamma-f_pxxn---1">#</a></h1>
+<p>This page documents a second, independent test of the <code>Hopf_Algebroid&lt;ring, algebroid&gt;</code> framework — separate from the <code>BP_*BP</code>/dual-Steenrod-algebra
+pipelines the rest of <code>docs/</code> covers. It&#39;s the smallest nontrivial instance
+of the general &quot;construct a minimal cofree resolution of a comodule&quot;
+algorithm described in <code>MinimalResolution.pdf</code> §5 (the same algorithm
+<code>docs/CODE_WALKTHROUGH.md</code> §4.0 traces through the code for the sphere), and
+it exists mainly to exercise <code>Hopf_Algebroid</code>&#39;s resolution machinery
+end-to-end on a Hopf algebroid that has nothing to do with <code>BP</code>.</p>
+<h2 id="the-hopf-algebroid">The Hopf algebroid<a class="heading-anchor" href="#the-hopf-algebroid">#</a></h2>
+<ul>
+<li><strong>Base ring</strong>: <code>F_p</code> (a field), for a chosen prime <code>p</code>.</li>
+<li><strong>Algebroid</strong>: <code>Gamma = F_p[x]/(x^GammaDim - 1)</code> — the truncated polynomial
+ring on one generator <code>x</code> of degree 1, truncated above degree
+<code>GammaDim-1</code> (<code>trunc_hopf.h</code> fixes <code>GammaDim=5</code>, i.e. <code>Gamma</code> has basis
+<code>1, x, x^2, x^3, x^4</code>; edit that constant to try other heights).</li>
+<li><strong>Left/right units</strong>: both equal to the standard inclusion <code>F_p -&gt; Gamma</code>, <code>c |-&gt; c*1</code> (<code>TruncHopf_Op::etaL</code>/<code>etaR</code>, <code>trunc_hopf.cpp</code>).</li>
+<li><strong>Comultiplication</strong>: determined by <code>Delta(x) = 1 (x) x + x (x) 1</code> (<code>x</code> is
+primitive) extended multiplicatively, i.e.
+<code>Delta(x^n) = sum_{i=0}^n binom(n,i) x^i (x) x^{n-i}</code>
+(<code>TruncHopf_Op::delta</code>, <code>trunc_hopf.cpp</code> — computed directly from the
+binomial-coefficient formula, not from a coproduct table).</li>
+</ul>
+<p>Because the base ring <code>F_p</code> is already a field, <code>pre_resolution_tab</code> (the
+from-scratch resolver — see <code>docs/GENERAL_COMODULES.md</code>&#39;s explanation of why
+that function needs a field) applies <strong>directly</strong>, exactly as it does for
+the dual Steenrod algebra in <code>mr_st</code>. There is no <code>BP_*</code>-style non-field
+base ring here, so none of the mod-<code>I</code>-reduce-then-lift machinery in
+<code>BP_generic_init.*</code>/<code>Steenrod_generic_init.*</code>/<code>BP_mod_I.*</code> is needed — this
+example is architecturally simpler than the general-<code>BP_*BP</code>-comodule case.</p>
+<h2 id="files">Files<a class="heading-anchor" href="#files">#</a></h2>
+<ul>
+<li><strong><code>trunc_hopf.h</code>/<code>.cpp</code></strong> — <code>TruncHopf_Op : public Hopf_Algebroid&lt;Fp,Gamma&gt;, public Fp_Op</code>, mirroring <code>Steenrod_Op</code>&#39;s exact wiring
+(<code>Gamma_opers</code>/<code>FpMod_opers</code>/<code>GammaMod_opers</code> composed the same way
+<code>Steenrod_Op</code> composes <code>P_opers</code>/<code>FpMod_opers</code>/<code>PMod_opers</code>). Since
+<code>Gamma</code>&#39;s basis element <code>x^n</code> is already indexed by its own exponent <code>n</code>
+(a single variable, no <code>exponents.h</code>-style packing needed the way the
+multi-variable dual Steenrod algebra requires), <code>algebroid2vector</code>/
+<code>vector2algebroid</code> are just the identity map on indices, shifted.</li>
+<li><strong><code>trunc_init.h</code>/<code>.cpp</code></strong> — <code>TruncInit</code>, mirroring <code>SteenrodInit</code> exactly:
+builds the trivial comodule <code>F_p</code> via the inherited <code>set_to_trivial</code>, then
+calls the inherited <code>pre_resolution_tab</code>.</li>
+<li><strong><code>mr_trunc.cpp</code></strong> — the executable, mirroring <code>stmain.cpp</code>.</li>
+<li><strong><code>trunc_compile</code></strong> — build script, mirroring <code>st_compiling</code>.</li>
+</ul>
+<h2 id="how-to-use-it">How to use it<a class="heading-anchor" href="#how-to-use-it">#</a></h2>
+<pre><code>sh trunc_compile
+./mr_trunc &lt;max_degree&gt; &lt;resolution_length&gt; &lt;p&gt;</code></pre>
+<p><code>p</code> defaults to 7 if omitted. <code>max_degree</code> plays the same role as <code>mr_st</code>&#39;s
+first argument: it must be set comfortably larger than the highest internal
+degree the requested <code>resolution_length</code> will reach (see &quot;the <code>maxDeg</code>
+subtlety&quot; below).</p>
+<p>The program prints, for each resolution step (most recent first), one row
+of generator counts indexed by <code>t-s</code> (internal degree minus resolution
+step) — the same <code>dims[degree][step]</code> layout <code>Steenrod_Op::output_resolution</code>
+uses for the sphere.</p>
+<h2 id="verifying-this-against-the-papers-own-worked-example">Verifying this against the paper&#39;s own worked example<a class="heading-anchor" href="#verifying-this-against-the-papers-own-worked-example">#</a></h2>
+<p><code>MinimalResolution.pdf</code>&#39;s example (the one this file is &quot;inspired from&quot;)
+works out, by hand, the <em>first</em> step of exactly this resolution for
+<code>Gamma = F_p[x_1]/x_1^5</code> (<code>p&gt;=5</code>): the cokernel of <code>F_p -&gt; Gamma</code> is
+<code>F_p{x_1,x_1^2,x_1^3,x_1^4}</code>, and solving <code>Delta-bar(y) = ...</code> degree by
+degree finds a <strong>single</strong> new cogenerator, in degree 1 (<code>Y={x_1}</code>), with
+<code>f(x_1^2)=2x_1[x_1]</code>, <code>f(x_1^3)=3x_1^2[x_1]</code>, <code>f(x_1^4)=4x_1^3[x_1]</code> — i.e.
+<strong>no further generators</strong> in degrees 2, 3, or 4.</p>
+<p>Running <code>./mr_trunc 20 4 7</code> reproduces exactly this: the row for step 1 is
+<code>1  0  0  0  0  ...</code> (one generator at <code>t-s=0</code>, i.e. absolute degree 1;
+nothing else through degree 4). This is the same &quot;check against a
+known-correct case, not just a compile&quot; discipline <code>docs/GENERAL_COMODULES.md</code>
+describes for the <code>BP_*BP</code> case.</p>
+<h2 id="a-pre-existing-bug-this-example-exposed-fp_opinverse">A pre-existing bug this example exposed: <code>Fp_Op::inverse</code><a class="heading-anchor" href="#a-pre-existing-bug-this-example-exposed-fp_opinverse">#</a></h2>
+<p><code>Fp_Op::inverse</code> (<code>Fp.cpp</code>) previously special-cased only <code>p=2</code> and <code>p=3</code> —
+the only primes the rest of this repo ever runs at — and printed
+<code>&quot;not implemented!&quot;</code> and silently returned <code>0</code> for any other prime.
+Since <code>p=7</code> is exactly the point of this example, that bug was hit
+immediately (as a <code>std::out_of_range</code> crash a few steps later, once the
+wrong &quot;inverse&quot; corrupted a Gaussian-elimination pivot). It&#39;s now
+implemented generally via Fermat&#39;s little theorem, <code>x^(p-2) mod p</code>, which
+is algebraically identical to the old code&#39;s special cases for <code>p=2</code> (<code>x^0 =1</code>) and <code>p=3</code> (<code>x^1=x</code>), so this is not a behavior change for any
+existing (<code>p=3</code>-only) pipeline — confirmed by re-running the sphere&#39;s own
+<code>mr_st</code> after the fix.</p>
+<h2 id="caveats">Caveats<a class="heading-anchor" href="#caveats">#</a></h2>
+<ul>
+<li>Same &quot;no comodule-axiom verification&quot; caveat as <code>GENERAL_COMODULES.md</code>:
+nothing checks that the <code>delta</code> formula above is actually coassociative
+for a given <code>GammaDim</code>/<code>p</code> combination (it is, by construction, for any
+<code>p</code> and <code>GammaDim</code>, since it&#39;s the standard truncated-polynomial-Hopf-
+algebra comultiplication — but if you edit <code>delta</code> to try a different
+algebroid, you&#39;re back to that caveat).</li>
+<li><strong>The <code>maxDeg</code> field is a global degree truncation, not <code>Gamma</code>&#39;s own top
+degree.</strong> <code>Hopf_Algebroid::maxDeg</code> is used only as <code>ranksBelowDeg(maxDeg - deg_x)</code> (<code>hopf_algebroid/9.h</code>, <code>/11.h</code>) to bound how many algebroid basis
+elements to consider — for <code>Gamma</code>, <code>ranksBelowDeg</code> already saturates at
+<code>GammaDim</code> regardless of its argument, so the only requirement on
+<code>maxDeg</code> is that it stay at least as large as the highest degree the
+resolution reaches (exactly the same convention <code>mr_st</code>&#39;s <code>max_degree</code>
+CLI argument follows for the infinite-dimensional dual Steenrod algebra).
+Since <code>maxDeg</code> is <code>unsigned</code>, setting it too small relative to
+<code>resolution_length</code> risks the subtraction underflowing rather than
+cleanly erroring — pick it generously.</li>
+</ul>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>
