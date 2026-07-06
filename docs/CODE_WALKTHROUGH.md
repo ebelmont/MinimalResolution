@@ -260,6 +260,43 @@ this one routine, reused everywhere.
 This traces the exact call path from each executable's `main()` down to the
 line where the resolution loop executes.
 
+### 4.0 The shape of the whole computation: reduce mod `I`, resolve, lift
+
+Before tracing the two executables individually, it's worth being explicit
+about something that's easy to miss: **the sphere's E2-page computation
+already follows the general "reduce mod `I`, then resolve, then lift"
+pattern** described in `docs/GENERAL_COMODULES.md` — it isn't a special,
+simpler architecture that a general comodule later had to be fit into. The
+three phases, and exactly where each one lives in the two executables:
+
+1. **Reduce `M = BP_*` mod `I = (p, v_1, v_2, ...)`.** `BP_*` is a
+   `BP_*BP`-comodule in the simplest possible way: it's the *unit* comodule
+   — one generator, coaction "1 times itself" (`x ↦ 1 ⊗ x`). Reducing that
+   mod `I` changes the ring the "1" lives in (from `BP_*BP` to `P`) but not
+   the *formula* — it's still "1 times itself." That's exactly what
+   `set_to_trivial` (§3 above) builds directly, for either ring:
+   `steenrod_oper.set_to_trivial(comod, 0)` (`steenrod_init.cpp:32`) *is*
+   the mod-`I` reduction of `BP_*`, computed by hand rather than derived
+   from some other object, because for this one specific `M` the reduction
+   has a one-line answer. (`BP_oper.set_to_trivial(comod, 0)` at
+   `BP_init.cpp:23`, by contrast, builds `BP_*` itself — the un-reduced
+   object — using the exact same generic function, just instantiated with
+   `algebroid = BPBP` instead of `algebroid = P`.)
+2. **Resolve that reduction over `P` (a field, so this works correctly).**
+   This is §4.1 below, in full: `mr_st`'s entire job.
+3. **Lift the result to a genuine `BP_*BP`-comodule resolution of `BP_*`.**
+   This is §4.2 below: `mr_BP` loads `mr_st`'s output as a model and lifts
+   it via `pre_resolution_modeled`.
+
+So when `docs/GENERAL_COMODULES.md` computes the reduction of a general `M`
+with a new function (`reduce_BP_mod_I`/`reduce_BPBP_mod_I`/
+`reduce_row_mod_I` in `BP_mod_I.cpp`), it isn't introducing a new step —
+it's replacing the one-line hardcoded answer `set_to_trivial` gives for
+`M = BP_*` with a real computation, because a general `M`'s reduction isn't
+simple enough to write down by hand. Every other piece — `pre_resolution_tab`
+over `P`, `pre_resolution_modeled`'s lift via `BP_Op::lift` — is the exact
+same code, called exactly the same way, for the sphere or for any other `M`.
+
 ### 4.1 The BP/I resolution (`mr_st`)
 
 ```cpp

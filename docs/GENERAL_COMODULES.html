@@ -53,6 +53,21 @@ but produced an empty algebraic Novikov page for the sphere, where the known
 answer has several classes — a concrete illustration of why every nontrivial
 change here should be checked against a case with an already-known answer,
 not just compiled.)</p>
+<h2 id="is-reduce-mod-i-then-resolve-then-lift-new-no">Is &quot;reduce mod <code>I</code>, then resolve, then lift&quot; new? No<a class="heading-anchor" href="#is-reduce-mod-i-then-resolve-then-lift-new-no">#</a></h2>
+<p>It&#39;s tempting to read the two-phase approach below as a new architecture
+introduced for the general case. It isn&#39;t — <strong>the sphere&#39;s own E2-page
+computation already works exactly this way</strong>; see
+<code>docs/CODE_WALKTHROUGH.md</code> §4.0 for the precise, function-by-function
+trace. In brief: <code>BP_*</code> is the simplest possible <code>BP_*BP</code>-comodule (one
+generator, coaction &quot;1 times itself&quot;), so its reduction mod <code>I</code> has a
+one-line answer that doesn&#39;t need computing — that one-liner <em>is</em>
+<code>set_to_trivial</code> (<code>hopf_algebroid/12.h:1-12</code>), called on the <code>P</code> side by
+<code>mr_st</code> (<code>steenrod_init.cpp:32</code>). <code>mr_st</code> resolving that reduction and
+<code>mr_BP</code> lifting it (<code>BP_init.cpp:43-54</code>) are phases 2 and 3 of the exact
+same pattern used below. The only genuinely new piece for a general <code>M</code> is
+<code>BP_mod_I.cpp</code>&#39;s reduction functions — a real computation, because a general
+<code>M</code>&#39;s mod-<code>I</code> reduction isn&#39;t simple enough to hardcode by hand the way
+<code>set_to_trivial</code> does for <code>BP_*</code> itself.</p>
 <h2 id="the-two-phase-approach">The two-phase approach<a class="heading-anchor" href="#the-two-phase-approach">#</a></h2>
 <ol>
 <li><strong>Reduce <code>M</code> mod <code>I = (p, v_1, v_2, ...)</code></strong> to get a comodule over

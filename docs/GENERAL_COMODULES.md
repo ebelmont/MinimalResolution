@@ -42,6 +42,23 @@ answer has several classes — a concrete illustration of why every nontrivial
 change here should be checked against a case with an already-known answer,
 not just compiled.)
 
+## Is "reduce mod `I`, then resolve, then lift" new? No
+
+It's tempting to read the two-phase approach below as a new architecture
+introduced for the general case. It isn't — **the sphere's own E2-page
+computation already works exactly this way**; see
+`docs/CODE_WALKTHROUGH.md` §4.0 for the precise, function-by-function
+trace. In brief: `BP_*` is the simplest possible `BP_*BP`-comodule (one
+generator, coaction "1 times itself"), so its reduction mod `I` has a
+one-line answer that doesn't need computing — that one-liner *is*
+`set_to_trivial` (`hopf_algebroid/12.h:1-12`), called on the `P` side by
+`mr_st` (`steenrod_init.cpp:32`). `mr_st` resolving that reduction and
+`mr_BP` lifting it (`BP_init.cpp:43-54`) are phases 2 and 3 of the exact
+same pattern used below. The only genuinely new piece for a general `M` is
+`BP_mod_I.cpp`'s reduction functions — a real computation, because a general
+`M`'s mod-`I` reduction isn't simple enough to hardcode by hand the way
+`set_to_trivial` does for `BP_*` itself.
+
 ## The two-phase approach
 
 1. **Reduce `M` mod `I = (p, v_1, v_2, ...)`** to get a comodule over

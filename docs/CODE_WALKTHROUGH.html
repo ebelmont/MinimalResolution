@@ -258,6 +258,41 @@ this one routine, reused everywhere.</p>
 <h2 id="4-where-the-bpi-and-bp-resolutions-actually-run">4. Where the BP/I and BP resolutions actually run<a class="heading-anchor" href="#4-where-the-bpi-and-bp-resolutions-actually-run">#</a></h2>
 <p>This traces the exact call path from each executable&#39;s <code>main()</code> down to the
 line where the resolution loop executes.</p>
+<h3 id="40-the-shape-of-the-whole-computation-reduce-mod-i-resolve-lift">4.0 The shape of the whole computation: reduce mod <code>I</code>, resolve, lift<a class="heading-anchor" href="#40-the-shape-of-the-whole-computation-reduce-mod-i-resolve-lift">#</a></h3>
+<p>Before tracing the two executables individually, it&#39;s worth being explicit
+about something that&#39;s easy to miss: <strong>the sphere&#39;s E2-page computation
+already follows the general &quot;reduce mod <code>I</code>, then resolve, then lift&quot;
+pattern</strong> described in <code>docs/GENERAL_COMODULES.md</code> — it isn&#39;t a special,
+simpler architecture that a general comodule later had to be fit into. The
+three phases, and exactly where each one lives in the two executables:</p>
+<ol>
+<li><strong>Reduce <code>M = BP_*</code> mod <code>I = (p, v_1, v_2, ...)</code>.</strong> <code>BP_*</code> is a
+<code>BP_*BP</code>-comodule in the simplest possible way: it&#39;s the <em>unit</em> comodule
+— one generator, coaction &quot;1 times itself&quot; (<code>x ↦ 1 ⊗ x</code>). Reducing that
+mod <code>I</code> changes the ring the &quot;1&quot; lives in (from <code>BP_*BP</code> to <code>P</code>) but not
+the <em>formula</em> — it&#39;s still &quot;1 times itself.&quot; That&#39;s exactly what
+<code>set_to_trivial</code> (§3 above) builds directly, for either ring:
+<code>steenrod_oper.set_to_trivial(comod, 0)</code> (<code>steenrod_init.cpp:32</code>) <em>is</em>
+the mod-<code>I</code> reduction of <code>BP_*</code>, computed by hand rather than derived
+from some other object, because for this one specific <code>M</code> the reduction
+has a one-line answer. (<code>BP_oper.set_to_trivial(comod, 0)</code> at
+<code>BP_init.cpp:23</code>, by contrast, builds <code>BP_*</code> itself — the un-reduced
+object — using the exact same generic function, just instantiated with
+<code>algebroid = BPBP</code> instead of <code>algebroid = P</code>.)</li>
+<li><strong>Resolve that reduction over <code>P</code> (a field, so this works correctly).</strong>
+This is §4.1 below, in full: <code>mr_st</code>&#39;s entire job.</li>
+<li><strong>Lift the result to a genuine <code>BP_*BP</code>-comodule resolution of <code>BP_*</code>.</strong>
+This is §4.2 below: <code>mr_BP</code> loads <code>mr_st</code>&#39;s output as a model and lifts
+it via <code>pre_resolution_modeled</code>.</li>
+</ol>
+<p>So when <code>docs/GENERAL_COMODULES.md</code> computes the reduction of a general <code>M</code>
+with a new function (<code>reduce_BP_mod_I</code>/<code>reduce_BPBP_mod_I</code>/
+<code>reduce_row_mod_I</code> in <code>BP_mod_I.cpp</code>), it isn&#39;t introducing a new step —
+it&#39;s replacing the one-line hardcoded answer <code>set_to_trivial</code> gives for
+<code>M = BP_*</code> with a real computation, because a general <code>M</code>&#39;s reduction isn&#39;t
+simple enough to write down by hand. Every other piece — <code>pre_resolution_tab</code>
+over <code>P</code>, <code>pre_resolution_modeled</code>&#39;s lift via <code>BP_Op::lift</code> — is the exact
+same code, called exactly the same way, for the sphere or for any other <code>M</code>.</p>
 <h3 id="41-the-bpi-resolution-mr_st">4.1 The BP/I resolution (<code>mr_st</code>)<a class="heading-anchor" href="#41-the-bpi-resolution-mr_st">#</a></h3>
 <pre><code>// stmain.cpp:11-15
 SteenrodInit st(3, maxdeg, length, filename + "steenrod_coaction.data");
