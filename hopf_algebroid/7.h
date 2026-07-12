@@ -82,6 +82,69 @@ cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::embed2cof
 	return res;
 }
 
+//construct a comodule map f: X -> Y given f on cogenerators of X
+template<typename ring, typename algebroid>
+template<typename degree_type>
+void Hopf_Algebroid<ring,algebroid>::build_comodule_map(
+	const CoModule<algebroid,degree_type> *X,
+	const cofree_comodule<algebroid,degree_type> &Y,
+	matrix<ring> *f_map,
+	curtis_table<ring> *table,
+	std::vector<int> *X_gens,
+	std::function<vectors<matrix_index,ring>(int)> f_on_cog)
+{
+	std::cout << X->rank() << std::flush;
+	std::vector<int> gns;
+	if(X_gens == NULL) X_gens = &gns;
+
+	f_map->set2zero(X->rank());
+	table->clear();
+
+	// Sort by internal degree (same as embed2cofree)
+	std::vector<int> bas;
+	for(int i = 0; i < X->rank(); ++i) bas.push_back(i);
+	auto i_deg = [X](int m){
+		return cofree_comodule<algebroid,degree_type>::underlyingDeg(X->degree(m)); };
+	std::stable_sort(bas.begin(), bas.end(), [i_deg](int m, int n){ return i_deg(m) < i_deg(n); });
+
+	// For each discovered cogenerator of X, the position in Y where it maps.
+	// Parallel to X_gens: Y_positions[w] is the Y-position for X_gens[w].
+	// NOTE: this assumes f_on_cog returns a vector at a single cogenerator position in Y.
+	// For f values that are linear combinations of Y cogenerators a generalized adjoint is needed (TODO).
+	std::vector<uint32_t> Y_positions;
+
+	for(int j = 0; j < X->rank(); ++j) {
+		int i = bas[j];
+
+		// Compute the candidate image of i using f on cogenerators of X found so far.
+		// Like adjoint in embed2cofree, this uses the coaction of i and maps each
+		// cogenerator of X (via Y_positions) to its image in Y.
+		vectors<matrix_index,ring> irow = adjoint(X, *X_gens, Y_positions, i, 0);
+		vectors<matrix_index,ring> sc = moduleOper->singleton(i);
+		matrix_index pos = table->simplify_to_led(X_gens->size(), X->rank(), irow, sc);
+
+		if(pos != curtis_table<ring>::Boundary) {
+			// Non-cogenerator: f(i) is determined by the comodule map condition
+			table->insert(pos, i, irow, sc);
+			f_map->insert(i, irow);
+		} else {
+			// Cogenerator: f(i) is given by the lookup function
+			X_gens->push_back(i);
+			vectors<matrix_index,ring> fi = f_on_cog(i);
+
+			// Record the Y position this cogenerator maps to (leading entry of fi)
+			matrix_index fi_pos = fi.empty() ? 0 : fi.dataArray[0].ind;
+			Y_positions.push_back(fi_pos);
+
+			// Recompute irow now that i is in X_gens; the 1⊗i coaction term now
+			// contributes algebroid2vector(1, fi_pos) = the singleton at fi_pos
+			irow = adjoint(X, *X_gens, Y_positions, i, 0);
+			table->insert(fi_pos, i, irow, sc);
+			f_map->insert(i, fi);
+		}
+	}
+}
+
 //embed into a cofree one, using a model
 template<typename ring, typename algebroid>
 template<typename degree_type>

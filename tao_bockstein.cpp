@@ -291,7 +291,65 @@ vectors<matrix_index, tauPoly> find_cycle(cycle_data& table, vectors<matrix_inde
 	return res;
 }
 
-//output the cycle in terms of 
+//tau-valuation of a tauPolySum: the minimum tau exponent among its nonzero monomials
+//(mirrors tau_table::leading_term's use of tau_oper.tau_valuation for a single monomial)
+static int tau_valuation_sum(tauPolySum const &r){
+	int res = -1;
+	for(auto &tm : r.dataArray){
+		int e = (int)tm.ind;
+		if(res < 0 || e < res) res = e;
+	}
+	return res;
+}
+
+//leading term of a tauPolySum-valued vector: the entry with smallest tau-valuation
+static int leading_term_sum(vectors<matrix_index, tauPolySum> const &v){
+	int res = 0;
+	for(unsigned k=1; k<v.size(); k++)
+		if(tau_valuation_sum(v.dataArray[res].coeficient) > tau_valuation_sum(v.dataArray[k].coeficient))
+			res = k;
+	return res;
+}
+
+//genuine multi-term variant of find_cycle: v is tauPolySum-valued; the cycle table's
+//own representatives stay tauPoly-valued (single monomial, unchanged resolution data)
+vectors<matrix_index, tauPolySum> find_cycle_sum(cycle_data& table, vectors<matrix_index, tauPolySum> v){
+	bool trace = getenv("TRACE_FIND_CYCLE_SUM");
+	vectors<matrix_index, tauPolySum> res;
+	int iter = 0;
+	while(!tauPolySum_module_oper.isZero(v)){
+		auto ld = leading_term_sum(v);
+		auto cf = v.dataArray[ld].coeficient;
+		auto ind = v.dataArray[ld].ind;
+		auto const &gen = table.at(ind);
+		if(trace){
+			auto printSum = [](tauPolySum const &r){
+				std::string s;
+				for(auto &m : r.dataArray) s += (s.empty()?"":"+") + std::string("t^") + std::to_string((int)m.ind);
+				return s.empty() ? std::string("0") : s;
+			};
+			std::cerr << "TRACE_FIND_CYCLE_SUM iter=" << iter << " v:";
+			for(auto &tm:v.dataArray) std::cerr << " " << tm.ind << "^[" << printSum(tm.coeficient) << "]";
+			std::cerr << " | ld=" << ld << " ind=" << ind << " cf=[" << printSum(cf) << "]"
+			          << " gen=table.at(" << ind << "):";
+			for(auto &gt:gen.dataArray) std::cerr << " " << gt.ind << "^t" << (int)gt.coeficient;
+			std::cerr << "\n";
+		}
+		//subtract cf * gen from v, decomposing cf into individual tau-monomials
+		for(auto &monoterm : cf.dataArray){
+			tauPoly e = (tauPoly)monoterm.ind;
+			vectors<matrix_index, tauPoly> shifted_gen;
+			for(auto &gt : gen.dataArray)
+				shifted_gen.push({gt.ind, tau_oper.multiply(gt.coeficient, e)});
+			v = tauPolySum_module_oper.add(std::move(v), liftToPolySum(shifted_gen));
+		}
+		res = tauPolySum_module_oper.add(std::move(res), tauPolySum_module_oper.singleton(ind, cf));
+		++iter;
+	}
+	return res;
+}
+
+//output the cycle in terms of
 string output_cycles(int nm, const vectors<matrix_index,tauPoly> &v){
 	string res = "o";
 	for(auto tm : v.dataArray){

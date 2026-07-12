@@ -82,6 +82,11 @@ string output_tables(const std::vector<tau_table>&);
 void make_cycle_tables(std::vector<tau_table> const &tab, std::vector<cycle_data> &result);
 //output the data of the cycles
 string output(cycle_data const&, int);
+//decompose a vector into the E2 basis using a cycle table
+vectors<matrix_index, tauPoly> find_cycle(cycle_data& table, vectors<matrix_index, tauPoly> v);
+//genuine multi-term (tauPolySum) variant: v may have real tau-polynomial coefficients,
+//while the cycle table's own representatives stay tauPoly-valued (unchanged resolution data)
+vectors<matrix_index, tauPolySum> find_cycle_sum(cycle_data& table, vectors<matrix_index, tauPolySum> v);
 
 //the mutliplication table
 void multiplication_table(motSteenrod const&, int deg, string filename_generators, string filename_res_truns, string filename_outs, int resolution_length, MotSteenrodOp&, std::vector<cycle_data>&); 

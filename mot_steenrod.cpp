@@ -1,15 +1,20 @@
 #include "mot_steenrod.h"
 #include <cassert>
 #include <cstdlib>
+#include <cstdio>
 
 //if x is zero
 inline bool tauOper::isZero(tauPoly const &x) { return x==internal_zero; }
 
 //add two elements
-inline tauPoly tauOper::add(tauPoly const &x, tauPoly const &y) { 
+inline tauPoly tauOper::add(tauPoly const &x, tauPoly const &y) {
 	if(isZero(x)) return y;
 	if(isZero(y)) return x;
 	//if x and y are both nontrivial, they are addible only when they have the same degree, and then x=y in F2[tau]
+	if(x != y){
+		fprintf(stderr, "INVARIANT BROKEN: add(t^%d, t^%d) -- aborting\n", (int)x, (int)y);
+		abort();
+	}
 	return internal_zero;
 }
 
@@ -70,6 +75,28 @@ tauPoly tauOper::power_tau(int i){ return i;}
     
 //operations of F2[tau]
 tauOper tau_oper;
+
+//operations on F2, backing the genuine multi-term tauPolySum type
+Fp_Op tauPolySum_F2_ops(2);
+//operations on the genuine (multi-term) F2[tau]
+PolynomialOp<F2> tauPolySum_oper(&tauPolySum_F2_ops);
+//operations on vectors of tauPolySum
+ModuleOp<matrix_index,tauPolySum> tauPolySum_module_oper(&tauPolySum_oper);
+
+//embed a single tau-monomial into the genuine polynomial type
+tauPolySum liftToPolySum(tauPoly x){
+	if(tau_oper.isZero(x)) return tauPolySum_oper.zero();
+	return tauPolySum_oper.monomial((exponent)x, tauPolySum_F2_ops.unit(1));
+}
+
+//lift a tauPoly-valued vector termwise into tauPolySum
+vectors<matrix_index,tauPolySum> liftToPolySum(vectors<matrix_index,tauPoly> const &v){
+	vectors<matrix_index,tauPolySum> result;
+	for(auto tm : v.dataArray)
+		result.push({tm.ind, liftToPolySum(tm.coeficient)});
+	return result;
+}
+
 //operations on Amot
 MotSteenrodRingOp motSteenrod_oper(&tau_oper);
 //operations on A\otimes A

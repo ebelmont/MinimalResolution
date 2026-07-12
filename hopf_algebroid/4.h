@@ -68,6 +68,14 @@ public:
 	template<typename degree_type>
 	void pre_resolution_tab(comodule_generic<algebroid,degree_type>& resolved, string filename_maps, string filename_generators, int resolution_length, std::vector<curtis_table<ring>*>& result, std::vector<std::vector<int>> &gens, matrix<ring>*, matrix<ring>*, matrix<ring>*, matrix<ring>*, std::string tablename = "table.tmp", std::vector<std::vector<int>> *basis_orders = NULL);
 
+	//construct a comodule map f: X -> Y given f on cogenerators of X
+	//Y must be a cofree comodule; X can be any comodule.
+	//f_on_cog(i) is called when element i is discovered to be a cogenerator of X;
+	//  it should return f(i) as a vector in Y (at a single cogenerator position of Y).
+	//Discovered cogenerators of X are accumulated in X_gens.
+	template<typename degree_type>
+	void build_comodule_map(const CoModule<algebroid,degree_type> *X, const cofree_comodule<algebroid,degree_type> &Y, matrix<ring> *f_map, curtis_table<ring> *table, std::vector<int> *X_gens, std::function<vectors<matrix_index,ring>(int)> f_on_cog);
+
 	//embed into a cofree comodule using a model
 	template<typename degree_type>
 	cofree_comodule<algebroid,degree_type> embed2cofree_modeled(const CoModule<algebroid,degree_type> *X, matrix<ring> *inj, std::vector<int> *gens, matrix<ring>* new_maps);

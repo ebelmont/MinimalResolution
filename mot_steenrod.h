@@ -36,8 +36,23 @@ public:
 	//the power of tau
 	tauPoly power_tau(int);
 };
-//operations on Fp[tau]  
+//operations on Fp[tau]
 extern tauOper tau_oper;
+
+// a genuine (multi-term) polynomial in tau -- unlike tauPoly, which only ever
+// holds a single monomial tau^n. Ext over F2[tau] is a module over the full
+// polynomial ring, so a coefficient can legitimately be a real sum like
+// tau+tau^2, not just one monomial; this is used for phi_beta's accumulated
+// coefficients in lift.h, where that genuinely comes up.
+typedef polynomial<F2> tauPolySum;
+extern PolynomialOp<F2> tauPolySum_oper;
+//operations on vectors of tauPolySum (genuine polynomial add/scalor_mult/etc.)
+extern ModuleOp<matrix_index,tauPolySum> tauPolySum_module_oper;
+
+//embed a single tau-monomial into the genuine polynomial type
+tauPolySum liftToPolySum(tauPoly x);
+//lift a tauPoly-valued vector termwise into tauPolySum
+vectors<matrix_index,tauPolySum> liftToPolySum(vectors<matrix_index,tauPoly> const &v);
 
 //the dual Steenrod algebra
 typedef polynomial<tauPoly> motSteenrod;

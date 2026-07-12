@@ -197,7 +197,7 @@ list(APPEND EXPONENT_WIDTH_TARGETS mot_comb)
 
 # mottable_compile -> motTab (-std=c++11)
 add_executable(motTab
-  exponents.cpp mot_steenrod.cpp mot_coactions.cpp mon_index.cpp
+  exponents.cpp mot_steenrod.cpp mot_coactions.cpp mon_index.cpp Fp.cpp
 )
 set_target_properties(motTab PROPERTIES CXX_STANDARD 11)
 target_link_libraries(motTab PRIVATE homebrew_omp)
@@ -213,23 +213,47 @@ list(APPEND EXPONENT_WIDTH_TARGETS kos)
 
 # tau_mult_compile -> mot_mult (-std=c++11)
 add_executable(mot_mult
-  mot_mult.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp
+  mot_mult.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp Fp.cpp
 )
 set_target_properties(mot_mult PROPERTIES CXX_STANDARD 11)
 target_link_libraries(mot_mult PRIVATE homebrew_omp)
 list(APPEND EXPONENT_WIDTH_TARGETS mot_mult)
 
+# diagnostic: dump gens/inv_ind for debugging
+add_executable(dump_gens
+  dump_gens.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp Fp.cpp
+)
+set_target_properties(dump_gens PROPERTIES CXX_STANDARD 11)
+target_link_libraries(dump_gens PRIVATE homebrew_omp)
+list(APPEND EXPONENT_WIDTH_TARGETS dump_gens)
+
 # yoneda products (-std=c++11)
 add_executable(yoneda
-  yoneda.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp
+  yoneda.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp Fp.cpp
 )
 set_target_properties(yoneda PROPERTIES CXX_STANDARD 11)
 target_link_libraries(yoneda PRIVATE homebrew_omp)
 list(APPEND EXPONENT_WIDTH_TARGETS yoneda)
 
+# yoneda2: clean-room comodule map and chain-map lift implementation
+add_executable(yoneda2
+  yoneda2.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp Fp.cpp
+)
+set_target_properties(yoneda2 PROPERTIES CXX_STANDARD 14)
+target_link_libraries(yoneda2 PRIVATE homebrew_omp)
+list(APPEND EXPONENT_WIDTH_TARGETS yoneda2)
+
+# chain-map commutativity tests for the Yoneda lift
+add_executable(test_lift
+  test_lift.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp Fp.cpp
+)
+set_target_properties(test_lift PROPERTIES CXX_STANDARD 11)
+target_link_libraries(test_lift PRIVATE homebrew_omp)
+list(APPEND EXPONENT_WIDTH_TARGETS test_lift)
+
 # tauboc_compile -> tauBoc (-std=c++11)
 add_executable(tauBoc
-  taubocmain.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp
+  taubocmain.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp Fp.cpp
 )
 set_target_properties(tauBoc PROPERTIES CXX_STANDARD 11)
 target_link_libraries(tauBoc PRIVATE homebrew_omp)

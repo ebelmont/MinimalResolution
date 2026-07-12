@@ -12,22 +12,19 @@ cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::resolvor_
 	//compute the cycles
 	auto inj_ind = table->cycle_matrix(*indj,X.rank(),transformer,inj);
 	auto quot_inds = matrix<ring>::quot_index(inj_ind,F.rank());
-	//get the irrelevant indices
+	//no columns are deleted before Gaussian elimination: deleting them here would
+	//corrupt other rows' cross-references to them before elimination runs
 	std::set<int> to_del;
-	for(int j : quot_inds.first)
-		to_del.insert(j);
-	for(int k: *nex_gens)
-		to_del.erase(quot_inds.first[k]);
 	//get the collumns which form an invertible sub
 	std::vector<std::pair<matrix_index,matrix_index>> gs;
 	for(unsigned i=0; i<inj_ind.size(); ++i)
 		gs.push_back(std::make_pair((matrix_index) i, (matrix_index) inj_ind[i]));
 	sort_deg(gs,X.base_module.degree);
-	
+
 	//Gaussian ellimiation
 	std::cout << "Gausings...\n" << std::flush;
 	indj->del_and_gaussian(gs,to_del);
-	
+
 	//compute the quotient comodule
 	std::cout << "quotieting...\n" << std::flush;
 	indj->make_quotient(quot_inds.first, quot_inds.second, inj_ind, quot);
