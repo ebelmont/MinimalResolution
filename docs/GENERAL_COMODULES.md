@@ -100,7 +100,37 @@ flowchart LR
    `BP_*BP` element built with `BP_oper.BPBP_opers`'s ring operations
    (`.unit(1)`, `.monomial(e,coeff)`, `.add(x,y)`, `.multiply(x,y)`). See the
    comments in the file for a worked example (it ships reconstructing the
-   trivial comodule, as a self-test — see below).
+   trivial comodule, as a self-test — see below), and read the warning
+   directly below about which variable `.monomial`'s exponent refers to.
+
+### Warning: `BPBP`'s two exponent slots are not what you'd guess
+
+`BPBP = polynomial<BP>` is **not** "polynomial in the `t_i` with `BP_*`
+coefficients" in the layout the type name suggests. Per `BP.cpp:69` — *"the
+right unit, `vn` is in the outer"* — it is the other way around:
+
+- the **outer** exponent indexes the `v_i` (included via the **right** unit
+  `η_R`), and
+- the **inner** (coefficient) `BP`'s exponent indexes the `t_i`.
+
+So `BPBP_opers.monomial(singleVar(1,1), unit(1))` — the obvious-looking way
+to write `t_1` — is actually **`η_R(v_1)`**. The correct `t_1` is
+
+```cpp
+// t_1: outer exponent 0 (no v's), inner coefficient carrying t-exponent 1
+BP   inner = BP_oper.monomial(singleVar(1,1), BP_oper.Z3_oper->unit(1));
+BPBP t1    = BP_oper.BPBP_opers.monomial(0, inner);
+```
+
+Better still, for `t_1` specifically, just call **`BP_oper.h0()`**, which the
+repo already provides: it computes `(η_R(v_1) - η_L(v_1))/p` from the loaded
+structure tables, which is exactly `t_1`, and it can't be gotten backwards.
+(Verified: `h0()` and the two-line construction above are bitwise equal, and
+both differ from `BPBP_opers.monomial(singleVar(1,1),unit(1))`.)
+
+This matters because getting it backwards fails *silently* in a particularly
+nasty way: `η_R(v_1)` is not in the augmentation ideal, so a coaction using it
+violates counitality — and, per the caveats below, nothing checks that.
 3. Build and run exactly like `mr_BP`, after a matching `BPtab <halfT>` run:
    `./mr_BP_myComplex <halfT> <resolution_length>`.
 

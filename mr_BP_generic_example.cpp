@@ -58,9 +58,24 @@ void build_comodule(BP_Op &BP_oper, int &rank, std::vector<int> &degree,
 	//    ring operations (BP_oper.BPBP_opers is a BPBP_Op -- a RingOp<BPBP>
 	//    plus polynomial operations), e.g.:
 	//      BP_oper.BPBP_opers.unit(1)         -- the element "1" of BP_*BP
-	//      BP_oper.BPBP_opers.monomial(e, c)  -- a single monomial c * t^e (c a BP element)
+	//      BP_oper.BPBP_opers.monomial(e, c)  -- a single monomial, see WARNING below
 	//      BP_oper.BPBP_opers.add(x, y)       -- x + y
 	//      BP_oper.BPBP_opers.multiply(x, y)  -- x * y
+	//
+	//    WARNING -- BPBP's two exponent slots are the opposite of what the
+	//    type name suggests. Per BP.cpp:69 ("the right unit, vn is in the
+	//    outer"), in BPBP = polynomial<BP> the OUTER exponent indexes the
+	//    v_i (via the right unit eta_R), and the INNER coefficient BP's
+	//    exponent indexes the t_i. So
+	//        BPBP_opers.monomial(singleVar(1,1), unit(1))
+	//    is eta_R(v_1), NOT t_1. To build t_1:
+	//        BP   inner = BP_oper.monomial(singleVar(1,1), BP_oper.Z3_oper->unit(1));
+	//        BPBP t1    = BP_oper.BPBP_opers.monomial(0, inner);
+	//    or, simpler and impossible to get backwards, just use BP_oper.h0(),
+	//    which computes (eta_R(v1)-eta_L(v1))/p = t_1 from the loaded tables.
+	//    Getting this backwards fails SILENTLY: eta_R(v_1) is not in the
+	//    augmentation ideal, so the resulting coaction violates counitality,
+	//    and nothing here checks that.
 	//    As shipped: generator 0's coaction is "1 times itself" -- the
 	//    trivial comodule -- exactly what BP_Op::set_to_trivial builds
 	//    (compare hopf_algebroid/12.h:1-12).

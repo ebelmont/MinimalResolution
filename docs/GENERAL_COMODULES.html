@@ -105,10 +105,33 @@ and make a copy of <code>BP_generic_compile</code> that builds it instead.</li>
 <code>BP_*BP</code> element built with <code>BP_oper.BPBP_opers</code>&#39;s ring operations
 (<code>.unit(1)</code>, <code>.monomial(e,coeff)</code>, <code>.add(x,y)</code>, <code>.multiply(x,y)</code>). See the
 comments in the file for a worked example (it ships reconstructing the
-trivial comodule, as a self-test — see below).</li>
-<li>Build and run exactly like <code>mr_BP</code>, after a matching <code>BPtab &lt;halfT&gt;</code> run:
-<code>./mr_BP_myComplex &lt;halfT&gt; &lt;resolution_length&gt;</code>.</li>
+trivial comodule, as a self-test — see below), and read the warning
+directly below about which variable <code>.monomial</code>&#39;s exponent refers to.</li>
 </ol>
+<h3 id="warning-bpbps-two-exponent-slots-are-not-what-youd-guess">Warning: <code>BPBP</code>&#39;s two exponent slots are not what you&#39;d guess<a class="heading-anchor" href="#warning-bpbps-two-exponent-slots-are-not-what-youd-guess">#</a></h3>
+<p><code>BPBP = polynomial&lt;BP&gt;</code> is <strong>not</strong> &quot;polynomial in the <code>t_i</code> with <code>BP_*</code>
+coefficients&quot; in the layout the type name suggests. Per <code>BP.cpp:69</code> — <em>&quot;the
+right unit, <code>vn</code> is in the outer&quot;</em> — it is the other way around:</p>
+<ul>
+<li>the <strong>outer</strong> exponent indexes the <code>v_i</code> (included via the <strong>right</strong> unit
+<code>η_R</code>), and</li>
+<li>the <strong>inner</strong> (coefficient) <code>BP</code>&#39;s exponent indexes the <code>t_i</code>.</li>
+</ul>
+<p>So <code>BPBP_opers.monomial(singleVar(1,1), unit(1))</code> — the obvious-looking way
+to write <code>t_1</code> — is actually <strong><code>η_R(v_1)</code></strong>. The correct <code>t_1</code> is</p>
+<pre><code>// t_1: outer exponent 0 (no v's), inner coefficient carrying t-exponent 1
+BP   inner = BP_oper.monomial(singleVar(1,1), BP_oper.Z3_oper-&gt;unit(1));
+BPBP t1    = BP_oper.BPBP_opers.monomial(0, inner);</code></pre>
+<p>Better still, for <code>t_1</code> specifically, just call <strong><code>BP_oper.h0()</code></strong>, which the
+repo already provides: it computes <code>(η_R(v_1) - η_L(v_1))/p</code> from the loaded
+structure tables, which is exactly <code>t_1</code>, and it can&#39;t be gotten backwards.
+(Verified: <code>h0()</code> and the two-line construction above are bitwise equal, and
+both differ from <code>BPBP_opers.monomial(singleVar(1,1),unit(1))</code>.)</p>
+<p>This matters because getting it backwards fails <em>silently</em> in a particularly
+nasty way: <code>η_R(v_1)</code> is not in the augmentation ideal, so a coaction using it
+violates counitality — and, per the caveats below, nothing checks that.
+3. Build and run exactly like <code>mr_BP</code>, after a matching <code>BPtab &lt;halfT&gt;</code> run:
+   <code>./mr_BP_myComplex &lt;halfT&gt; &lt;resolution_length&gt;</code>.</p>
 <p>Output files use two internal prefixes: <code>&lt;halfT&gt;_gP...</code> for the phase-2
 (model) resolution over <code>P</code>, and <code>&lt;halfT&gt;_gBP...</code> for the final phase-3
 resolution and its <code>algNov</code>/<code>Boc</code> tables (e.g. <code>&lt;halfT&gt;_gBPAANSS_table.txt</code>) —
