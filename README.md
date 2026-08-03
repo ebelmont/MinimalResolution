@@ -7,6 +7,21 @@ at p=2), using the algebraic Novikov spectral sequence. See
 explanation of how to interpret the data files output by the program. The
 rest of this README is Guozhen's original instructions.
 
+## Charts
+
+`anss_chart.py` draws an SVG chart of the Adams-Novikov E<sub>2</sub> page
+from a finished `mr_BP` run (Python 3, no dependencies, nothing recomputed):
+
+```sh
+./mr_st 35 31 && ./BPtab 35 && ./mr_BP 35 30
+./anss_chart.py 35            # -> 35_anss_E2.svg
+```
+
+Dots are plotted at `(t-s, s)`, one per generator — note this is *not* the
+pair `mr_BP` prints, which is `(t-s, s+i)` for `i` the algebraic Novikov
+filtration. See [`docs/CHARTS.md`](docs/CHARTS.md) for the grading
+convention, which classes are drawn and why, and the current limitations.
+
 ## Documentation
 
 This codebase had no architecture documentation beyond this README and
