@@ -22,7 +22,9 @@ consolidated from the individual pipeline docs. See
 <a href="ARCHITECTURE.html"><code>ARCHITECTURE.md</code></a> for how these fit together and the p=2
 vs p=3 caveat (§5 there) before you pick which pipeline to run.</p>
 <p>Requires GCC with C++11/C++14 support, OpenMP, and (for <code>BPtab</code> only) the GNU
-Multiple Precision library (<code>libgmp</code>, <code>libgmpxx</code>).</p>
+Multiple Precision library (<code>libgmp</code>, <code>libgmpxx</code>). Charting the result with
+<code>anss_chart.py</code> additionally needs Python 3 — see <a href="CHARTS.html"><code>CHARTS.md</code></a>,
+including the macOS notes, since Apple&#39;s <code>clang</code> rejects <code>-fopenmp</code>.</p>
 <p>All executables take degree parameters as <code>argv[1]</code>/<code>argv[2]</code> and read/write
 files in the <strong>current working directory</strong>, prefixed with the first
 argument (e.g. <code>25_etaL</code>, <code>25_maps</code>). Run everything for a given computation
@@ -106,7 +108,8 @@ sh st_compiling      # -&gt; mr_st (produces the seed generators mr_BP needs)
 
 ./mr_st 25 21        # writes 25_gens_data, among other 25_-prefixed files
 ./BPtab 25           # writes 25_etaL, 25_R2L, 25_delta (structure maps)
-./mr_BP 25 20        # loads all of the above; writes 25_BP*-prefixed output</code></pre>
+./mr_BP 25 20        # loads all of the above; writes 25_BP*-prefixed output
+./anss_chart.py 25   # draws 25_anss_E2.svg from the tables mr_BP just wrote</code></pre>
 <ul>
 <li><code>argv[1]</code> (here <code>25</code>) <strong>must be the same value</strong> across all three
 invocations — it&#39;s used directly as the max internal degree cutoff and
@@ -133,6 +136,11 @@ error&quot; warning. There is no argument validation to catch this earlier.</li>
 (<code>&lt;halfT&gt;_BPBocSS_table_binary</code>/<code>.txt</code>), and multiplicative structure
 (<code>h0</code>, <code>theta_i</code> tables) — see <code>docs/pipelines/BP.md</code> §4 for the full
 output-file inventory and what each one is.</li>
+<li><code>anss_chart.py</code> post-processes those tables into an SVG chart and needs no
+rebuild, so it can be re-run over an existing run&#39;s output as often as you
+like. It plots <code>(t-s, s)</code>, which is <strong>not</strong> the pair the tables print —
+<a href="CHARTS.html"><code>CHARTS.md</code></a> §2 explains the fix-up and §3 which classes are
+drawn.</li>
 </ul>
 <h2 id="pipeline-2-classical-steenrod-ext-p3-standalone">Pipeline 2: Classical Steenrod Ext (p=3, standalone)<a class="heading-anchor" href="#pipeline-2-classical-steenrod-ext-p3-standalone">#</a></h2>
 <pre><code>sh st_compiling      # -&gt; mr_st

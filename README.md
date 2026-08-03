@@ -19,8 +19,12 @@ from a finished `mr_BP` run (Python 3, no dependencies, nothing recomputed):
 
 Dots are plotted at `(t-s, s)`, one per generator — note this is *not* the
 pair `mr_BP` prints, which is `(t-s, s+i)` for `i` the algebraic Novikov
-filtration. See [`docs/CHARTS.md`](docs/CHARTS.md) for the grading
-convention, which classes are drawn and why, and the current limitations.
+filtration. Open the SVG in a browser and hover a dot to see its class name.
+
+[`docs/CHARTS.md`](docs/CHARTS.md) has the full instructions: prerequisites
+(including what to change on macOS, where `clang` rejects `-fopenmp`), how to
+build and run the pipeline from scratch, the grading convention and which
+classes get drawn, and the current limitations.
 
 ## Documentation
 

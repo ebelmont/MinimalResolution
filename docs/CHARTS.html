@@ -19,15 +19,64 @@
 <h1 id="charting-the-e2-page">Charting the E2 page<a class="heading-anchor" href="#charting-the-e2-page">#</a></h1>
 <p><code>anss_chart.py</code> turns a finished <code>mr_BP</code> run into an SVG chart of the
 Adams–Novikov E2 page. It reads only the text tables <code>mr_BP</code> already writes,
-so it never recomputes anything and needs no rebuild — you can point it at
-old output, including output from other machines.</p>
-<pre><code class="language-sh">./mr_st 35 31 &amp;&amp; ./BPtab 35 &amp;&amp; ./mr_BP 35 30    # the usual pipeline
-./anss_chart.py 35                              # -&gt; 35_anss_E2.svg
+so it recomputes nothing, needs no rebuild, and can be pointed at old output —
+including output produced on another machine.</p>
+<pre><code class="language-sh">./anss_chart.py 35            # -&gt; 35_anss_E2.svg
 </code></pre>
-<p>Requires Python 3 and nothing else. The argument is the same <code>&lt;halfT&gt;</code> you
-gave the pipeline; that's how it finds the files. Run it in the directory
-holding the run, or pass <code>--dir</code>.</p>
-<h2 id="1-grading-convention">1. Grading convention<a class="heading-anchor" href="#1-grading-convention">#</a></h2>
+<p>The argument is the same <code>&lt;halfT&gt;</code> you gave the pipeline; that is how it finds
+the files. Run it in the directory holding the run, or pass <code>--dir</code>. Python 3
+is the only requirement — no packages to install.</p>
+<p>Open the result in a browser: every dot carries an SVG <code>&lt;title&gt;</code>, so hovering
+it shows the class name and both gradings.</p>
+<h2 id="1-running-the-whole-thing-from-scratch">1. Running the whole thing from scratch<a class="heading-anchor" href="#1-running-the-whole-thing-from-scratch">#</a></h2>
+<h3 id="11-prerequisites">1.1 Prerequisites<a class="heading-anchor" href="#11-prerequisites">#</a></h3>
+<p><strong>Linux:</strong></p>
+<pre><code class="language-sh">sudo apt-get install g++ libgmp-dev python3
+</code></pre>
+<p><strong>macOS:</strong> Apple's <code>clang</code> rejects <code>-fopenmp</code>, which every build script here
+uses, so the stock compiler will not work:</p>
+<pre><code class="language-sh">brew install gcc gmp
+</code></pre>
+<p>Then edit <code>st_compiling</code>, <code>BPtable_compile</code> and <code>BP_compile</code> to call <code>g++-14</code>
+(or whichever version Homebrew installed) instead of <code>g++</code>, and add
+<code>-I/opt/homebrew/include -L/opt/homebrew/lib</code> to <code>BPtable_compile</code> so it finds
+GMP. Nothing else needs changing. (Alternatively <code>brew install libomp</code> and
+compile with <code>-Xpreprocessor -fopenmp -lomp</code>, but switching compilers is less
+fiddly.)</p>
+<h3 id="12-build">1.2 Build<a class="heading-anchor" href="#12-build">#</a></h3>
+<pre><code class="language-sh">sh st_compiling        # -&gt; mr_st
+sh BPtable_compile     # -&gt; BPtab
+sh BP_compile          # -&gt; mr_BP
+</code></pre>
+<p>The top-level README misspells the second one as <code>BPtable_complile</code>; the file
+is <code>BPtable_compile</code>.</p>
+<p><code>st_compiling</code> builds with <code>-O0</code>, which makes <code>mr_st</code> far slower than it needs
+to be. Changing it to <code>-O2</code> is safe.</p>
+<h3 id="13-run">1.3 Run<a class="heading-anchor" href="#13-run">#</a></h3>
+<p>All four programs read and write files in the <strong>current</strong> directory, and the
+repo has no <code>.gitignore</code>, so work in a scratch subdirectory rather than
+dumping dozens of output files into your checkout:</p>
+<pre><code class="language-sh">mkdir -p run35 &amp;&amp; cd run35
+../mr_st 35 31
+../BPtab 35
+../mr_BP 35 30
+../anss_chart.py 35 --omit-stem0      # -&gt; 35_anss_E2.svg
+</code></pre>
+<p>Do a small run first — <code>20 15 / 20 / 20 14</code> finishes in seconds and confirms
+the toolchain before you commit to a long one.</p>
+<p>Three things that bite:</p>
+<ul>
+<li><code>argv[1]</code> must be <strong>identical</strong> across all four commands, and <code>mr_st</code>'s
+  second argument must be at least one more than <code>mr_BP</code>'s. Nothing validates
+  this; a mismatch segfaults or allocates wildly rather than erroring cleanly
+  (see <a href="BUILD_AND_RUN.html"><code>BUILD_AND_RUN.md</code></a> for the mechanism).</li>
+<li>Don't mix runs in one directory. The <code>&lt;halfT&gt;_</code> filename prefix is the only
+  linkage between the programs, so stale files from a different <code>halfT</code> are
+  picked up silently.</li>
+<li>Classes near the top stems are missing because of the degree bound, not
+  because they are absent (§7).</li>
+</ul>
+<h2 id="2-grading-convention">2. Grading convention<a class="heading-anchor" href="#2-grading-convention">#</a></h2>
 <p>The default (<code>--grading anss</code>) plots the Adams–Novikov bidegree:</p>
 <ul>
 <li><strong>x</strong> = stem = <code>t - s</code></li>
@@ -43,7 +92,7 @@ reads <code>s</code> off the <code>[s-n]</code> bracket in the class name instea
 draws them as vertical 3-towers, and draws the algebraic Novikov
 differentials. That view is useful for checking a run against the raw tables;
 it is not an ANSS chart.</p>
-<h2 id="2-which-classes-are-on-the-chart">2. Which classes are on the chart<a class="heading-anchor" href="#2-which-classes-are-on-the-chart">#</a></h2>
+<h2 id="3-which-classes-are-on-the-chart">3. Which classes are on the chart<a class="heading-anchor" href="#3-which-classes-are-on-the-chart">#</a></h2>
 <p>The algebraic Novikov SS converges to <code>Ext_{BP_*BP} =</code> the ANSS E2 page, so a
 class is drawn exactly when it survives that spectral sequence. Two filters
 implement this:</p>
@@ -60,7 +109,7 @@ looking for <code>v0</code> in the name. <code>v0^1[1-1]</code> carries a <code>
 anything that survives — its predecessor <code>[1-1]</code> supports a d₂ — and it is
 exactly α₃ in stem 11. A syntactic filter deletes it and puts a hole in the
 chart.</p>
-<h2 id="3-structure-lines">3. Structure lines<a class="heading-anchor" href="#3-structure-lines">#</a></h2>
+<h2 id="4-structure-lines">4. Structure lines<a class="heading-anchor" href="#4-structure-lines">#</a></h2>
 <p>Solid tan lines are multiplication by <code>h0 = (η_R(v1) - η_L(v1))/p</code> = α₁,
 read from <code>&lt;halfT&gt;_BPAANSS_h0.txt</code>, so they run <code>(+3, +1)</code>.</p>
 <p>Multiplication by α₂ (<code>(+7, +1)</code> lines, which published charts also draw) is
@@ -71,7 +120,7 @@ calling <code>mult_table(&lt;class&gt;, &lt;degree&gt;, "alpha2.txt")</code> wit
 already handles any multiplication table.</p>
 <p>The <code>theta_i</code> tables that <code>mr_BP</code> writes are Bockstein-side
 (<code>&lt;halfT&gt;_BPBocSS_theta*.txt</code>), so they are not drawn on an ANSS chart.</p>
-<h2 id="4-bockstein-tables-are-not-supported">4. Bockstein tables are not supported<a class="heading-anchor" href="#4-bockstein-tables-are-not-supported">#</a></h2>
+<h2 id="5-bockstein-tables-are-not-supported">5. Bockstein tables are not supported<a class="heading-anchor" href="#5-bockstein-tables-are-not-supported">#</a></h2>
 <p><code>Boc.cpp:37-38</code> computes <code>(degree*2 - k, k + filtration)</code> but prints only the
 first coordinate, and that coordinate is <code>2t - s</code>, not the stem — for α₁ it
 prints <code>7</code> where the algebraic Novikov table prints stem <code>3</code>. So the
@@ -79,20 +128,22 @@ Bockstein <code>.txt</code> files are missing the second coordinate entirely and
 different first one. Charting them needs either a fix at that line or a
 reconstruction from the class names (<code>Boc_table::v_valuation</code>, <code>Boc.cpp:4-6</code>,
 counts only powers of <code>v0</code>, so <code>y = s + v0-exponent</code>).</p>
-<h2 id="5-verification">5. Verification<a class="heading-anchor" href="#5-verification">#</a></h2>
+<h2 id="6-verification">6. Verification<a class="heading-anchor" href="#6-verification">#</a></h2>
 <p>At <code>halfT=35, s=30</code> the chart's dots are</p>
 <pre><code>(3,1) (7,1) (10,2) (11,1) (13,3) (15,1) (19,1) (20,4) (23,1) (23,5)
 (26,2) (27,1) (29,3) (31,1)
 </code></pre>
 <p>i.e. α₁, α₂, β₁, α₃, α₁β₁, α₄, α₅, β₁², α₆, α₁β₁², … — agreeing with the
-published p=3 ANSS charts on every stem in range.</p>
-<h2 id="6-truncation">6. Truncation<a class="heading-anchor" href="#6-truncation">#</a></h2>
+published p=3 ANSS charts on every stem in range. That check exercises the
+parsing, both filters in §3, and the regrading in §2 together, so it is the
+one to re-run after changing any of them.</p>
+<h2 id="7-truncation">7. Truncation<a class="heading-anchor" href="#7-truncation">#</a></h2>
 <p>Classes near the top stems are missing because of the degree bound, not
 because they are absent — <code>mr_BP</code> prints things like <code>out of range for beta1</code>
 when a needed class falls outside the budget. The chart cannot tell the
 difference, so treat the right-hand edge as unreliable and crop it with
 <code>--max-stem</code> when showing the chart to anyone.</p>
-<h2 id="7-options">7. Options<a class="heading-anchor" href="#7-options">#</a></h2>
+<h2 id="8-options">8. Options<a class="heading-anchor" href="#8-options">#</a></h2>
 <table>
 <thead>
 <tr>
@@ -111,7 +162,7 @@ difference, so treat the right-hand edge as unreliable and crop it with
 </tr>
 <tr>
 <td><code>--grading anss\|algnov</code></td>
-<td>see §1</td>
+<td>see §2</td>
 </tr>
 <tr>
 <td><code>--omit-stem0</code></td>
@@ -131,8 +182,19 @@ difference, so treat the right-hand edge as unreliable and crop it with
 </tr>
 </tbody>
 </table>
-<p>Every dot carries an SVG <code>&lt;title&gt;</code>, so hovering it in a browser shows the
-class name and both gradings.</p>
+<h2 id="9-how-the-conventions-were-pinned-down">9. How the conventions were pinned down<a class="heading-anchor" href="#9-how-the-conventions-were-pinned-down">#</a></h2>
+<p>The grading in §2 and the class-selection rules in §3 were not guessed. They
+were derived by measuring a published p=3 ANSS chart — extracting its dot
+positions and structure-line slopes — and then requiring that the tool
+reproduce that dot set from <code>mr_BP</code>'s tables. Both §2 and §3 are corrections
+that this comparison forced:</p>
+<ul>
+<li>plotting <code>mr_BP</code>'s printed second coordinate puts α₂ at height 2 instead of
+  1, and every other <code>v</code>-multiple with it;</li>
+<li>filtering 3-multiples by name instead of by the <code>a0</code> table deletes α₃.</li>
+</ul>
+<p>Either mistake produces a chart that looks plausible and is wrong, which is
+why §6 exists.</p>
 
   <footer class="page-footer">
     <span>MinimalResolution documentation</span>

@@ -6,7 +6,9 @@ consolidated from the individual pipeline docs. See
 vs p=3 caveat (§5 there) before you pick which pipeline to run.
 
 Requires GCC with C++11/C++14 support, OpenMP, and (for `BPtab` only) the GNU
-Multiple Precision library (`libgmp`, `libgmpxx`).
+Multiple Precision library (`libgmp`, `libgmpxx`). Charting the result with
+`anss_chart.py` additionally needs Python 3 — see [`CHARTS.md`](CHARTS.md),
+including the macOS notes, since Apple's `clang` rejects `-fopenmp`.
 
 All executables take degree parameters as `argv[1]`/`argv[2]` and read/write
 files in the **current working directory**, prefixed with the first
@@ -49,6 +51,7 @@ sh st_compiling      # -> mr_st (produces the seed generators mr_BP needs)
 ./mr_st 25 21        # writes 25_gens_data, among other 25_-prefixed files
 ./BPtab 25           # writes 25_etaL, 25_R2L, 25_delta (structure maps)
 ./mr_BP 25 20        # loads all of the above; writes 25_BP*-prefixed output
+./anss_chart.py 25   # draws 25_anss_E2.svg from the tables mr_BP just wrote
 ```
 
 - `argv[1]` (here `25`) **must be the same value** across all three
@@ -76,6 +79,11 @@ sh st_compiling      # -> mr_st (produces the seed generators mr_BP needs)
   (`<halfT>_BPBocSS_table_binary`/`.txt`), and multiplicative structure
   (`h0`, `theta_i` tables) — see `docs/pipelines/BP.md` §4 for the full
   output-file inventory and what each one is.
+- `anss_chart.py` post-processes those tables into an SVG chart and needs no
+  rebuild, so it can be re-run over an existing run's output as often as you
+  like. It plots `(t-s, s)`, which is **not** the pair the tables print —
+  [`CHARTS.md`](CHARTS.md) §2 explains the fix-up and §3 which classes are
+  drawn.
 
 ## Pipeline 2: Classical Steenrod Ext (p=3, standalone)
 
