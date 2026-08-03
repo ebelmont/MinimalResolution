@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Ex/Ctau Pipeline (mr_ex) — MinimalResolution docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="../index.html">docs</a><span class="sep">/</span><span>pipelines</span><span class="sep">/</span><span class="current">EX_CTAU</span></div>
+  <div class="actions">
+    <a class="src-link" href="EX_CTAU.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="the-exctau-pipeline-mr_ex">The Ex/Ctau Pipeline (<code>mr_ex</code>)<a class="heading-anchor" href="#the-exctau-pipeline-mr_ex">#</a></h1>
+<p>An &quot;exterior ⊗ polynomial&quot; reformulation of a mod-2 dual-Steenrod-algebra
+computation, built on the same generic template framework as the classical
+and motivic pipelines (<code>docs/FRAMEWORK.md</code>, <code>docs/pipelines/STEENROD.md</code>,
+<code>docs/pipelines/MOTIVIC.md</code>). Covers: <code>ex_exponents.h/.cpp</code>, <code>expoly.h</code>,
+<code>ex_index.h/.cpp</code>, <code>ex_steenrod_init.h/.cpp</code>, <code>ctau_steenrod.h/.cpp</code>,
+<code>ex_main.cpp</code>, <code>ex_test.cpp</code>, <code>ex2poly.cpp</code>. This document&#39;s most actionable
+content is §3 (duplication) and §5 (dead code) — read those first.</p>
+<h2 id="1-purpose-best-effort-inference-speculative">1. Purpose (best-effort inference — speculative)<a class="heading-anchor" href="#1-purpose-best-effort-inference-speculative">#</a></h2>
+<ul>
+<li><code>ctau_steenrod.h</code> defines the dual object <code>P = poly&lt;ex_poly,Fp&gt;</code>
+(<code>ctau_steenrod.h:10</code>): a ring with <strong>two kinds of generators</strong>,
+polynomial <code>x_i</code> (<code>xnDegs = {0,2,6,14,30,62,126,254}</code>, <code>ex_exponents.cpp:46</code>)
+and <strong>exterior</strong> <code>z_i</code> (<code>znDegs = {0,1,3,7,15,31,63,127}</code>,
+<code>ex_exponents.cpp:51</code>, with <code>z_i^2=0</code> enforced by <code>common_ex</code>,
+<code>ex_exponents.cpp:15-19</code>, and <code>ExPolyOp_Para::mon_multiply</code>,
+<code>ex_exponents.h:158-172</code>). Note <strong><code>znDegs[i] == xnDegs[i]/2</code> for every
+<code>i</code></strong> — i.e. <code>x_i</code> and <code>z_i</code> are set up with exactly the degree relation
+<code>|x_i| = 2|z_i|</code>, the same relation <code>mot_coactions.cpp:23</code>&#39;s comment
+states for the motivic algebra (<code>&quot;ξ_i = τ^{-1}τ_i^2&quot;</code>, see
+<code>MOTIVIC.md</code> §2). <strong>Inference:</strong> <code>P</code> here is very likely the classical,
+non-motivic, <strong>mod-2</strong> dual Steenrod algebra <code>A_* = F_2[xi_1,xi_2,...]</code>
+represented via an auxiliary &quot;square-root&quot; presentation <code>x_i = z_i^2</code>
+(with <code>z_i</code> an odd/exterior formal square root, playing the role <code>tau_i</code>
+plays in the motivic algebra with <code>tau</code> set to a constant/forgotten) —
+hence the name &quot;<strong>c-tau</strong>&quot; ≈ &quot;constant/classical tau&quot;: the same
+square-root trick used motivically, but with the <code>tau</code>-grading collapsed
+(no separate weight, no formal <code>tau</code> variable) so ordinary <code>Hopf_Algebroid&lt; Fp,P&gt;</code> machinery applies directly. This would also explain why this
+variant needs its own <code>monomial_index</code> with an exterior half (<code>ex_index.h</code>,
+§3) that the plain classical pipeline&#39;s <code>mon_index.h</code> doesn&#39;t have.
+<strong>TODO(math):</strong> this reading is not stated anywhere in the code/comments;
+confirm against <code>ctau_steenrod.cpp:52-77</code>&#39;s coproduct formulas (<code>deltaXn</code>,
+<code>deltaZn</code>) matching the classical odd-primary Milnor coproduct on
+<code>ξ_j</code>/<code>τ_j</code> specialized/doubled to <code>p=2</code>.<ul>
+<li>Corroborating: <code>ctau_steenrod.cpp:54-59</code>&#39;s <code>deltaXn(j)</code> = `x_j⊗1 + 1⊗x_j<ul>
+<li>Σ_{k=1}^{j-1} x_k⊗x_{j-k}^{power_p(k)}<code>and</code>deltaZn(j)<code> (</code>ctau_steenrod.cpp:62-74<code>) = </code>z_j⊗1 + 1⊗z_j + Σ_{k=1}^{j-1}
+z_k⊗x_{j-k}^{power_p(k-1)}<code>are exactly the shape of the classical Milnor coproduct on</code>ξ_j<code>and</code>τ_j<code>(odd-primary dual Steenrod algebra), with</code>power_p(i)=prime^i<code>— and</code>ex_main.cpp:11<code>hardcodes</code>prime=2<code>regardless of</code>argv<code>, so </code>power_p(i)=2^i`.</li>
+</ul>
+</li>
+<li><strong>Correction after reading <code>MinimalResolution.pdf</code>:</strong> this document
+previously suggested that ctau&#39;s exterior part was &quot;the missing exterior
+part&quot; of the classical pipeline&#39;s <code>P</code>, as if the two <code>P</code>s were the same
+object split across two files. They are not. The paper (§2) establishes
+that <code>steenrod.h</code>&#39;s <code>P</code> is specifically <code>BP_*BP/I</code> — a sub-Hopf-algebra
+of the dual Steenrod algebra that is <strong>purely polynomial by
+construction</strong>, with no exterior part <em>by definition</em>, not because the
+exterior part lives elsewhere (see <code>docs/pipelines/STEENROD.md</code> §1). The
+<code>ctau_steenrod.h</code> object documented here is a genuinely <strong>different</strong>
+ring, used by a genuinely different (p=2, cross-check) pipeline — it is
+not the &quot;other half&quot; of <code>steenrod.h</code>&#39;s <code>P</code>. The degree-doubling relation
+<code>|x_i| = 2|z_i|</code> noted above is real and, per the paper, is exactly the
+relation between <code>BP_*BP/I</code> and the (undoubled) dual Steenrod algebra at
+<code>p=2</code> — so <code>ctau_steenrod.h</code>&#39;s <code>P</code> is best read as (a square-root
+presentation of) the actual, full mod-2 dual Steenrod algebra, entirely
+separate from the p=3 <code>BP_*BP/I</code> object <code>steenrod.h</code> models.</li>
+</ul>
+</li>
+<li>Relation to the motivic pipeline (<code>MOTIVIC.md</code>): <code>mr_mot</code> explicitly
+consumes this pipeline&#39;s output as a <em>model</em> for its own resolution
+(<code>gens_data_ctau</code>, <code>extables</code>, both written by <code>ex_main.cpp</code>/
+<code>ex_steenrod_init.cpp</code> and read by <code>mot_main.cpp:54,57</code> — see
+<code>MOTIVIC.md</code> §2). So concretely, independent of the speculative math
+above: <strong><code>mr_ex</code>&#39;s resolution structure (its curtis tables and chosen
+generators) is reused verbatim to drive the motivic resolution.</strong> This is
+the strongest, code-verified relationship between the two pipelines.</li>
+<li>Relation to the classical pipeline (<code>steenrod.h</code>/<code>mr_st</code>, <code>p=3</code>): same
+class names (<code>P_Op</code>, <code>PP_Op</code>, <code>Steenrod_Op</code>, <code>ComodInit</code>, <code>SteenrodInit</code>)
+and same overall driver shape, but a structurally different ring (<code>P = poly&lt;ex_poly,Fp&gt;</code> here vs. <code>polynomial&lt;Fp&gt;</code> there) and — per <code>ex_main.cpp: 11</code> — a hardcoded <strong><code>p=2</code></strong>, whereas <code>stmain.cpp:11</code> hardcodes <code>p=3</code>
+(see <code>STEENROD.md</code> §2). <strong>Resolved (<code>docs/ARCHITECTURE.md</code> §6, citing
+<code>MinimalResolution.pdf</code>&#39;s introduction and Gheorghe–Wang–Xu [2]):</strong>
+<code>mr_ex</code> is intentionally p=2 — it&#39;s part of the independent motivic
+cross-check of the algebraic Novikov SS (via the cofiber-of-τ isomorphism
+[2] proves), which was evidently developed/retained at p=2 rather than
+ported when this repo forked the <em>direct</em> <code>BP_*BP</code> pipeline
+(<code>mr_st</code>/<code>BPtab</code>/<code>mr_BP</code>) to p=3. The paper&#39;s own §9 source-code
+walkthrough never mentions <code>ctau_steenrod.*</code> or <code>ex_*</code> at all, consistent
+with this being either a later addition validating [2]&#39;s theorem
+computationally, or simply not carried over by the fork.</li>
+</ul>
+<h2 id="2-executable">2. Executable<a class="heading-anchor" href="#2-executable">#</a></h2>
+<h3 id="mr_ex-from-ex_maincpp-header-comment-still-says-stmaincpp"><code>mr_ex</code> (from <code>ex_main.cpp</code>, header comment still says <code>stmain.cpp</code>)<a class="heading-anchor" href="#mr_ex-from-ex_maincpp-header-comment-still-says-stmaincpp">#</a></h3>
+<ul>
+<li>Build (<code>ex_compile:1</code>): <code>g++ -omr_ex ex_steenrod_init.cpp ex_exponents.cpp ex_index.cpp ex_main.cpp ctau_steenrod.cpp Fp.cpp streams.cpp -I./ -std=c++14 -fopenmp -O2 -Wfatal-errors</code></li>
+<li>Usage: <code>./mr_ex &lt;maxdeg&gt; &lt;resolution_length&gt;</code> (<code>ex_main.cpp:8-9</code>).
+<code>ex_main.cpp:1</code> still carries the comment <code>//stmain.cpp</code> — this file is a
+copy of the classical pipeline&#39;s <code>stmain.cpp</code> (diffed: only the include,
+the hardcoded prime <code>3→2</code>, the constructor&#39;s extra <code>director</code> argument,
+and output filenames differ; see §3).</li>
+<li>Prime is <strong>hardcoded to 2</strong>: <code>SteenrodInit st(2, maxdeg, length, ...)</code>
+(<code>ex_main.cpp:11</code>), regardless of any &quot;p=3 fork&quot; framing elsewhere in the
+repo.</li>
+<li>Inputs: none required upfront — <code>&lt;maxdeg&gt;_ctau_steenrod_coaction.data</code> is
+self-generated on first run (constructor default <code>IorO=false</code>,
+<code>ex_steenrod_init.cpp:6-20</code>), same pattern as the classical <code>SteenrodInit</code>.
+Note: this pipeline does <strong>not</strong> consume <code>ex2poly_index</code>/<code>e2p</code>&#39;s output —
+<code>ex2poly.cpp</code>/<code>e2p</code> instead <strong>depends on this pipeline&#39;s monomial
+ordering</strong> (<code>ex2poly.cpp:41-44</code> builds its own <code>monomial_index</code> from
+<code>ex_index.h</code> and just re-derives the doubled exponent list; it does not
+read any <code>mr_ex</code> output file). The dependency direction for the <em>motivic</em>
+chain is: <code>mr_ex</code> (or a bare <code>monomial_index</code>) and <code>e2p</code> both derive
+independently from the same <code>ex_index.h</code> monomial enumeration, and both
+feed <code>mr_mot</code> (see <code>MOTIVIC.md</code> §2).</li>
+<li>Outputs (all <code>&lt;maxdeg&gt;_</code>-prefixed):<ul>
+<li><code>ctau_steenrod_coaction.data</code> — the coproduct table (self-generated).</li>
+<li><code>maps</code>, <code>gens</code> — per <code>SteenrodInit::resolve</code> (<code>ex_steenrod_init.cpp:56-58</code>,
+calls <code>Steenrod_Op::pre_resolution_tab</code>).</li>
+<li><code>extables</code> — the <code>tablename</code> argument to <code>pre_resolution_tab</code>
+(<code>ex_steenrod_init.cpp:57</code>) — <strong>consumed by <code>mr_mot</code></strong>
+(<code>mot_main.cpp:57</code>, <code>MOTIVIC.md</code> §2).</li>
+<li><code>ResTables_ctau</code> — <code>SteenrodInit::saveResolutionTables</code>
+(<code>ex_main.cpp:16</code>).</li>
+<li><code>gens_data_ctau</code> — <code>SteenrodInit::save_gens</code> (<code>ex_main.cpp:17</code>) —
+<strong>consumed by <code>mr_mot</code></strong> (<code>mot_main.cpp:54</code>).</li>
+<li>stdout: <code>Steenrod_Op::output_resolution</code> rank table
+(<code>ex_main.cpp:19</code>, shared implementation with the classical pipeline&#39;s
+<code>steenrod.cpp</code>, but here in <code>ctau_steenrod.cpp:156-191</code>).</li>
+<li>Intermediate matrix files: <code>inex</code>, <code>indjex</code>, <code>qutex</code>, <code>mewexp</code>
+(injection/quotient/new-map scratch, <code>ex_steenrod_init.cpp:5</code>) and
+<code>excac</code>/<code>excoamat</code> (the comodule&#39;s backing coaction matrix,
+<code>ex_steenrod_init.cpp:5,52</code>) — note these are <strong><code>matrix_file&lt;...&gt;</code></strong>
+(disk-backed), not <code>matrix_mem&lt;...&gt;</code> as in the classical pipeline (§3).</li>
+</ul>
+</li>
+</ul>
+<h2 id="3-duplication-analysis">3. Duplication analysis<a class="heading-anchor" href="#3-duplication-analysis">#</a></h2>
+<p>This pipeline is built almost entirely from <strong>near-duplicates of files used
+elsewhere</strong> in the repo. Every pair below was diffed directly; findings are
+concrete, not inferred.</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Pair</th>
+<th>Locations</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ex_poly</code>/<code>ExPolyOp_Para</code> in <strong><code>ex_exponents.h</code></strong> vs. <strong><code>expoly.h</code></strong></td>
+<td><code>ex_exponents.h:1-177</code> vs. <code>expoly.h:1-177</code></td>
+<td><strong>Byte-for-byte identical</strong> (<code>diff</code> returns no output). <code>expoly.h:1</code> even still carries the header comment <code>//ex_exponents.h</code>. Nothing in the repo <code>#include</code>s <code>expoly.h</code> (checked all <code>.h</code>/<code>.cpp</code> includes) — it is a <strong>fully orphaned, unreferenced exact copy</strong> of <code>ex_exponents.h</code>, not compiled or used anywhere. Whoever/whatever created it appears to have duplicated the file (perhaps as a WIP fork point) and never diverged or wired it in.</td>
+</tr>
+<tr>
+<td><code>monomial_index</code> in <strong><code>ex_index.h</code></strong> vs. <strong><code>mon_index.h</code></strong></td>
+<td><code>ex_index.h:10-99</code> vs. <code>mon_index.h:10-95</code></td>
+<td><strong>Genuinely divergent, but clearly copy-paste-derived.</strong> <code>ex_index.h:1</code> still carries the header comment <code>//mon_index.h</code> (a leftover from copying <code>mon_index.h</code> as the starting point). Real differences: <code>ex_index.h</code> includes <code>ex_exponents.h</code> (maxVar=7, has exterior generators) vs. <code>mon_index.h</code> includes <code>exponents.h</code> (maxVar=5, no exterior generators, <code>exponents.h:3,7</code>); <code>ex_index.h</code>&#39;s <code>substitution_table</code> takes an extra <code>exvalues</code> callback and has a <code>max_ex</code> member (<code>ex_index.h:42-43,80-89,36</code>) to handle the exterior half of <code>ex_poly</code> that <code>mon_index.h</code>&#39;s version has no concept of. So the divergence is functionally necessary (mon_index.h&#39;s monomial enumeration has nothing to enumerate for exterior generators), but the file was clearly forked from <code>mon_index.h</code> wholesale rather than written fresh or factored via inheritance/templates — the non-exterior 80% of the two files is line-for-line parallel.</td>
+</tr>
+<tr>
+<td><code>ComodInit</code>/<code>SteenrodInit</code> in <strong><code>ex_steenrod_init.h</code></strong> vs. <strong><code>steenrod_init.h</code></strong></td>
+<td><code>ex_steenrod_init.h:1-56</code> vs. <code>steenrod_init.h:1-50</code></td>
+<td><strong>Near-duplicate class definitions, confirmed.</strong> Same two class names, same member list shape. Differences: <code>ex_steenrod_init.h</code> includes <code>ctau_steenrod.h</code> (not <code>steenrod.h</code>) and <code>matrices_stream.h</code> (not present in <code>steenrod_init.h</code>); its <code>ComodInit</code> backs onto <code>matrix_file&lt;P&gt;</code> (disk-backed, <code>ex_steenrod_init.h:11</code>) vs. <code>steenrod_init.h</code>&#39;s <code>matrix_mem&lt;P&gt;</code> (in-memory, <code>steenrod_init.h:8</code>); likewise <code>inj</code>/<code>indj</code>/<code>qut</code>/<code>new_map</code> are <code>matrix_file&lt;Fp&gt;</code> here (<code>ex_steenrod_init.h:30-31</code>) vs. <code>matrix_mem&lt;Fp&gt;</code> there (<code>steenrod_init.h:27</code>); the <code>SteenrodInit</code> constructor takes an extra <code>string director</code> parameter here (<code>ex_steenrod_init.h:46</code> vs. <code>steenrod_init.h:40</code>). This looks like a deliberate storage-strategy variant (disk-backed matrices, presumably for a larger <code>p=2</code> computation) layered onto an otherwise copy-paste-identical class structure — <strong>genuinely divergent in intent (memory vs. disk), but structurally copy-drift</strong> (the two files could plausibly have been unified via a template parameter on storage backend).</td>
+</tr>
+<tr>
+<td><code>ex_main.cpp</code> vs. classical <code>stmain.cpp</code></td>
+<td><code>ex_main.cpp:1-22</code> vs. <code>stmain.cpp:1-22</code></td>
+<td><strong>Direct copy</strong>, diff is 3 hunks: include (<code>ex_steenrod_init.h</code> vs <code>steenrod_init.h</code>), hardcoded prime (<code>2</code> vs <code>3</code>) and an extra <code>filename</code> ctor arg, and output filenames (<code>..._ctau</code> suffix vs. none). <code>ex_main.cpp:1</code> still says <code>//stmain.cpp</code>.</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Overall assessment:</strong> this pipeline was very likely bootstrapped by
+copying four files from the classical pipeline (<code>mon_index.h</code>→<code>ex_index.h</code>,
+<code>steenrod_init.h</code>→<code>ex_steenrod_init.h</code>, <code>steenrod.h</code>→<code>ctau_steenrod.h</code>,
+<code>stmain.cpp</code>→<code>ex_main.cpp</code>) and adapting each for the exterior-generator /
+disk-backed-matrix / <code>p=2</code> variant, plus one stray exact duplicate
+(<code>expoly.h</code>) that appears to be an abandoned copy of <code>ex_exponents.h</code> with
+no callers at all. None of this is inherently wrong, but it means any bugfix
+or improvement to the classical <code>steenrod_init.h</code>/<code>mon_index.h</code>/<code>steenrod.h</code>
+machinery will silently <strong>not</strong> propagate to this pipeline&#39;s copies, and
+vice versa.</p>
+<h2 id="4-class-catalog">4. Class catalog<a class="heading-anchor" href="#4-class-catalog">#</a></h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Class</th>
+<th>File</th>
+<th>Template Params</th>
+<th>Base Classes</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>ex_poly</code></td>
+<td><code>ex_exponents.h:16</code></td>
+<td>—</td>
+<td>—</td>
+<td>Packed exponent for <code>P = F[x_i]⊗Λ(z_i)</code>: <code>exponent e</code> packs polynomial powers in low bits + exterior bitmask in high bits (<code>ex_exponents.cpp:5-19</code>)</td>
+</tr>
+<tr>
+<td><code>ExPolyOp_Para&lt;ring&gt;</code></td>
+<td><code>ex_exponents.h:155</code></td>
+<td><code>ring</code></td>
+<td><code>PolyOp_Para&lt;ex_poly,ring&gt;</code></td>
+<td>Multiplication respecting <code>z_i^2=0</code> (<code>mon_multiply</code>, <code>ex_exponents.h:157-172</code>, skips via <code>common_ex</code>)</td>
+</tr>
+<tr>
+<td><code>monomial_index</code> (ex variant)</td>
+<td><code>ex_index.h:10</code></td>
+<td>—</td>
+<td>—</td>
+<td>Enumerates monomials of <code>P</code> (poly ⊗ exterior) up to <code>max_degree</code>; <code>substitution_table</code> takes both <code>values</code> (poly gens) and <code>exvalues</code> (exterior gens) callbacks (<code>ex_index.h:42-43</code>)</td>
+</tr>
+<tr>
+<td><code>P</code></td>
+<td><code>ctau_steenrod.h:10</code></td>
+<td><code>typedef poly&lt;ex_poly,Fp&gt;</code></td>
+<td>—</td>
+<td>The &quot;ctau&quot; dual object: <code>Fp[x_1..x_7] ⊗ Λ(z_1..z_7)</code></td>
+</tr>
+<tr>
+<td><code>PP</code></td>
+<td><code>ctau_steenrod.h:12</code></td>
+<td><code>typedef poly&lt;ex_poly,P&gt;</code></td>
+<td>—</td>
+<td><code>P ⊗ P</code>, for the coproduct</td>
+</tr>
+<tr>
+<td><code>P_Op</code></td>
+<td><code>ctau_steenrod.h:18</code></td>
+<td>—</td>
+<td><code>ExPolyOp_Para&lt;Fp&gt;</code></td>
+<td>Ring ops on <code>P</code>; <code>construct(k,i)</code>=<code>x_k^i</code>, <code>construct_ex(k)</code>=<code>z_k</code> (<code>ctau_steenrod.cpp:126-133</code>)</td>
+</tr>
+<tr>
+<td><code>PP_Op</code></td>
+<td><code>ctau_steenrod.h:29</code></td>
+<td>—</td>
+<td><code>virtual ExPolyOp_Para&lt;P&gt;</code></td>
+<td>Ops on <code>P⊗P</code>; <code>construct(k1,i1,k2,i2)</code>, <code>construct_expoly(k1,k2,i2)</code>=<code>z_{k1}⊗x_{k2}^{i2}</code> (<code>ctau_steenrod.cpp:136-143</code>)</td>
+</tr>
+<tr>
+<td><code>Steenrod_Op</code> (ctau)</td>
+<td><code>ctau_steenrod.h:42</code></td>
+<td>—</td>
+<td><code>virtual Hopf_Algebroid&lt;Fp,P&gt;</code>, <code>virtual Fp_Op</code></td>
+<td>Hopf algebroid on <code>P</code>; <code>make_delta</code> builds <code>deltaXn</code>/<code>deltaZn</code> coproduct formulas (<code>ctau_steenrod.cpp:52-77</code>, see §1)</td>
+</tr>
+<tr>
+<td><code>ComodInit</code> (ex)</td>
+<td><code>ex_steenrod_init.h:10</code></td>
+<td>—</td>
+<td><code>SteenrodCoMod_generic</code></td>
+<td>Backs onto <strong><code>matrix_file&lt;P&gt;</code></strong> (disk), ctor takes a directory string (<code>ex_steenrod_init.h:11-15</code>)</td>
+</tr>
+<tr>
+<td><code>SteenrodInit</code> (ex)</td>
+<td><code>ex_steenrod_init.h:18</code></td>
+<td>—</td>
+<td>(none)</td>
+<td>Driver; <code>inj</code>/<code>indj</code>/<code>qut</code>/<code>new_map</code> are <code>matrix_file&lt;Fp&gt;</code> (disk); commented-out <code>curtisTable_stream</code>/<code>unique_ptr</code> fields (<code>ex_steenrod_init.h:36-37</code>) suggest an abandoned streaming-curtis-table variant</td>
+</tr>
+<tr>
+<td><code>FreeSteenrodCoMod</code>/<code>SteenrodCoMod_generic</code> (ctau)</td>
+<td><code>ctau_steenrod.h:103,106</code></td>
+<td><code>typedef cofree_comodule&lt;P,int&gt;</code> / <code>comodule_generic&lt;P,int&gt;</code></td>
+<td>—</td>
+<td>Same shape as classical pipeline&#39;s identically-named typedefs (<code>steenrod.h:99,102</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="5-dead-code-candidates">5. Dead code candidates<a class="heading-anchor" href="#5-dead-code-candidates">#</a></h2>
+<p>Cross-checked against <strong>every</strong> compile script in the repo (<code>*_compile</code>,
+10 scripts total), not just the 5 named in this task:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>File</th>
+<th>Referenced by any compile script?</th>
+<th>Verdict</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>expoly.h</code></td>
+<td>No — and not even <code>#include</code>d by any <code>.cpp</code>/<code>.h</code></td>
+<td><strong>Dead</strong>: an exact orphaned duplicate of <code>ex_exponents.h</code> (§3). Safe to delete once confirmed unused by any out-of-tree/WIP work.</td>
+</tr>
+<tr>
+<td><code>ex_test.cpp</code></td>
+<td>No</td>
+<td><strong>Dead/standalone dev utility</strong>: <code>#include</code>s only <code>exponents.h</code> (the <em>classical</em> one, maxVar=5, no exterior part — not <code>ex_exponents.h</code>!) and has a bare <code>main(){ ... }</code> (no return type, pre-C++ style, <code>ex_test.cpp:3</code>) that builds a <code>monomial_index</code> over degree 142 and dumps degrees/monomials to stdout. Reads like a scratch test of the classical <code>monomial_index</code>, not actually exercising anything <code>ex</code>-specific despite its name and location among the <code>ex_*</code> files.</td>
+</tr>
+<tr>
+<td><code>tao_boc.cpp</code></td>
+<td>No (only <code>tao_bockstein.cpp</code> is referenced, by <code>tau_mult_compile</code>/<code>tauboc_compile</code>)</td>
+<td><strong>Dead — orphaned older revision.</strong> Confirmed by direct inspection: <code>tao_boc.cpp</code> uses namespaces/types that do not match the current headers at all — <code>TauBockstein::</code>, <code>Matrices::matrix_array</code>, <code>Modules::vectors</code>, <code>HopfAlgebroid::cofree_comodule</code>, <code>MotSteentrod::tauPoly</code>, <code>motSt</code>, <code>tauP</code>, <code>new_vector</code>, and a <code>cycle_data</code> used as a <em>class</em> with <code>.insert()</code>/<code>.search()</code> methods (<code>tao_boc.cpp:240-260</code>) — whereas the current <code>tao_bockstein.h:49</code> defines <code>cycle_data</code> as a plain <code>std::map</code> typedef with no methods. This is a <strong>pre-refactor snapshot</strong> of what is now <code>tao_bockstein.cpp</code>, kept in the tree but never updated or wired into any build.</td>
+</tr>
+<tr>
+<td><code>ex2poly.cpp</code></td>
+<td><strong>Yes</strong> — built into <code>e2p</code> via <code>e2p_compile:1</code> (<code>g++ ... ex_exponents.cpp ex_index.cpp ex2poly.cpp ... -oe2p</code>)</td>
+<td><strong>Not dead</strong> — it&#39;s a legitimate small standalone tool, just not one of the 5 executables named in this task&#39;s scope. Included here only because the task asked to check; it <em>is</em> wired into the motivic chain as the producer of <code>&lt;maxdeg&gt;_ex2poly_index</code> (<code>MOTIVIC.md</code> §2).</td>
+</tr>
+<tr>
+<td><code>mot_coactions.cpp</code> (cross-reference)</td>
+<td><strong>Yes</strong> — built into <code>motTab</code> via <code>mottable_compile</code> (out of this doc&#39;s Part-B scope, documented in <code>MOTIVIC.md</code> §2)</td>
+<td>Not dead; flagged here only to close the loop since the task listed it as &quot;check if it has its own main.&quot;</td>
+</tr>
+</tbody>
+</table></div>
+<p><strong>Recommendation for the repo owner:</strong> <code>expoly.h</code>, <code>ex_test.cpp</code>, and
+<code>tao_boc.cpp</code> can very likely be deleted outright — none are referenced by
+any of the 10 compile scripts in the repo, and <code>tao_boc.cpp</code> in particular
+is clearly superseded by <code>tao_bockstein.cpp</code> (same filename family, totally
+different/older API).</p>
+<h2 id="6-open-math-questions">6. Open math questions<a class="heading-anchor" href="#6-open-math-questions">#</a></h2>
+<p>The prime-hardcoding question is now resolved — see §1&#39;s corrected
+discussion and <code>docs/ARCHITECTURE.md</code> §6: <code>mr_ex</code> is p=2 because it&#39;s part
+of an independent, p=2, motivic cross-check of the algebraic Novikov SS
+(Gheorghe–Wang–Xu [2]), not unported p=3 work in the same sense as the
+direct BP pipeline. <code>MinimalResolution.pdf</code> does not, however, discuss the
+ex/ctau construction itself (its §9 source walkthrough stops before this
+pipeline), so the following remain genuinely open:</p>
+<ul>
+<li><strong>TODO(math):</strong> Confirm or refute the central claim of §1 — that
+<code>ctau_steenrod.h</code>&#39;s <code>P = poly&lt;ex_poly,Fp&gt;</code> is the ordinary mod-2 dual
+Steenrod algebra presented via square-root generators <code>x_i=z_i^2</code> — by
+checking <code>ctau_steenrod.cpp:52-77</code>&#39;s coproduct formulas against a known
+reference for the Milnor coproduct at <code>p=2</code>. This is now corroborated by
+the paper&#39;s degree-doubling fact for <code>BP_*BP/I</code> at p=2 (§1 above) but not
+directly confirmed, since the paper never discusses <code>ctau_steenrod.h</code>.</li>
+<li><strong>TODO(math):</strong> What, precisely, does &quot;modeling&quot; the motivic resolution
+on this pipeline&#39;s curtis tables/generator choices (<code>gens_data_ctau</code>,
+<code>extables</code>, consumed by <code>mr_mot</code>) mathematically justify — i.e. why
+should the minimal generating set and cell structure of <code>Ext_P(F_2,F_2)</code>
+for this <code>ex_poly</code> presentation coincide with (or lift to) the minimal
+generating set for <code>Ext_{A_*^mot}(F_p,F_p)</code>? No comment states this.</li>
+<li><strong>TODO(math):</strong> The commented-out <code>curtisTable_stream</code>/streaming variant
+in <code>ex_steenrod_init.h:36-37</code>/<code>ex_steenrod_init.cpp:40-41</code> suggests an
+abandoned attempt at a disk-streamed (rather than fully in-memory per
+table) curtis-table implementation for this pipeline specifically —
+unclear whether this was abandoned for correctness or performance
+reasons, or simply unfinished.</li>
+</ul>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="../index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="../assets/page.js"></script>
+</body>
+</html>

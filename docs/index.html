@@ -1,0 +1,278 @@
+<title>MinimalResolution — Documentation</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff;
+    --fg: #1a1a1a;
+    --muted: #5a5a5a;
+    --border: #d8d8d8;
+    --card: #f7f7f8;
+    --accent: #2a5db0;
+    --accent-bg: #eaf1fc;
+    --warn-bg: #fff4e5;
+    --warn-border: #e0a637;
+    --mono-bg: #eef0f2;
+    --good: #1f7a3d;
+  }
+  :root[data-theme="dark"] {
+    --bg: #14161a;
+    --fg: #e8e8ea;
+    --muted: #a0a4ab;
+    --border: #33363c;
+    --card: #1c1f24;
+    --accent: #6fa3ff;
+    --accent-bg: #1b2940;
+    --warn-bg: #332a12;
+    --warn-border: #b8862c;
+    --mono-bg: #23262c;
+    --good: #4fbf78;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #14161a;
+      --fg: #e8e8ea;
+      --muted: #a0a4ab;
+      --border: #33363c;
+      --card: #1c1f24;
+      --accent: #6fa3ff;
+      --accent-bg: #1b2940;
+      --warn-bg: #332a12;
+      --warn-border: #b8862c;
+      --mono-bg: #23262c;
+      --good: #4fbf78;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+    max-width: 980px;
+    margin: 0 auto;
+    padding: 2.5rem 1.5rem 5rem;
+    line-height: 1.55;
+  }
+  h1 { font-size: 1.7rem; margin-bottom: 0.25rem; }
+  h2 { font-size: 1.2rem; margin-top: 2.5rem; border-bottom: 1px solid var(--border); padding-bottom: 0.4rem; }
+  .subtitle { color: var(--muted); margin-top: 0; margin-bottom: 2rem; }
+  code, .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.9em; }
+  code { background: var(--mono-bg); padding: 0.1em 0.35em; border-radius: 4px; }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .card-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 0.9rem;
+    margin-top: 1rem;
+  }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+  }
+  .card h3 { margin: 0 0 0.35rem; font-size: 1rem; }
+  .card p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+  .card .files { margin-top: 0.5rem; font-size: 0.78rem; color: var(--muted); }
+
+  .callout {
+    background: var(--warn-bg);
+    border: 1px solid var(--warn-border);
+    border-radius: 8px;
+    padding: 0.9rem 1.1rem;
+    margin: 1.2rem 0;
+    font-size: 0.92rem;
+  }
+  .callout strong { display: block; margin-bottom: 0.3rem; }
+
+  table { border-collapse: collapse; width: 100%; margin: 0.75rem 0; font-size: 0.88rem; }
+  th, td { border: 1px solid var(--border); padding: 0.45rem 0.6rem; text-align: left; vertical-align: top; }
+  th { background: var(--card); }
+  tr.p3 td:nth-child(2) { color: var(--good); font-weight: 600; }
+  tr.p2 td:nth-child(2) { color: var(--warn-border); font-weight: 600; }
+
+  .search-box {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    font-size: 0.95rem;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--bg);
+    color: var(--fg);
+    margin-bottom: 0.75rem;
+  }
+  .search-box:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  #class-table tr.hidden { display: none; }
+  .pill {
+    display: inline-block;
+    font-size: 0.72rem;
+    padding: 0.1em 0.5em;
+    border-radius: 999px;
+    background: var(--accent-bg);
+    color: var(--accent);
+    margin-left: 0.4em;
+  }
+  .diagram {
+    background: var(--mono-bg);
+    border-radius: 8px;
+    padding: 1rem;
+    overflow-x: auto;
+    font-size: 0.8rem;
+    white-space: pre;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  footer { margin-top: 3rem; color: var(--muted); font-size: 0.82rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+</style>
+
+<h1>MinimalResolution</h1>
+<p class="subtitle">
+  A p=3 fork of Guozhen Wang's minimal-resolution code for computing the
+  Adams&ndash;Novikov E<sub>2</sub> page for the sphere, via the algebraic
+  Novikov spectral sequence. This page is the entry point into documentation
+  generated from the actual source (with file:line citations) &mdash; start
+  with <a href="ARCHITECTURE.html">Architecture</a> if you're new here.
+</p>
+
+<div class="callout">
+  <strong>⚠ Read this first: the "p=3 fork" is partial — and now explained.</strong>
+  Only <code>mr_st</code> and the BP pipeline (<code>BPtab</code>/<code>mr_BP</code>)
+  actually run at p=3. <code>kos</code>, <code>mr_ex</code>, and the entire
+  motivic pipeline are hardcoded to p=2 because they're an independent
+  cross-check via the motivic Adams spectral sequence for the cofiber of τ
+  (Gheorghe&ndash;Wang&ndash;Xu), not an unfinished part of the port. See
+  <a href="ARCHITECTURE.html#6-the-p2-vs-p3-split-now-explained-not-just-observed">Architecture &sect;6</a>
+  for the full story.
+</div>
+
+<h2>Start here</h2>
+<div class="card-grid">
+  <div class="card">
+    <h3><a href="ARCHITECTURE.html">Architecture</a></h3>
+    <p>The big picture: what this computes, the 4-layer structure, the full executable pipeline diagram, and the p=2/p=3 split.</p>
+  </div>
+  <div class="card">
+    <h3><a href="BUILD_AND_RUN.html">Build &amp; Run</a></h3>
+    <p>Concrete build/run instructions for all 11 executables, argument conventions, and the segfault mechanism explained.</p>
+  </div>
+  <div class="card">
+    <h3><a href="CHARTS.html">Charts</a></h3>
+    <p>Draw the Adams&ndash;Novikov E<sub>2</sub> page as an SVG from a finished <code>mr_BP</code> run, and the grading convention that needs fixing up first.</p>
+  </div>
+  <div class="card">
+    <h3><a href="CLASSES.html">Class Catalog</a></h3>
+    <p>Every class in the repo (~65), grouped by layer, with an inheritance diagram.</p>
+  </div>
+  <div class="card">
+    <h3><a href="GLOSSARY.html">Glossary</a></h3>
+    <p>Math concept &harr; code identifier lookup table, both directions.</p>
+  </div>
+  <div class="card">
+    <h3><a href="CODE_WALKTHROUGH.html">Code Walkthrough</a></h3>
+    <p>A slower, line-by-line tour of how comodules and Hopf algebroids become C++ classes &mdash; for readers who aren't fluent in reading the code itself.</p>
+  </div>
+  <div class="card">
+    <h3><a href="GENERAL_COMODULES.html">General Comodules</a></h3>
+    <p>Compute the algebraic Novikov E2 page for any finite complex's BP-homology, not just the sphere.</p>
+  </div>
+</div>
+
+<h2>Pipelines</h2>
+<table>
+  <thead><tr><th>Doc</th><th>Prime</th><th>Executables</th><th>Role</th></tr></thead>
+  <tbody>
+    <tr class="p3">
+      <td><a href="pipelines/BP.html">BP.md</a></td>
+      <td>p=3</td>
+      <td><code>BPtab</code>, <code>mr_BP</code></td>
+      <td><strong>Main deliverable.</strong> The BP Hopf algebroid resolution, algebraic Novikov + Bockstein SS tables.</td>
+    </tr>
+    <tr class="p3">
+      <td><a href="pipelines/STEENROD.html">STEENROD.md</a></td>
+      <td>p=3 / p=2*</td>
+      <td><code>mr_st</code>, <code>kos</code>*</td>
+      <td>Classical dual-Steenrod-algebra Ext; seeds the BP resolution's generators. (*<code>kos</code> hardcodes p=2.)</td>
+    </tr>
+    <tr class="p2">
+      <td><a href="pipelines/EX_CTAU.html">EX_CTAU.md</a></td>
+      <td>p=2</td>
+      <td><code>mr_ex</code>, <code>e2p</code></td>
+      <td>Exterior+polynomial dual-Steenrod-algebra variant; models the motivic resolution's generators.</td>
+    </tr>
+    <tr class="p2">
+      <td><a href="pipelines/MOTIVIC.html">MOTIVIC.md</a></td>
+      <td>p=2</td>
+      <td><code>motTab</code>, <code>mr_mot</code>, <code>mot_comb</code>, <code>mot_mult</code>, <code>tauBoc</code></td>
+      <td>Motivic (&tau;-graded) dual Steenrod algebra Ext + &tau;-Bockstein spectral sequence.</td>
+    </tr>
+    <tr>
+      <td><a href="FRAMEWORK.html">FRAMEWORK.md</a></td>
+      <td>&mdash;</td>
+      <td>(none &mdash; library code)</td>
+      <td>Generic, math-agnostic template layer every pipeline above builds on: rings, modules, matrices, comodules, <code>Hopf_Algebroid</code>, <code>curtis_table</code>.</td>
+    </tr>
+  </tbody>
+</table>
+
+<h2>Quick class lookup</h2>
+<input class="search-box" id="class-search" type="text" placeholder="Filter by class name, file, or pipeline&hellip;" autocomplete="off">
+<table id="class-table">
+  <thead><tr><th>Class</th><th>File</th><th>Pipeline</th><th>Purpose</th></tr></thead>
+  <tbody>
+    <tr><td>AbGroupOp</td><td>algebra/2.h</td><td>Framework</td><td>Abstract abelian-group interface</td></tr>
+    <tr><td>RingOp</td><td>algebra/3.h</td><td>Framework</td><td>Abstract ring interface</td></tr>
+    <tr><td>vectors</td><td>modules/2.h</td><td>Framework</td><td>Sparse vector (universal row/column datatype)</td></tr>
+    <tr><td>ModuleOp</td><td>modules/3.h&ndash;9.h</td><td>Framework</td><td>Operations on free-module sparse vectors</td></tr>
+    <tr><td>matrix / matrix_mem / matrix_stream / matrix_file</td><td>matrices*.h</td><td>Framework</td><td>Matrix over a ring; three storage backends</td></tr>
+    <tr><td>curtis_table (+ _mem, curtisTable_stream)</td><td>matrices/9.h</td><td>Framework</td><td>Leading-term reduction table for one resolution step</td></tr>
+    <tr><td>curtis_table / matrix_array / quasi_table (others.h)</td><td>others.h</td><td>Framework</td><td>Dead code &mdash; unrelated duplicate, not included anywhere</td></tr>
+    <tr><td>polynomial / PolyOp / PolyOp_Para</td><td>polynomial*.h</td><td>Framework</td><td>Polynomial ring structure</td></tr>
+    <tr><td>monomial_index</td><td>mon_index.h</td><td>Framework</td><td>Enumerates/indexes monomials (non-exterior rings)</td></tr>
+    <tr><td>con_streams / con_fstreams</td><td>streams.h</td><td>Framework</td><td>Thread-safe stream/file wrapper</td></tr>
+    <tr><td>CoModule / comodule_generic / cofree_comodule</td><td>hopf_algebroid/2,3,9,11.h</td><td>Framework</td><td>Comodule interface and implementations</td></tr>
+    <tr><td>Hopf_Algebroid</td><td>hopf_algebroid/4&ndash;13.h</td><td>Framework</td><td><strong>The resolution engine</strong></td></tr>
+    <tr><td>SS_entry / SS_table</td><td>SS.h</td><td>Framework</td><td>Generic spectral-sequence-page storage</td></tr>
+    <tr><td>Fp_Op</td><td>Fp.h</td><td>Base ring</td><td>Arithmetic on F_p</td></tr>
+    <tr><td>Z3_Op</td><td>Z3.h</td><td>Base ring</td><td>Arithmetic on truncated 3-adic integers</td></tr>
+    <tr><td>Qp_Op / Q3_Op / Qp_int / Q3_int</td><td>Qp.h</td><td>Base ring</td><td>p-local rationals (GMP-backed)</td></tr>
+    <tr><td>P_Op / PP_Op / Steenrod_Op</td><td>steenrod.h</td><td>Steenrod</td><td>Classical dual Steenrod algebra (p=3, polynomial part only)</td></tr>
+    <tr><td>ComodInit / SteenrodInit</td><td>steenrod_init.h</td><td>Steenrod</td><td>Driver: coproduct table + trivial-comodule resolution</td></tr>
+    <tr><td>BPQ_Op / BPBPQ_Op / BPBPBPQ_Op</td><td>BPQ.h</td><td>BP</td><td>Rational BP Hopf algebroid (structure-map derivation)</td></tr>
+    <tr><td>BP_Op / BPBP_Op / BPBPBP_Op</td><td>BP.h</td><td>BP</td><td><strong>Integral (BP_*, BP_*BP) Hopf algebroid &mdash; central class</strong></td></tr>
+    <tr><td>BPComodInit / BPInit</td><td>BP_init.h</td><td>BP</td><td>Per-run driver owning every BP operator/table</td></tr>
+    <tr><td>prim_entry / primitive_data / BPComplex</td><td>BPcomplex.h</td><td>BP</td><td>Complex of primitives of the BP resolution</td></tr>
+    <tr><td>algNov_table / algNov_tables</td><td>algNov.h</td><td>BP</td><td>Algebraic-Novikov E1/E2-page table(s)</td></tr>
+    <tr><td>Boc_table / Boc_tables</td><td>Boc.h</td><td>BP</td><td>Bockstein-SS variant of algNov_table</td></tr>
+    <tr><td>multiplication / multiplication_table_entry</td><td>multiplication.h</td><td>BP</td><td>Multiplicative structure (h0, theta_i)</td></tr>
+    <tr><td>ex_poly / ExPolyOp_Para</td><td>ex_exponents.h</td><td>Ex/Ctau</td><td>Packed exponent + multiplication for poly&otimes;exterior ring</td></tr>
+    <tr><td>monomial_index (ex variant)</td><td>ex_index.h</td><td>Ex/Ctau</td><td>Monomial enumeration including exterior half</td></tr>
+    <tr><td>P / PP / P_Op / PP_Op / Steenrod_Op (ctau)</td><td>ctau_steenrod.h</td><td>Ex/Ctau</td><td>F[x_i]&otimes;&Lambda;(z_i) dual Steenrod variant (p=2)</td></tr>
+    <tr><td>ComodInit / SteenrodInit (ex)</td><td>ex_steenrod_init.h</td><td>Ex/Ctau</td><td>Driver, disk-backed matrices</td></tr>
+    <tr><td>tauPoly / tauOper</td><td>mot_steenrod.h</td><td>Motivic</td><td>&tau;-monomial encoding and arithmetic</td></tr>
+    <tr><td>motSteenrod / MotSteenrodRingOp / MotSteenrodOp</td><td>mot_steenrod.h</td><td>Motivic</td><td>Motivic dual Steenrod algebra + Hopf algebroid structure</td></tr>
+    <tr><td>MotDegree</td><td>mot_steenrod.h</td><td>Motivic</td><td>Bigrading (degree, weight)</td></tr>
+    <tr><td>motComplex / tau_table / tau_table_entry</td><td>tao_bockstein.h</td><td>Motivic</td><td>&tau;-Bockstein spectral sequence machinery</td></tr>
+  </tbody>
+</table>
+
+<h2>Known issues worth cleaning up</h2>
+<p>Found while documenting (see <a href="ARCHITECTURE.html#7-known-deadduplicate-code-worth-cleaning-up">Architecture &sect;7</a> for details): <code>others.h</code> (dead, incompatible duplicate framework classes), <code>lift.h</code> (looks non-compiling), <code>expoly.h</code> (byte-for-byte duplicate of <code>ex_exponents.h</code>), <code>ex_test.cpp</code> and <code>tao_boc.cpp</code> (orphaned, superseded), <code>Qptest.cpp</code> (references types that no longer exist).</p>
+
+<footer>
+  Generated documentation for a research codebase with no prior architecture docs.
+  Math explanations are grounded in code/comments only; gaps are marked
+  <code>TODO(math)</code> in the source markdown where the underlying paper
+  (<code>MinimalResolution.pdf</code>, referenced by the README but not present
+  in this repo) would be needed for a complete account.
+</footer>
+
+<script>
+  document.getElementById('class-search').addEventListener('input', function (e) {
+    var q = e.target.value.trim().toLowerCase();
+    var rows = document.querySelectorAll('#class-table tbody tr');
+    rows.forEach(function (row) {
+      var text = row.textContent.toLowerCase();
+      row.classList.toggle('hidden', q.length > 0 && text.indexOf(q) === -1);
+    });
+  });
+</script>

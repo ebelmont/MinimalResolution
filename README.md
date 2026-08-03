@@ -7,6 +7,41 @@ at p=2), using the algebraic Novikov spectral sequence. See
 explanation of how to interpret the data files output by the program. The
 rest of this README is Guozhen's original instructions.
 
+## Charts
+
+`anss_chart.py` draws an SVG chart of the Adams-Novikov E<sub>2</sub> page
+from a finished `mr_BP` run (Python 3, no dependencies, nothing recomputed):
+
+```sh
+./mr_st 35 31 && ./BPtab 35 && ./mr_BP 35 30
+./anss_chart.py 35            # -> 35_anss_E2.svg
+```
+
+Dots are plotted at `(t-s, s)`, one per generator — note this is *not* the
+pair `mr_BP` prints, which is `(t-s, s+i)` for `i` the algebraic Novikov
+filtration. Open the SVG in a browser and hover a dot to see its class name.
+
+[`docs/CHARTS.md`](docs/CHARTS.md) has the full instructions: prerequisites
+(including what to change on macOS, where `clang` rejects `-fopenmp`), how to
+build and run the pipeline from scratch, the grading convention and which
+classes get drawn, and the current limitations.
+
+## Documentation
+
+This codebase had no architecture documentation beyond this README and
+inline comments. [`docs/index.html`](docs/index.html) is a generated
+documentation dashboard covering the class structure, module relationships,
+and full build/run pipeline — start there, or jump straight to
+[`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) for the big picture. It's now
+grounded directly in `MinimalResolution.pdf` (the algorithm writeup
+referenced below), with citations to its definitions and propositions
+throughout rather than guesswork. It also flags a few things worth knowing
+before you dig in: several sub-pipelines (`kos`, `mr_ex`, and the whole
+motivic pipeline) are hardcoded to p=2 — the docs explain why this is an
+independent cross-check rather than an unfinished port — and there's some
+dead/duplicate code left over from earlier refactors — see
+`docs/ARCHITECTURE.md` §6–7 for specifics.
+
 ******************************************************************************************************
 
 The algorithm is explained in the pdf file MinimalResolution.pdf
