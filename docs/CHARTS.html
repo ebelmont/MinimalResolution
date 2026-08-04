@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Charting the E2 page — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">CHARTS</span></div>
+  <div class="actions">
+    <a class="src-link" href="CHARTS.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="charting-the-e2-page">Charting the E2 page<a class="heading-anchor" href="#charting-the-e2-page">#</a></h1>
+<p><code>anss_chart.py</code> turns a finished <code>mr_BP</code> run into an SVG chart of the
+Adams–Novikov E2 page. It reads only the text tables <code>mr_BP</code> already writes,
+so it never recomputes anything and needs no rebuild — you can point it at
+old output, including output from other machines.</p>
+<pre><code class="language-sh">./mr_st 35 31 &amp;&amp; ./BPtab 35 &amp;&amp; ./mr_BP 35 30    # the usual pipeline
+./anss_chart.py 35                              # -&gt; 35_anss_E2.svg
+</code></pre>
+<p>Requires Python 3 and nothing else. The argument is the same <code>&lt;halfT&gt;</code> you
+gave the pipeline; that's how it finds the files. Run it in the directory
+holding the run, or pass <code>--dir</code>.</p>
+<h3 id="charting-a-comodule-other-than-the-sphere">Charting a comodule other than the sphere<a class="heading-anchor" href="#charting-a-comodule-other-than-the-sphere">#</a></h3>
+<p><code>mr_BP_comod</code> (see <a href="GENERAL_COMODULES.html">GENERAL_COMODULES.md</a>) writes its
+tables with a <code>&lt;halfT&gt;_&lt;comodule&gt;BP...</code> prefix rather than <code>&lt;halfT&gt;_BP...</code>.
+Pass <code>-c/--comodule</code> to chart one:</p>
+<pre><code class="language-sh">./BPtab 20 &amp;&amp; ./mr_BP_comod 20 4 alpha_1   # resolve S/alpha_1
+./anss_chart.py 20 -c alpha_1              # -&gt; 20_alpha_1anss_E2.svg
+</code></pre>
+<p>The comodule name lands in the output filename and the chart title, so
+charts for different complexes don't overwrite each other. Without the flag
+the script behaves exactly as before, reading a plain <code>mr_BP</code> run.</p>
+<p>One caveat when reading such a chart: <code>mr_BP_comod</code> runs <code>mult_table()</code> (so
+the <code>α₁</code> structure lines are drawn) but deliberately <strong>not</strong> <code>mult_theta()</code>,
+which is specific to the Moore spectrum and carries a hardcoded table of
+theta degrees. The <code>theta_i</code> tables are Bockstein-side and aren't drawn on an
+ANSS chart anyway (see §3), so this costs nothing here.</p>
+<h2 id="1-grading-convention">1. Grading convention<a class="heading-anchor" href="#1-grading-convention">#</a></h2>
+<p>The default (<code>--grading anss</code>) plots the Adams–Novikov bidegree:</p>
+<ul>
+<li><strong>x</strong> = stem = <code>t - s</code></li>
+<li><strong>y</strong> = <code>s</code>, the homological degree</li>
+<li>one dot per generator; no 3-towers</li>
+</ul>
+<p><strong>This is not the pair <code>mr_BP</code> prints.</strong> <code>algNov.cpp:118</code> emits
+<code>|deg=(t-s, s+i)</code>, where <code>i</code> is the algebraic Novikov filtration, so
+<code>v1^1[1-0]</code> (which is α₂, in stem 7 of Ext¹) is printed at height <strong>2</strong> and
+belongs at height <strong>1</strong>. The chart takes the stem from the printed pair but
+reads <code>s</code> off the <code>[s-n]</code> bracket in the class name instead.</p>
+<p><code>--grading algnov</code> plots <code>mr_BP</code>'s printed pair as-is, keeps the 3-multiples,
+draws them as vertical 3-towers, and draws the algebraic Novikov
+differentials. That view is useful for checking a run against the raw tables;
+it is not an ANSS chart.</p>
+<h2 id="2-which-classes-are-on-the-chart">2. Which classes are on the chart<a class="heading-anchor" href="#2-which-classes-are-on-the-chart">#</a></h2>
+<p>The algebraic Novikov SS converges to <code>Ext_{BP_*BP} =</code> the ANSS E2 page, so a
+class is drawn exactly when it survives that spectral sequence. Two filters
+implement this:</p>
+<ol>
+<li><strong>Lines containing <code>&lt;-</code> record a differential</strong>, and both ends die. The
+   source never appears as a line of its own — <code>SS_table::output</code>
+   (<code>SS.h:139-146</code>) only emits untagged entries — so dropping the <code>&lt;-</code> lines
+   removes both ends.</li>
+<li><strong>Classes appearing as a target in <code>&lt;halfT&gt;_BPAANSS_a0.txt</code></strong> are 3 times
+   another class, i.e. a rung on a 3-tower rather than a generator.</li>
+</ol>
+<p>Filter 2 has to be driven by the multiplication-by-3 table, <strong>not</strong> by
+looking for <code>v0</code> in the name. <code>v0^1[1-1]</code> carries a <code>v0</code> but is not 3 times
+anything that survives — its predecessor <code>[1-1]</code> supports a d₂ — and it is
+exactly α₃ in stem 11. A syntactic filter deletes it and puts a hole in the
+chart.</p>
+<h2 id="3-structure-lines">3. Structure lines<a class="heading-anchor" href="#3-structure-lines">#</a></h2>
+<p>Solid tan lines are multiplication by <code>h0 = (η_R(v1) - η_L(v1))/p</code> = α₁,
+read from <code>&lt;halfT&gt;_BPAANSS_h0.txt</code>, so they run <code>(+3, +1)</code>.</p>
+<p>Multiplication by α₂ (<code>(+7, +1)</code> lines, which published charts also draw) is
+not currently available: <code>BPInit::mult_table</code> (<code>BP_init.cpp:180-187</code>) only
+computes the <code>h0</code> table for the algebraic Novikov side. Adding it means
+calling <code>mult_table(&lt;class&gt;, &lt;degree&gt;, "alpha2.txt")</code> with the appropriate
+<code>BPBP</code> element, then teaching this script the extra file — the parsing side
+already handles any multiplication table.</p>
+<p>The <code>theta_i</code> tables that <code>mr_BP</code> writes are Bockstein-side
+(<code>&lt;halfT&gt;_BPBocSS_theta*.txt</code>), so they are not drawn on an ANSS chart.</p>
+<h2 id="4-bockstein-tables-are-not-supported">4. Bockstein tables are not supported<a class="heading-anchor" href="#4-bockstein-tables-are-not-supported">#</a></h2>
+<p><code>Boc.cpp:37-38</code> computes <code>(degree*2 - k, k + filtration)</code> but prints only the
+first coordinate, and that coordinate is <code>2t - s</code>, not the stem — for α₁ it
+prints <code>7</code> where the algebraic Novikov table prints stem <code>3</code>. So the
+Bockstein <code>.txt</code> files are missing the second coordinate entirely and use a
+different first one. Charting them needs either a fix at that line or a
+reconstruction from the class names (<code>Boc_table::v_valuation</code>, <code>Boc.cpp:4-6</code>,
+counts only powers of <code>v0</code>, so <code>y = s + v0-exponent</code>).</p>
+<h2 id="5-verification">5. Verification<a class="heading-anchor" href="#5-verification">#</a></h2>
+<p>At <code>halfT=35, s=30</code> the chart's dots are</p>
+<pre><code>(3,1) (7,1) (10,2) (11,1) (13,3) (15,1) (19,1) (20,4) (23,1) (23,5)
+(26,2) (27,1) (29,3) (31,1)
+</code></pre>
+<p>i.e. α₁, α₂, β₁, α₃, α₁β₁, α₄, α₅, β₁², α₆, α₁β₁², … — agreeing with the
+published p=3 ANSS charts on every stem in range.</p>
+<h2 id="6-truncation">6. Truncation<a class="heading-anchor" href="#6-truncation">#</a></h2>
+<p>Classes near the top stems are missing because of the degree bound, not
+because they are absent — <code>mr_BP</code> prints things like <code>out of range for beta1</code>
+when a needed class falls outside the budget. The chart cannot tell the
+difference, so treat the right-hand edge as unreliable and crop it with
+<code>--max-stem</code> when showing the chart to anyone.</p>
+<h2 id="7-options">7. Options<a class="heading-anchor" href="#7-options">#</a></h2>
+<table>
+<thead>
+<tr>
+<th>Flag</th>
+<th>Effect</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>-d, --dir</code></td>
+<td>directory holding the tables (default <code>.</code>)</td>
+</tr>
+<tr>
+<td><code>-c, --comodule</code></td>
+<td>chart an <code>mr_BP_comod</code> run for this comodule (e.g. <code>alpha_1</code>); default is a plain <code>mr_BP</code> run</td>
+</tr>
+<tr>
+<td><code>-o, --output</code></td>
+<td>output file (default <code>&lt;halfT&gt;_&lt;comodule&gt;anss_E2.svg</code>)</td>
+</tr>
+<tr>
+<td><code>--grading anss\|algnov</code></td>
+<td>see §1</td>
+</tr>
+<tr>
+<td><code>--omit-stem0</code></td>
+<td>drop <code>Ext^0 = Z_(3)</code>, as the published charts do</td>
+</tr>
+<tr>
+<td><code>--max-stem</code>, <code>--max-filt</code></td>
+<td>crop</td>
+</tr>
+<tr>
+<td><code>--unit</code></td>
+<td>px per lattice step (default 31.2, matching published charts)</td>
+</tr>
+<tr>
+<td><code>--dot-radius</code>, <code>--tick</code>, <code>--title</code>, <code>--no-title</code></td>
+<td>cosmetics</td>
+</tr>
+</tbody>
+</table>
+<p>Every dot carries an SVG <code>&lt;title&gt;</code>, so hovering it in a browser shows the
+class name and both gradings.</p>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>

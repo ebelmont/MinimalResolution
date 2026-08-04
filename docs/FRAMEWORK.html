@@ -1,0 +1,979 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Generic Framework Layer — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">FRAMEWORK</span></div>
+  <div class="actions">
+    <a class="src-link" href="FRAMEWORK.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="generic-framework-layer">Generic Framework Layer<a class="heading-anchor" href="#generic-framework-layer">#</a></h1>
+<p>This document covers the math-agnostic template infrastructure in
+<code>MinimalResolution</code> — the layer that the Steenrod, BP, and motivic pipelines
+are all built on top of. It does <strong>not</strong> cover any concrete Hopf algebroid,
+comodule, or spectral-sequence pipeline; those are documented separately.</p>
+<p>Source files covered: <code>algebra.h</code> (+<code>algebra/1-3.h</code>), <code>matrices.h</code>
+(+<code>matrices/1-11.h</code>), <code>matrices_mem.h</code> (+<code>matrices_mem/1-4.h</code>),
+<code>matrices_stream.h</code>, <code>polynomial.h</code> (+<code>polynomial/1-6.h</code>), <code>modules.h</code>
+(+<code>modules/1-10.h</code>), <code>hopf_algebroid.h</code> (+<code>hopf_algebroid/1-13.h</code>),
+<code>mon_index.h/.cpp</code>, <code>streams.h</code>, <code>others.h</code>, <code>inverse.h</code>, <code>lift.h</code>, <code>curtis.h</code>,
+<code>SS.h</code>.</p>
+<h2 id="1-overview">1. Overview<a class="heading-anchor" href="#1-overview">#</a></h2>
+<p>This layer supplies the reusable machinery that every concrete pipeline
+(Steenrod algebra at p=3, BP, motivic) instantiates with its own ring and
+comodule structure: generic abelian-group/ring interfaces (<code>algebra.h</code>),
+generic sparse-vector and matrix types over an arbitrary ring
+(<code>modules.h</code>, <code>matrices.h</code>, <code>matrices_mem.h</code>, <code>matrices_stream.h</code>),
+a generic polynomial ring builder (<code>polynomial.h</code>), and — the centerpiece —
+<code>Hopf_Algebroid&lt;ring,algebroid&gt;</code> (<code>hopf_algebroid.h</code>), which implements the
+comodule-resolution algorithm (embedding into a cofree comodule, Gaussian
+elimination, quotienting) purely in terms of abstract ring/module operations
+and a caller-supplied Hopf-algebroid structure (<code>etaL</code>, <code>etaR</code>, <code>delta</code>, …).
+Separating this from the concrete math means the same resolution engine,
+matrix backend (in-memory or disk-streamed, for handling resolutions too
+large to fit in RAM), and polynomial arithmetic are shared verbatim across
+completely different Hopf algebroids (dual Steenrod algebra, BP*BP, motivic
+variants) — only the small algebroid-specific classes (structure maps,
+concrete comodules) differ per pipeline.</p>
+<h2 id="2-the-numbered-fragment-pattern">2. The numbered-fragment pattern<a class="heading-anchor" href="#2-the-numbered-fragment-pattern">#</a></h2>
+<p>Several &quot;big&quot; classes/headers are not written as a single file. Instead the
+top-level header (e.g. <code>matrices.h</code>) is a pure <code>#include</code> manifest:</p>
+<pre><code>// matrices.h
+#pragma once
+#include"matrices/1.h"
+#include"matrices/2.h"
+#include"matrices/3.h"
+...
+#include"matrices/9.h"</code></pre>
+<p>The <strong>first</strong> numbered fragment (<code>matrices/1.h</code>, <code>modules/1.h</code>,
+<code>hopf_algebroid/1.h</code>, <code>algebra/1.h</code>, <code>matrices_mem/1.h</code>) contains only the
+<code>#pragma once</code> guard and the <code>#include</code> of dependency headers (e.g.
+<code>matrices/1.h</code> pulls in <code>modules.h</code>). The <strong>second</strong> fragment (<code>matrices/2.h</code>,
+<code>modules/2.h</code>, <code>hopf_algebroid/2.h</code>...) contains the actual class <em>definition</em>
+with its full body (data members + declarations), often declaring some methods
+<code>virtual</code>/pure and leaving others merely declared (not defined). Every
+<strong>subsequent</strong> fragment (<code>matrices/3.h</code> … <code>matrices/9.h</code>, etc.) is <strong>not</strong> a
+class body at all — it is a sequence of out-of-line <code>template&lt;typename R&gt; ... matrix&lt;R&gt;::method(...) { ... }</code> definitions for the methods declared in
+fragment 2, grouped by theme (IO in one file, composition operators in
+another, quotient-construction in another, etc.). Because C++ template
+member functions can be defined anywhere after the class declaration is
+visible, this works as long as fragment 2 is included before the later
+fragments — which the manifest header guarantees.</p>
+<p>Concretely, for <code>matrices.h</code>:</p>
+<ul>
+<li><code>matrices/1.h</code> — dependencies only (<code>#include &quot;modules.h&quot;</code>, <code>typedef ... matrix_index</code>).</li>
+<li><code>matrices/2.h</code> — the <code>matrix&lt;R&gt;</code> class body (pure-virtual interface + a few inline helper methods like <code>filter</code>, <code>del_cols</code>, <code>construct</code>, <code>merge</code>, <code>direct_sum</code>), plus the static member definition <code>ModuleOp&lt;matrix_index,R&gt; *matrix&lt;R&gt;::moduleOper;</code> at the bottom.</li>
+<li><code>matrices/3.h</code> — <code>set2unit</code>, <code>set2zero</code>, <code>equal</code> definitions.</li>
+<li><code>matrices/4.h</code> — <code>output</code>, <code>save</code>, <code>load</code>, <code>load_modify</code> definitions.</li>
+<li><code>matrices/5.h</code> — <code>maps_to</code>, <code>compose</code>, and free-function <code>maps_to</code>/<code>maps_to_p</code> template overloads (parallel map-to-generators).</li>
+<li><code>matrices/6.h</code> — <code>quot_index</code>, <code>make_quotient</code> definitions.</li>
+<li><code>matrices/7.h</code> — <code>row_operation</code>, <code>filter</code> (two overloads) definitions.</li>
+<li><code>matrices/8.h</code> — the free function <code>sort_deg</code> (degree-based stable sort of <code>(row,col)</code> pairs).</li>
+<li><code>matrices/9.h</code> — <strong>a second, independent class</strong>, <code>curtis_table&lt;ring&gt;</code> (full definition, not a fragment of <code>matrix</code>!). See §3 and the note on redundancy.</li>
+<li><code>matrices/11.h</code> — empty (0 bytes of content, just a blank line). <code>matrices/10.h</code> does not exist — the numbering has a gap.</li>
+</ul>
+<p>The same three-part shape (deps-only fragment → class-body fragment → N
+method-body fragments) recurs in <code>modules/*.h</code>, <code>hopf_algebroid/*.h</code>, and
+<code>matrices_mem/*.h</code>, though <code>hopf_algebroid/*.h</code> interleaves multiple classes
+(<code>CoModule</code>, <code>comodule_generic</code>, <code>cofree_comodule</code>, <code>Hopf_Algebroid</code>, and even
+a <code>complex</code> struct tacked onto the end of <code>hopf_algebroid/6.h</code>) rather than
+splitting one class across all fragments — see §3 for exactly which fragment
+holds which class.</p>
+<p><strong>Reader takeaway:</strong> if you open a fragment file like <code>matrices/5.h</code> or
+<code>hopf_algebroid/10.h</code> and see a bare <code>template&lt;typename R&gt; return_type matrix&lt;R&gt;::method(...) { ... }</code> with no enclosing <code>class { ... }</code>, this is
+normal — it is an out-of-line definition for a class declared in an earlier,
+lower-numbered fragment of the same directory. Grep the whole numbered
+directory (not just the file you&#39;re looking at) to find the class body and
+all its method definitions.</p>
+<h2 id="3-class-catalog">3. Class catalog<a class="heading-anchor" href="#3-class-catalog">#</a></h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Class/Struct</th>
+<th>File(s)</th>
+<th>Template Parameters</th>
+<th>Base Classes</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>AbGroupOp</code></td>
+<td><code>algebra/2.h</code></td>
+<td><code>&lt;A&gt;</code></td>
+<td>(none, pure interface)</td>
+<td>Abstract interface for abelian-group operations on an opaque element type <code>A</code>: <code>add</code>, <code>zero</code>, <code>isZero</code>, <code>minus</code>, a destructive/move <code>add</code>, plus <code>output</code>/<code>save</code>/<code>load</code> for serialization. Every ring, module, and vector-of-vectors type in the codebase is driven through some concrete subclass of this.</td>
+</tr>
+<tr>
+<td><code>RingOp</code></td>
+<td><code>algebra/3.h</code></td>
+<td><code>&lt;R&gt;</code></td>
+<td><code>virtual public AbGroupOp&lt;R&gt;</code></td>
+<td>Adds <code>multiply</code>, <code>unit(int)</code> (ring hom from ℤ), <code>invertible</code>, <code>inverse</code>, and a default <code>power</code> (binary exponentiation) on top of the abelian-group interface. This is the ring-level contract that <code>ModuleOp</code>, <code>PolyOp</code>, and <code>Hopf_Algebroid</code> all consume via a <code>RingOp&lt;R&gt;*</code>.</td>
+</tr>
+<tr>
+<td><code>vectors&lt;index,R&gt;</code></td>
+<td><code>modules/2.h</code></td>
+<td><code>&lt;index, R&gt;</code></td>
+<td>(none — plain data class)</td>
+<td>A sparse vector: <code>dataArray</code> is a sorted <code>std::vector&lt;term&gt;</code> where <code>term{ind, coeficient}</code>. Provides <code>direct_sum</code>/<code>un_direct_sum</code> (block sum / split, used to build direct sums of comodules), dense/sparse conversion (<code>toDense</code>/<code>deDense</code>/<code>add2Dense</code>). This is the fundamental &quot;column&quot;/&quot;row&quot; datatype used everywhere: rows of matrices, elements of modules, coefficients of a comodule coaction.</td>
+</tr>
+<tr>
+<td><code>ModuleOp&lt;index,R&gt;</code></td>
+<td><code>modules/3.h</code>–<code>modules/9.h</code></td>
+<td><code>&lt;index, R&gt;</code></td>
+<td><code>virtual public AbGroupOp&lt;vectors&lt;index,R&gt;&gt;</code></td>
+<td>Operations on the free <code>R</code>-module of sparse vectors <code>vectors&lt;index,R&gt;</code>: <code>add</code>, <code>scalor_mult</code>, <code>singleton</code>, <code>re_index</code>/<code>filtered_reindex</code>, <code>filter</code>, <code>termwise_operation</code>, <code>component</code> (binary-search lookup by index, since <code>dataArray</code> is sorted), <code>next_non_trvial_entry</code>, <code>first_invertible[_index]</code>, <code>last_entry</code>, and a parallel <code>sum</code> over an array of vectors. Holds a <code>RingOp&lt;R&gt; *ringOper</code>. Nearly every generic algorithm (Gaussian elimination, resolution) is expressed in terms of a <code>ModuleOp</code> instance rather than raw arithmetic.</td>
+</tr>
+<tr>
+<td><code>matrix&lt;R&gt;</code></td>
+<td><code>matrices/2.h</code>–<code>matrices/8.h</code></td>
+<td><code>&lt;R&gt;</code></td>
+<td>(abstract; concrete backends below implement it)</td>
+<td>A matrix over ring <code>R</code>, represented as an array of row vectors (<code>vectors&lt;matrix_index,R&gt;</code>), addressed by <code>matrix_index</code> (<code>uint32_t</code>). Pure-virtual storage primitives (<code>clear</code>, <code>find</code>, <code>insert</code>, <code>set_rank</code>, <code>update_all</code>, <code>gaussian</code>, <code>del_and_gaussian</code>) are implemented by backends; everything else (<code>compose</code>, <code>maps_to</code>, <code>quot_index</code>, <code>make_quotient</code>, <code>direct_sum</code>, IO) is written generically against those primitives. Holds a <code>static ModuleOp&lt;matrix_index,R&gt; *moduleOper</code> shared across all instances of <code>matrix&lt;R&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>matrix_mem&lt;R&gt;</code></td>
+<td><code>matrices_mem/2.h</code>, <code>matrices_mem/4.h</code></td>
+<td><code>&lt;R&gt;</code></td>
+<td><code>public matrix&lt;R&gt;</code></td>
+<td>In-memory backend: rows stored in a <code>std::vector&lt;vectors&lt;matrix_index,R&gt;&gt;</code>. Implements <code>gaussian</code>/<code>row_reduction</code> (parallel row reduction via OpenMP) and helper <code>unify</code>/<code>take_away</code> used by Gaussian elimination.</td>
+</tr>
+<tr>
+<td><code>matrix_stream&lt;R&gt;</code></td>
+<td><code>matrices_stream.h</code></td>
+<td><code>&lt;R&gt;</code></td>
+<td><code>public matrix&lt;R&gt;</code></td>
+<td>Backend that stores each row at a byte offset in a <code>con_streams*</code> (concurrent stream wrapper), with an in-memory index (<code>datapos</code>) of stream positions. <code>gaussian</code>/<code>del_and_gaussian</code> are implemented by round-tripping through a temporary <code>matrix_mem&lt;R&gt;</code> (load, reduce in memory, write back) rather than operating on the stream directly.</td>
+</tr>
+<tr>
+<td><code>matrix_file&lt;R&gt;</code></td>
+<td><code>matrices_stream.h</code></td>
+<td><code>&lt;R&gt;</code></td>
+<td><code>public matrix_stream&lt;R&gt;</code></td>
+<td><code>matrix_stream&lt;R&gt;</code> bound to an owned <code>con_fstreams</code> (a real file), for resolutions too large to keep in RAM.</td>
+</tr>
+<tr>
+<td><code>curtis_table&lt;ring&gt;</code></td>
+<td><code>matrices/9.h</code></td>
+<td><code>&lt;ring&gt;</code></td>
+<td>(abstract)</td>
+<td><strong>The</strong> live/used curtis-table interface — see §5 for what it stores. Abstract storage primitives (<code>clear</code>, <code>is_member</code>, <code>search</code>/<code>search_ref</code>, <code>num_entries</code>, <code>insert</code>, <code>run_through</code>) plus generic algorithms built on them: <code>symplify_to_led</code>/<code>simplify_to_led</code> (reduce a vector against the table, tracking a homotopy), <code>cycle_matrix</code> (extract the matrix of stored cycles/tags), <code>save</code>/<code>load</code>. Holds <code>static ModuleOp&lt;matrix_index,ring&gt; *ModOper</code>.</td>
+</tr>
+<tr>
+<td><code>curtis_table_mem&lt;ring&gt;</code></td>
+<td><code>matrices_mem/3.h</code></td>
+<td><code>&lt;ring&gt;</code></td>
+<td><code>public curtis_table&lt;ring&gt;</code></td>
+<td>In-memory backend for <code>curtis_table</code>: entries kept in a <code>std::map&lt;matrix_index, entry&gt;</code>.</td>
+</tr>
+<tr>
+<td><code>curtisTable_stream&lt;ring&gt;</code></td>
+<td><code>curtis.h</code></td>
+<td><code>&lt;ring&gt;</code></td>
+<td><code>public curtis_table&lt;ring&gt;</code></td>
+<td>Disk/stream-backed <code>curtis_table</code>: keeps a small in-memory write cache (<code>curtis_table_mem&lt;ring&gt; cached</code>) plus a <code>std::map&lt;matrix_index,std::streampos&gt;</code> index into a <code>con_streams</code>; <code>flush()</code> drains the cache to the stream. Used for resolutions whose Curtis table is too large for memory.</td>
+</tr>
+<tr>
+<td><code>curtis_table&lt;R&gt;</code> <strong>(others.h)</strong></td>
+<td><code>others.h</code> (lines ~159–283)</td>
+<td><code>&lt;R&gt;</code></td>
+<td>none listed (independent hierarchy)</td>
+<td><strong>A second, unrelated, unused class of the same name.</strong> See &quot;Redundancy&quot; note below.</td>
+</tr>
+<tr>
+<td><code>matrix_array&lt;R&gt;</code></td>
+<td><code>others.h</code></td>
+<td><code>&lt;R&gt;</code></td>
+<td><code>virtual public matrix&lt;R&gt;</code> (of the <code>others.h</code> <code>matrix&lt;R&gt;</code>, not the real one)</td>
+<td>Dead code — see redundancy note.</td>
+</tr>
+<tr>
+<td><code>quasi_table&lt;R&gt;</code></td>
+<td><code>others.h</code></td>
+<td><code>&lt;R&gt;</code></td>
+<td><code>public curtis_table&lt;R&gt;</code> (the <code>others.h</code> one)</td>
+<td>Dead code — see redundancy note.</td>
+</tr>
+<tr>
+<td><code>poly&lt;exponent_type,base_ring&gt;</code></td>
+<td><code>polynomial/1.h</code></td>
+<td>alias</td>
+<td><code>= vectors&lt;exponent_type,base_ring&gt;</code></td>
+<td>Type alias: a polynomial is just a sparse vector keyed by exponent.</td>
+</tr>
+<tr>
+<td><code>PolyOp&lt;exponent_type,base_ring&gt;</code></td>
+<td><code>polynomial/1.h</code>, <code>.../2.h</code>, <code>.../6.h</code></td>
+<td><code>&lt;exponent_type, base_ring&gt;</code></td>
+<td><code>virtual public ModuleOp&lt;exponent_type,base_ring&gt;</code>, <code>virtual public RingOp&lt;poly&lt;...&gt;&gt;</code></td>
+<td>Turns the additive <code>ModuleOp</code> on sparse vectors into a full ring by adding <code>multiply</code> (divide-and-conquer polynomial multiplication via repeated <code>mon_multiply</code> + <code>add</code>), <code>unit</code>, <code>invertible</code>/<code>inverse</code> (only degree-0 invertible constants), <code>constant</code>, <code>monomial</code>.</td>
+</tr>
+<tr>
+<td><code>PolyOp_Para&lt;exponent_type,base_ring&gt;</code></td>
+<td><code>polynomial/3.h</code>, <code>.../4.h</code></td>
+<td><code>&lt;exponent_type, base_ring&gt;</code></td>
+<td><code>public PolyOp&lt;exponent_type,base_ring&gt;</code></td>
+<td>Parallel-algorithm override of <code>mon_multiply</code>/<code>multiply</code> (OpenMP <code>parallel for</code> / recursive <code>sum</code>), otherwise identical semantics to <code>PolyOp</code>.</td>
+</tr>
+<tr>
+<td><code>modules&lt;degree_type&gt;</code></td>
+<td><code>modules/10.h</code></td>
+<td><code>&lt;degree_type&gt;</code></td>
+<td>(plain data class)</td>
+<td>A graded free module&#39;s shape only: <code>rank</code> plus a <code>degree</code> array (one degree per generator). Used as the &quot;generators&quot; bookkeeping structure inside <code>cofree_comodule</code>. Has <code>direct_sum</code>, <code>save</code>/<code>load</code>, <code>output</code>.</td>
+</tr>
+<tr>
+<td><code>monomial_index</code></td>
+<td><code>mon_index.h</code>, <code>mon_index.cpp</code></td>
+<td>(non-template)</td>
+<td>none</td>
+<td>Enumerates/indexes monomials (type <code>exponent</code>, from <code>exponents.h</code>) up to a max degree: builds <code>mon_array</code> (all monomials sorted by degree), <code>mon_index</code> (monomial → <code>matrix_index</code>), <code>ranksBelow</code> (generator count below each degree). Provides <code>substitution_table</code> (evaluate all monomials at given values of generators, streaming the results out) and <code>poly2vec</code> (convert a <code>polynomial&lt;base_ring&gt;</code> into a <code>vectors&lt;matrix_index,base_ring&gt;</code> using the index). Math-agnostic in the sense that it works for any graded polynomial ring on generators with <code>exponent</code>-encoded exponents (used concretely for the dual Steenrod algebra generators, but the machinery itself doesn&#39;t know that).</td>
+</tr>
+<tr>
+<td><code>con_streams</code></td>
+<td><code>streams.h</code>, <code>streams.cpp</code></td>
+<td>(non-template)</td>
+<td>none</td>
+<td>Thread-safe wrapper around a <code>std::iostream*</code>: <code>access</code>/<code>read</code>/<code>write</code> all take a <code>std::lock_guard</code> on an internal <code>std::mutex</code> before touching the stream, so multiple threads can safely read/write to disjoint regions of one stream (positions returned by <code>write</code> are handed back to the caller for later <code>read</code>). Used by <code>matrix_stream</code>/<code>matrix_file</code> and <code>curtisTable_stream</code>.</td>
+</tr>
+<tr>
+<td><code>con_fstreams</code></td>
+<td><code>streams.h</code>, <code>streams.cpp</code></td>
+<td>(non-template)</td>
+<td><code>public con_streams</code></td>
+<td><code>con_streams</code> that owns a real <code>std::fstream</code> opened on a given filename; adds <code>fclear()</code> to truncate/reopen.</td>
+</tr>
+<tr>
+<td><code>CoModule&lt;algebroid,degree_type&gt;</code></td>
+<td><code>hopf_algebroid/2.h</code></td>
+<td><code>&lt;algebroid, degree_type&gt;</code></td>
+<td>(abstract)</td>
+<td>The comodule interface consumed by <code>Hopf_Algebroid</code>: <code>rank()</code>, <code>coaction(int i)</code> (returns the coaction of the i-th base generator, as a <code>vectors&lt;matrix_index,algebroid&gt;</code>), <code>degree(int i)</code>. Assumes the comodule is free as a module over the base ring with a specified basis.</td>
+</tr>
+<tr>
+<td><code>comodule_generic&lt;algebroid,degree_type&gt;</code></td>
+<td><code>hopf_algebroid/2.h</code></td>
+<td><code>&lt;algebroid, degree_type&gt;</code></td>
+<td><code>virtual public CoModule&lt;algebroid,degree_type&gt;</code></td>
+<td>The generic (non-cofree) implementation: coaction stored explicitly as a <code>matrix&lt;algebroid&gt; *coaction_matrix</code>, generator data in a <code>modules&lt;degree_type&gt; base_module</code>. This is the type used to hold &quot;the comodule currently being resolved&quot; at each stage of the resolution (it gets overwritten in place, stage by stage, to become successive connected covers/quotients — see §5).</td>
+</tr>
+<tr>
+<td><code>cofree_comodule&lt;algebroid,degree_type&gt;</code></td>
+<td><code>hopf_algebroid/3.h</code>, <code>hopf_algebroid/9.h</code>, <code>hopf_algebroid/11.h</code></td>
+<td><code>&lt;algebroid, degree_type&gt;</code></td>
+<td><code>virtual public CoModule&lt;algebroid,degree_type&gt;</code></td>
+<td>Represents a direct sum of cofree (extended/induced) comodules, one per co-generator, without materializing the coaction matrix explicitly. Static class-wide data (<code>cofree_coaction</code>, <code>modOpers</code>, <code>cofree_degree</code> — set once via <code>Hopf_Algebroid::init_cofree_data</code>) describes the coaction/degree of a single cofree summand co-generated in degree 0; instance data (<code>generators</code>, <code>position_of_gens</code>, <code>total_rank</code>) describes how many summands and where each starts. <code>coaction(i)</code>/<code>degree(i)</code> look up which summand <code>i</code> falls in (<code>findPos</code>, binary search over <code>position_of_gens</code>) and re-index/shift accordingly. Also provides <code>multiply_using_table</code> (apply a precomputed multiplication-table matrix to compute the algebroid action on generator <code>i</code>) and <code>direct_sum</code>.</td>
+</tr>
+<tr>
+<td><code>Hopf_Algebroid&lt;ring,algebroid&gt;</code></td>
+<td><code>hopf_algebroid/4.h</code>, <code>.../5.h</code>, <code>.../6.h</code>, <code>.../7.h</code>, <code>.../8.h</code>, <code>.../9.h</code>, <code>.../10.h</code>, <code>.../12.h</code>, <code>.../13.h</code></td>
+<td><code>&lt;ring, algebroid&gt;</code></td>
+<td>(abstract; holds <code>RingOp</code>/<code>ModuleOp</code> pointers, no base class)</td>
+<td><strong>The central class.</strong> Bundles ring/module operations for the base ring and for the algebroid, and declares the Hopf-algebroid structure maps as pure virtuals (<code>etaL</code>, <code>etaR</code>, <code>algebroid2vector</code>, <code>vector2algebroid</code>, <code>delta</code>, <code>ranksBelowDeg</code>) that a concrete pipeline must supply. On top of these it implements, generically, the entire resolution algorithm: <code>adjoint</code> (built from projection + structure maps), <code>embed2cofree</code>/<code>embed2cofree_modeled</code>, <code>resolvor</code>/<code>resolvor_modeled</code> (one resolution step), <code>pre_resolution_tab</code>/<code>pre_resolution_modeled</code> (iterate resolution steps to a fixed length, with file-backed persistence), <code>quotient</code>/<code>quotient_p</code>, <code>resolution</code> (splice per-step short exact sequences into one chain complex), <code>make_multiplication_table</code>. See §5 for the resolution semantics.</td>
+</tr>
+<tr>
+<td><code>complex&lt;degree_type,ring&gt;</code></td>
+<td><code>hopf_algebroid/6.h</code> (tail of file, after <code>resolution</code>)</td>
+<td><code>&lt;degree_type, ring&gt;</code></td>
+<td>(plain data class)</td>
+<td>A chain complex: parallel arrays <code>terms</code> (one <code>modules&lt;degree_type&gt;</code> per stage) and <code>maps</code> (one <code>matrix&lt;ring&gt;*</code> per differential). Minimal container, not used elsewhere in the files read.</td>
+</tr>
+<tr>
+<td><code>SS_entry&lt;cycle_name,ring&gt;</code></td>
+<td><code>SS.h</code></td>
+<td><code>&lt;cycle_name, ring&gt;</code></td>
+<td>(plain data class)</td>
+<td>One entry of a spectral-sequence page: leading-term names <code>tag</code>/<code>cycle</code> (of type <code>cycle_name</code>, chosen by the concrete pipeline) plus the corresponding full vectors <code>full_tag</code>/<code>full_cycle</code> (type <code>vectors&lt;matrix_index,ring&gt;</code>).</td>
+</tr>
+<tr>
+<td><code>SS_table&lt;cycle_name,ring&gt;</code></td>
+<td><code>SS.h</code></td>
+<td><code>&lt;cycle_name, ring&gt;</code></td>
+<td><code>public std::vector&lt;SS_entry&lt;cycle_name,ring&gt;&gt;</code> (abstract — several pure virtuals)</td>
+<td>Generic storage/algorithm for one page of a spectral sequence built from a Curtis-table-like reduction process: indexes entries by <code>tag</code>/<code>cycle</code> name, and provides <code>simplify</code> (reduce a cycle modulo known boundaries, recording a homotopy — directly analogous to <code>curtis_table::symplify_to_led</code>), <code>make_table</code> (build a table from a candidate pool of tag names, ordered by filtration, calling a caller-supplied differential matrix <code>M</code>), and <code>name_of_cycle</code> (classify a vector&#39;s leading terms as tags/boundaries/cycles, optionally consulting a <code>next_table</code> for the following page). Concrete pipelines (BP&#39;s <code>algNov_table</code> — see the BP-pipeline doc) subclass this and supply <code>filtration</code>, <code>naming</code>, <code>leading_term</code>, <code>tagged</code>, <code>invalid</code>, <code>get_tag</code>, <code>cycle_pot</code>, and IO. Generic in the sense that it doesn&#39;t know what a spectral sequence <em>of</em> — it operates purely on <code>vectors&lt;matrix_index,ring&gt;</code> and caller-provided naming/filtration functions.</td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="note-the-curtis_table-matrix_array-quasi_table-redundancy">Note: the <code>curtis_table</code> / <code>matrix_array</code> / <code>quasi_table</code> redundancy<a class="heading-anchor" href="#note-the-curtis_table-matrix_array-quasi_table-redundancy">#</a></h3>
+<p><code>others.h</code> (397 lines) contains <strong>a second, independent, and incompatible</strong>
+definition of <code>curtis_table&lt;R&gt;</code>, <code>matrix_array&lt;R&gt;</code>, <code>matrix_array_data&lt;R&gt;</code>,
+<code>quasi_table&lt;R&gt;</code>, plus free functions (<code>BP_Op::Q2Z</code> overloads,
+<code>make_tables_gens</code>, a stray <code>matrix&lt;R&gt;::direct_sum</code>/<code>del_cols</code>). This code:</p>
+<ul>
+<li>Is <strong>not <code>#include</code>d anywhere</strong> in the repository (<code>grep</code> for <code>others.h</code>
+across all <code>.h</code>/<code>.cpp</code> files returns no hits).</li>
+<li>Uses namespaces (<code>Modules::</code>, <code>Algebra::</code>, <code>MapTable::</code>, <code>Paralell::</code>) that
+do not exist anywhere else in the codebase — the rest of the code is
+entirely un-namespaced.</li>
+<li>References a header <code>filedmatrices.h</code> (line 379) that <strong>does not exist</strong>
+in the repository.</li>
+<li>Has a <code>curtis_table</code> constructor signature
+(<code>curtis_table(ModuleOp*, MapTable::data_base*)</code>, <code>others.h:170</code>) completely
+incompatible with the real <code>curtis_table&lt;ring&gt;</code> in <code>matrices/9.h</code> (which has
+no constructor and a <code>static ModuleOp* ModOper</code>).</li>
+</ul>
+<p>This is dead legacy code from an earlier refactor (probably the point where
+the codebase moved from a namespaced <code>Modules::</code>/<code>Algebra::</code> design to the
+flat, unnamespaced design seen in <code>algebra.h</code>/<code>modules.h</code>/<code>matrices.h</code>), left
+in the tree but never wired into any build. <strong><code>others.h</code> should not be treated
+as part of the live framework</strong> — the framework&#39;s actual, used
+<code>curtis_table&lt;ring&gt;</code> is the one in <code>matrices/9.h</code>, with backends
+<code>curtis_table_mem&lt;ring&gt;</code> (<code>matrices_mem/3.h</code>, in-memory) and
+<code>curtisTable_stream&lt;ring&gt;</code> (<code>curtis.h</code>, disk-streamed with an in-memory write
+cache that gets <code>flush()</code>ed). Concrete pipelines pick whichever backend fits
+their memory budget (e.g. <code>BP_init.h:58-59</code> uses <code>curtis_table_mem&lt;F3&gt;</code>;
+<code>ex_steenrod_init.h:34-35</code> keeps both a <code>curtis_table&lt;Fp&gt;*</code> pointer and a
+<code>curtis_table_mem&lt;Fp&gt;</code> vector side by side).</p>
+<p><code>inverse.h</code> and <code>lift.h</code> are small, genuinely-used utility headers, not
+fragments of a bigger class:</p>
+<ul>
+<li><code>inverse.h</code> computes a partial inverse of an injective matrix from its
+Curtis table (<code>inverse()</code>, <code>inverse.h:6</code>), plus a <code>resolution()</code> overload
+and <code>check_splitting()</code> sanity-checker. <code>resolution_length</code>-scale batch
+version at <code>inverse.h:36</code>.</li>
+<li><code>lift.h</code> implements lifting a map between comodules to a lift of one step of
+their resolutions (<code>lift_resolvor</code>, <code>resolution_lift</code>) — this is dead-ish
+code too in parts (e.g. <code>adjoint</code> at <code>lift.h:19</code> references
+<code>F.pos</code>/<code>HA_oper-&gt;</code> with <code>-&gt;</code> on a reference, and <code>HA_oper-&gt;algebroidModuleOper-&gt;component(i)</code>
+passes only one argument to a two-argument <code>component</code> — this file does not
+look like it compiles as written; treat it as unfinished/unverified).</li>
+</ul>
+<h2 id="4-key-relationships">4. Key relationships<a class="heading-anchor" href="#4-key-relationships">#</a></h2>
+<div class="mermaid-wrap"><pre class="mermaid">classDiagram
+    class AbGroupOp~A~{
+        &lt;&lt;interface&gt;&gt;
+        +add(A,A) A
+        +zero() A
+        +isZero(A) bool
+        +minus(A) A
+        +save(A, stream)
+        +load(stream) A
+    }
+    class RingOp~R~{
+        &lt;&lt;interface&gt;&gt;
+        +multiply(R,R) R
+        +unit(int) R
+        +invertible(R) bool
+        +inverse(R) R
+        +power(R,n) R
+    }
+    AbGroupOp &lt;|-- RingOp : R = R
+
+    class ModuleOp~index,R~{
+        +ringOper RingOp~R~*
+        +add(vec,vec) vec
+        +scalor_mult(R,vec) vec
+        +singleton(index,R) vec
+        +component(index,vec) R
+        +re_index(rule,vec) vec
+    }
+    AbGroupOp &lt;|-- ModuleOp : A = vectors~index,R~
+
+    class PolyOp~exp,R~{
+        +multiply(poly,poly) poly
+        +unit(int) poly
+        +monomial(exp,R) poly
+    }
+    ModuleOp &lt;|-- PolyOp : index=exp
+    RingOp &lt;|-- PolyOp : R = poly~exp,R~
+    class PolyOp_Para~exp,R~{
+        +mon_multiply(...) poly
+        +multiply(poly,poly) poly
+    }
+    PolyOp &lt;|-- PolyOp_Para
+
+    class vectors~index,R~{
+        +dataArray vector~term~
+        +direct_sum(vec, rank)
+        +toDense(rank) vector~R~
+    }
+    ModuleOp ..&gt; vectors : operates on
+
+    class matrix~R~{
+        &lt;&lt;abstract&gt;&gt;
+        +rank unsigned
+        +moduleOper ModuleOp~matrix_index,R~$
+        +find(i) vec
+        +insert(i,vec)
+        +gaussian(rowcols)*
+        +compose(...)
+        +quot_index(...)$
+        +make_quotient(...)
+    }
+    matrix ..&gt; ModuleOp : static moduleOper
+    class matrix_mem~R~{
+        +gaussian(rowcols)
+        +row_reduction(row,col)
+    }
+    matrix &lt;|-- matrix_mem
+    class matrix_stream~R~{
+        +datas con_streams*
+        +find(i) vec
+        +gaussian(rowcols)
+    }
+    matrix &lt;|-- matrix_stream
+    class matrix_file~R~{
+        +files con_fstreams
+    }
+    matrix_stream &lt;|-- matrix_file
+
+    class curtis_table~ring~{
+        &lt;&lt;abstract&gt;&gt;
+        +ModOper ModuleOp~matrix_index,ring~$
+        +entry cycle,tag,full_cycle,full_tag
+        +symplify_to_led(vec,...) matrix_index
+        +cycle_matrix(...) vector
+        +insert(...)*
+        +search(i)*
+    }
+    curtis_table ..&gt; ModuleOp : static ModOper
+    curtis_table ..&gt; matrix : cycle_matrix builds matrix
+    class curtis_table_mem~ring~{
+        +data map~matrix_index,entry~
+    }
+    curtis_table &lt;|-- curtis_table_mem
+    class curtisTable_stream~ring~{
+        +cached curtis_table_mem~ring~
+        +stream_data con_streams
+    }
+    curtis_table &lt;|-- curtisTable_stream
+
+    class CoModule~algebroid,degree_type~{
+        &lt;&lt;abstract&gt;&gt;
+        +rank() int*
+        +coaction(i) vec*
+        +degree(i) degree_type*
+    }
+    class comodule_generic~algebroid,degree_type~{
+        +coaction_matrix matrix~algebroid~*
+        +base_module modules~degree_type~
+    }
+    CoModule &lt;|-- comodule_generic
+    class cofree_comodule~algebroid,degree_type~{
+        +cofree_coaction fn$
+        +modOpers ModuleOp~matrix_index,algebroid~*$
+        +generators modules~degree_type~
+        +position_of_gens vector~uint32~
+        +findPos(n) unsigned
+    }
+    CoModule &lt;|-- cofree_comodule
+
+    class Hopf_Algebroid~ring,algebroid~{
+        &lt;&lt;abstract&gt;&gt;
+        +ringOper RingOp~ring~*
+        +algebroidRingOper RingOp~algebroid~*
+        +moduleOper ModuleOp~matrix_index,ring~*
+        +algebroidModuleOper ModuleOp~matrix_index,algebroid~*
+        +etaL(ring) algebroid*
+        +etaR(ring) algebroid*
+        +delta(i) vec*
+        +embed2cofree(...) cofree_comodule
+        +resolvor(...) cofree_comodule
+        +pre_resolution_tab(...)
+        +quotient(...)
+    }
+    Hopf_Algebroid --&gt; RingOp : uses (base + algebroid)
+    Hopf_Algebroid --&gt; ModuleOp : uses (base + algebroid)
+    Hopf_Algebroid ..&gt; CoModule : resolves
+    Hopf_Algebroid ..&gt; cofree_comodule : embed2cofree produces
+    Hopf_Algebroid ..&gt; curtis_table : resolvor/embed2cofree use as scratch structure
+    Hopf_Algebroid ..&gt; matrix : inj/quot/indj matrices
+
+    class SS_entry~cycle_name,ring~{
+        +tag cycle_name
+        +cycle cycle_name
+        +full_tag vec
+        +full_cycle vec
+    }
+    class SS_table~cycle_name,ring~{
+        &lt;&lt;abstract&gt;&gt;
+        +Modop ModuleOp~matrix_index,ring~*
+        +simplify(...) cycle_type
+        +make_table(pric, M, T)
+    }
+    SS_table ..&gt; ModuleOp : uses
+    SS_table ..&gt; curtis_table : structurally analogous (simplify ~ symplify_to_led)</pre><div class="mermaid-fallback-note">Diagram (renders automatically when online; source shown above as plain text otherwise — also viewable pre-rendered on GitHub)</div></div>
+<h2 id="5-the-resolution-algorithm-in-this-frameworks-terms">5. The resolution algorithm in this framework&#39;s terms<a class="heading-anchor" href="#5-the-resolution-algorithm-in-this-frameworks-terms">#</a></h2>
+<p>The framework computes a <strong>minimal relative-injective (cofree) resolution</strong>
+of a comodule <code>X</code> over a Hopf algebroid, one step at a time. Everything below
+is read directly off <code>hopf_algebroid/*.h</code>, and is now cross-checked against
+<code>MinimalResolution.pdf</code> (added to the repo after this document was first
+written) — citations to its Definitions/Propositions appear inline below.
+The paper works specifically with <code>BP_*BP</code>-comodules and their reduction mod
+the invariant ideal <code>I</code> (see <code>docs/ARCHITECTURE.md</code> §1–2); this framework
+layer is the same construction made generic over an arbitrary
+<code>Hopf_Algebroid&lt;ring, algebroid&gt;</code>, so every citation below should be read as
+&quot;the paper&#39;s <code>BP_*BP</code>/<code>I</code> case of this generic mechanism.&quot;</p>
+<h3 id="curtis_tablering-what-it-stores"><code>curtis_table&lt;ring&gt;</code>: what it stores<a class="heading-anchor" href="#curtis_tablering-what-it-stores">#</a></h3>
+<p>A <code>curtis_table</code> (<code>matrices/9.h:1-263</code>) stores <strong>one Gröbner-basis-like
+reduction table for one resolution step</strong>: a set of <code>entry { cycle, tag, full_cycle, full_tag }</code> records where</p>
+<ul>
+<li><code>cycle</code> is the index of a basis element of the <em>source</em> comodule <code>X</code> (or,
+during <code>embed2cofree</code>, of the cofree comodule being built) that is a
+&quot;leading term&quot;,</li>
+<li><code>tag</code> is the index of the newly introduced generator (in the cofree
+comodule / the next term of the resolution) that this cycle corresponds to,</li>
+<li><code>full_cycle</code> is the entire vector (over the base ring) expressing how that
+generator&#39;s image cancels down to leading term <code>cycle</code>,</li>
+<li><code>full_tag</code> is the corresponding &quot;homotopy&quot; vector recording the coefficient
+data needed to invert/split the map later (consumed by <code>inverse.h</code>&#39;s
+<code>inverse()</code> to build a partial inverse/splitting map).</li>
+</ul>
+<p><code>symplify_to_led</code>/<code>simplify_to_led</code> (<code>matrices/9.h:34-140</code>) is the core
+reduction routine: given a vector <code>x</code> (a would-be cycle) and a <code>homotopy</code>
+accumulator, it walks term-by-term; if the current leading term&#39;s index is
+already a <code>cycle</code> in the table, it subtracts off <code>coefficient * full_cycle</code>
+(accumulating the matching multiple of <code>full_tag</code> into <code>homotopy</code>) and
+recurses on the remainder; if the leading term is <strong>invertible</strong> in the ring
+and not in the table, that index becomes the new leading term returned
+(<code>Boundary</code> — actually <code>matrix_index Boundary = -1</code>, <code>matrices/9.h:31</code> — is
+returned only once the vector reduces to zero). This is literally
+row-reduction against a partial basis, done term-by-term rather than as a
+single matrix operation, and is what makes the resolution &quot;minimal&quot;: a
+generator is only introduced (in <code>embed2cofree</code>, see below) when reduction
+against everything already known fails to reach the zero vector.</p>
+<p><code>cycle_matrix</code> (<code>matrices/9.h:159-204</code>) turns the table into two matrices: one
+whose row <code>tag</code> is <code>full_cycle</code> (used as an injective/embedding matrix into
+the cofree comodule) and one whose row <code>tag</code> is <code>full_tag</code>.</p>
+<h3 id="cofree_comodulealgebroiddegree_type-what-it-represents"><code>cofree_comodule&lt;algebroid,degree_type&gt;</code>: what it represents<a class="heading-anchor" href="#cofree_comodulealgebroiddegree_type-what-it-represents">#</a></h3>
+<p>A cofree comodule here is a direct sum of <strong>cofree (extended/induced)
+comodules</strong>, one per co-generator — i.e. comodules of the shape
+&quot;algebroid co-generated freely in one degree&quot;, assembled via the static class
+data <code>cofree_coaction</code>/<code>cofree_degree</code>/<code>modOpers</code> set once via
+<code>Hopf_Algebroid::init_cofree_data</code> (<code>hopf_algebroid/10.h:14-25</code>), which wires
+<code>cofree_coaction</code> to the Hopf algebroid&#39;s own comultiplication <code>delta</code>
+(<code>hopf_algebroid/4.h:24</code>). Each <code>cofree_comodule</code> instance just records how
+many summands (<code>generators</code>, a <code>modules&lt;degree_type&gt;</code>), where each summand&#39;s
+block starts (<code>position_of_gens</code>), and the total underlying rank
+(<code>total_rank</code>). <code>coaction(i)</code>/<code>degree(i)</code> locate which summand index <code>i</code> falls
+in (<code>findPos</code>, binary search, <code>hopf_algebroid/11.h:40-54</code>) and shift/reindex
+the static cofree data accordingly (<code>hopf_algebroid/11.h:62-75</code>).</p>
+<p><strong>Resolved (<code>MinimalResolution.pdf</code> §4, &quot;cogenerators&quot;):</strong> the code assumes
+(via <code>adjoint</code>, see below) that <code>Hom_{comod}(X, cofree-on-degree-d-generator) ≅ (X in degree d, as a base-ring vector)</code>. The paper calls the target of such
+an adjoint map a set of <strong>cogenerators</strong>: a <code>BP_*</code>-module map <code>M → X</code> exhibits
+<code>X</code> as cogenerators of <code>M</code> if the adjoint <code>M → BP_*BP ⊗_{BP_*} X</code> is strongly
+injective (a split injection of underlying <code>BP_*</code>-modules). This is exactly
+&quot;cofree on one generator&quot; (<code>X</code> a single degree&#39;s worth of generators,
+<code>BP_*BP ⊗ X</code> the cofree comodule they co-generate) paired with &quot;evaluate the
+coaction,&quot; which is exactly <code>adjoint</code>&#39;s definition below. The paper doesn&#39;t
+frame this as an abstract categorical adjunction/relative-injectivity
+statement so much as a direct construction, and neither does the code — but
+the two now visibly match construction-for-construction.</p>
+<h3 id="adjoint-the-embedding-detection-map"><code>adjoint</code>: the embedding-detection map<a class="heading-anchor" href="#adjoint-the-embedding-detection-map">#</a></h3>
+<p><code>Hopf_Algebroid::adjoint(X, n, adjoint_map, shift)</code> (<code>hopf_algebroid/8.h:1-20</code>)
+builds, for a single base generator <code>n</code> of <code>X</code>, the cofree comodule
+co-generated by that one generator, and (if <code>adjoint_map</code> is non-null) the
+matrix of the adjoint map <code>X → cofree(n)</code>, whose <code>i</code>-th row is
+<code>algebroid2vector(component(n, X.coaction(i)), shift)</code> — i.e. project the
+coaction of <code>X</code>&#39;s <code>i</code>-th generator onto the <code>n</code>-th algebroid factor, then
+re-express that algebroid element as a base-ring vector. The overload at
+<code>hopf_algebroid/8.h:23-35</code> does the same for several generators at once
+(<code>gens</code>), packing results side-by-side via <code>direct_sum</code> — this is the map
+<code>irow</code> used inside <code>embed2cofree</code>.</p>
+<h3 id="embed2cofree-one-resolution-half-step-the-embedding"><code>embed2cofree</code>: one resolution half-step (the embedding)<a class="heading-anchor" href="#embed2cofree-one-resolution-half-step-the-embedding">#</a></h3>
+<p><code>Hopf_Algebroid::embed2cofree</code> (<code>hopf_algebroid/9.h:1-83</code>) builds a cofree
+comodule <code>F</code> and an injective map <code>inj : X → F</code>, one basis element of <code>X</code> at
+a time, processed <strong>in increasing underlying degree</strong>
+(<code>std::stable_sort</code> by <code>underlyingDeg</code>, line 23) — a comment-free but clear
+sign that the algorithm is degree-by-degree, consistent with computing a
+resolution &quot;up to <code>maxDeg</code>&quot; one internal degree at a time so that lower
+degrees are fully resolved (and hence usable in reduction) before higher ones
+are attempted:</p>
+<ol>
+<li>Compute <code>irow = adjoint(X, gens, pos_of_gens, i, 0)</code> — the image of basis
+element <code>i</code> in the cofree comodule spanned by generators chosen <em>so far</em>.</li>
+<li><code>table-&gt;simplify_to_led(...)</code> reduces <code>irow</code> against the current
+<code>curtis_table</code>, tracking the homotopy <code>sc</code> (initialized to
+<code>singleton(i)</code>).</li>
+<li>If reduction hits a non-boundary leading term (<code>pos != Boundary</code>) — i.e.
+<code>irow</code>, after subtracting known relations, still has an invertible leading
+coefficient — then element <code>i</code> is <em>already</em> hit by the existing cofree
+summands: record <code>table-&gt;insert(pos, i, irow, sc)</code> and <code>inj-&gt;insert(i, irow)</code>. No new generator is introduced.</li>
+<li>If reduction instead collapses <code>irow</code> to the zero vector (<code>Boundary</code>),
+element <code>i</code> is <strong>not</strong> in the image of the current partial map — a new
+cofree summand (<code>adjoint(X, i, NULL, old_rank)</code>) must be added, <code>gens</code>
+grows by one, and the table is updated with this new generator as its own
+cycle/tag.</li>
+</ol>
+<p>This is precisely &quot;add generators only when the current map fails to be
+surjective onto the needed target in this degree&quot; — the minimality condition.</p>
+<p><strong>Resolved (<code>MinimalResolution.pdf</code> §3, Definitions 6–7):</strong> a cofree
+resolution of a <code>P</code>-comodule (or, lifted, a <code>BP_*BP</code>-comodule) is <em>minimal</em>
+iff at every stage the induced map <code>Prim(M̃_i) → Prim(F̃_i)</code> is bijective.
+&quot;Reduces to a non-boundary&quot; (step 3) is precisely the failure of that
+bijectivity check on one basis element at a time: if <code>irow</code> still reduces to
+something nonzero against the existing cofree summands, element <code>i</code> is
+already hit (no new primitive needed); if it collapses to zero, <code>i</code> is a new
+primitive that must be cogenerated. Processing in increasing degree is what
+makes this a <em>sequential</em>, one-generator-at-a-time certificate of
+bijectivity in each degree — lower degrees are fully settled (and hence
+correctly reflected in the running <code>curtis_table</code>) before higher ones are
+attempted, which is exactly what bijectivity-checked-degree-by-degree
+requires. The paper doesn&#39;t spell out termination/correctness as a formal
+induction either, but Definitions 6–7 are precisely the condition this loop
+enforces one element at a time.</p>
+<h3 id="resolvor-one-full-resolution-step-embed-quotient"><code>resolvor</code>: one full resolution step (embed + quotient)<a class="heading-anchor" href="#resolvor-one-full-resolution-step-embed-quotient">#</a></h3>
+<p><code>Hopf_Algebroid::resolvor</code> (<code>hopf_algebroid/5.h:1-41</code>) is one full step:</p>
+<ol>
+<li><code>F = embed2cofree(X, inj, table, gens, ...)</code> — build the cofree comodule
+<code>F</code> and injection <code>inj : X ↪ F</code> as above.</li>
+<li><code>table-&gt;cycle_matrix(*indj, X.rank())</code> — extract from the table the
+injective matrix <code>indj</code> (rows = table cycles, i.e. one row per element of
+<code>X</code> mapped through the embedding) together with <code>inj_ind</code>, the leading-term
+(pivot) column index for each row.</li>
+<li>Gaussian-eliminate <code>indj</code> using those pivot positions
+(<code>indj-&gt;gaussian(gs)</code> where <code>gs</code> pairs row <code>i</code> with pivot column
+<code>inj_ind[i]</code>) — this puts the embedding matrix into reduced echelon form.</li>
+<li><code>matrix&lt;ring&gt;::quot_index(inj_ind, F.rank())</code> computes which columns of
+<code>F</code> are <em>not</em> hit by any pivot — these indices span the <strong>quotient</strong>
+comodule <code>F / X</code>.</li>
+<li><code>indj-&gt;make_quotient(...)</code> builds the explicit quotient map
+<code>F → F/X</code> (transposing <code>(I,A)</code> into <code>(-A,I)</code>-style, per the comment at
+<code>matrices/6.h:25</code>).</li>
+<li><code>quotient_p(&amp;F, quot, quot_inds.first, X)</code> recomputes <code>X</code>&#39;s coaction <em>as
+the quotient comodule</em> <code>F/X</code> (using the quotient map applied on the right,
+with <code>etaR</code> twisted in via <code>right_scalor_mult</code>) — this <strong>overwrites</strong> the
+input <code>X</code> in place with the next comodule in the resolution.</li>
+</ol>
+<p>So one <code>resolvor</code> call realizes the short exact sequence
+<code>0 → X → F → X&#39; → 0</code> (with <code>X&#39;</code> the new value written into the <code>X</code> argument),
+which is exactly one step <code>Ω⁻¹</code> of a cobar/relative-injective resolution: <code>F</code>
+is the <code>s</code>-th term of the resolution, <code>inj</code> the <code>s</code>-th differential (into the
+cofree term), and <code>X&#39;</code> becomes the input to the next call.</p>
+<p><strong>Resolved (<code>MinimalResolution.pdf</code> §3–4, Propositions 3 &amp; 8):</strong> <code>F</code> is
+cofree by construction (<code>embed2cofree</code> builds it as a direct sum of
+cofree-on-one-generator summands), and cofree comodules are always the
+relative injectives needed here — the paper&#39;s whole point is that checking
+strong injectivity/surjectivity of a comodule map (Remark 3.1, Proposition
+3) and cogenerator-ness (Proposition 8) can both be done by reduction mod
+<code>I</code>, which is exactly the mod-<code>I</code>/<code>P</code>-side computation <code>curtis_table</code>
+performs. The resolution is minimal in the precise sense of Definition 7:
+its reduction mod <code>I</code> is a minimal <code>P</code>-comodule resolution, which is what
+the degree-by-degree bijectivity check in <code>embed2cofree</code> (previous section)
+directly enforces.</p>
+<h3 id="pre_resolution_tab-iterating-steps-into-a-resolution"><code>pre_resolution_tab</code>: iterating steps into a resolution<a class="heading-anchor" href="#pre_resolution_tab-iterating-steps-into-a-resolution">#</a></h3>
+<p><code>Hopf_Algebroid::pre_resolution_tab</code> (<code>hopf_algebroid/4.h:49-96</code>) just calls
+<code>resolvor</code> <code>resolution_length+1</code> times in a loop, each time re-using (and
+overwriting) <code>resolved</code> as the running comodule, saving <code>inj</code>/<code>qut</code> matrices
+to <code>filename_maps</code> and the cofree generator data (<code>F.save</code>) to
+<code>filename_generators</code>, and consuming one <code>curtis_table&lt;ring&gt;*</code> per step from
+a caller-supplied vector <code>result</code> (so callers can retain/reuse the tables,
+e.g. to later invert maps via <code>inverse.h</code>, or to reuse a table as a &quot;model&quot;
+for <code>resolvor_modeled</code> on a related Hopf algebroid). <code>resolution()</code>
+(<code>hopf_algebroid/6.h:1-69</code>) is the separate post-processing pass that splices
+consecutive steps&#39; <code>inj</code>/<code>qut</code> matrices into a single composed differential
+per stage of the resulting chain complex.</p>
+<p><code>resolvor_modeled</code>/<code>pre_resolution_modeled</code>/<code>embed2cofree_modeled</code>
+(<code>hopf_algebroid/3.h</code>, <code>.../9.h:85-135</code>) are variants that skip the
+degree-by-degree cycle search and instead reuse a previously-computed
+<code>curtis_table&lt;table_type&gt;</code> (from a <em>different</em>, &quot;model&quot; Hopf algebroid, via a
+<code>transformer</code> function converting the model&#39;s ring elements into the current
+ring) — i.e. transporting a known resolution shape from one setting to
+another rather than recomputing it from scratch. <strong>Resolved
+(<code>MinimalResolution.pdf</code> §5, &quot;Optimization of the process&quot;):</strong> this is
+precisely the paper&#39;s optimization — compute the minimal resolution of a
+cheaper mod-<code>I</code> object first, then use its known cofree structure and
+cogenerators as a <em>model</em> to lift a resolution of the full object, needing
+only a Gaussian-elimination-scale adjustment rather than a full
+degree-by-degree search. See <code>docs/ARCHITECTURE.md</code> §5 for this worked out
+concretely for <code>mr_st</code> (model) → <code>mr_BP</code> (lift).</p>
+<h2 id="6-key-method-reference">6. Key method reference<a class="heading-anchor" href="#6-key-method-reference">#</a></h2>
+<h3 id="matrixr-matrices2h-unless-noted"><code>matrix&lt;R&gt;</code> (<code>matrices/2.h</code> unless noted)<a class="heading-anchor" href="#matrixr-matrices2h-unless-noted">#</a></h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Method</th>
+<th>Description</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>find(matrix_index n) const</code></td>
+<td>Fetch row <code>n</code> as a sparse vector</td>
+<td><code>matrices/2.h:15</code></td>
+</tr>
+<tr>
+<td><code>insert(i, x)</code></td>
+<td>Store row <code>i</code></td>
+<td><code>matrices/2.h:18</code></td>
+</tr>
+<tr>
+<td><code>gaussian(row_cols)</code></td>
+<td>Gaussian elimination using given (row, pivot-col) pairs</td>
+<td><code>matrices/2.h:124</code> (pure virtual, impl in <code>matrices_mem/4.h:33</code>)</td>
+</tr>
+<tr>
+<td><code>del_and_gaussian(row_cols, to_del)</code></td>
+<td>Delete columns then Gaussian-eliminate</td>
+<td><code>matrices/2.h:127</code></td>
+</tr>
+<tr>
+<td><code>compose(rows, res_rank, result)</code></td>
+<td>Compose this matrix with a source given as a row-generating function</td>
+<td><code>matrices/5.h:12</code></td>
+</tr>
+<tr>
+<td><code>maps_to(v)</code></td>
+<td>Right-multiply this matrix by row vector <code>v</code> (apply the map)</td>
+<td><code>matrices/5.h:3</code></td>
+</tr>
+<tr>
+<td><code>quot_index(inj_index, rank)</code> (static)</td>
+<td>Compute quotient-space indices/leading-term map from an injection&#39;s pivots</td>
+<td><code>matrices/6.h:3</code></td>
+</tr>
+<tr>
+<td><code>make_quotient(inverse_ind, quot_ind, inj_index, result)</code></td>
+<td>Build the explicit quotient map from an echelon-form embedding</td>
+<td><code>matrices/6.h:27</code></td>
+</tr>
+<tr>
+<td><code>direct_sum(Y, tar_rank)</code></td>
+<td>Block-sum with another matrix</td>
+<td><code>matrices/2.h:141</code></td>
+</tr>
+<tr>
+<td><code>save</code>/<code>load</code></td>
+<td>Binary serialize/deserialize</td>
+<td><code>matrices/4.h:22</code>, <code>:41</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="moduleopindexr-modules3h-unless-noted"><code>ModuleOp&lt;index,R&gt;</code> (<code>modules/3.h</code> unless noted)<a class="heading-anchor" href="#moduleopindexr-modules3h-unless-noted">#</a></h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Method</th>
+<th>Description</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>add(x,y)</code></td>
+<td>Merge-add two sorted sparse vectors</td>
+<td><code>modules/4.h:3</code></td>
+</tr>
+<tr>
+<td><code>scalor_mult(r,x)</code></td>
+<td>Scale a vector by a ring element</td>
+<td><code>modules/3.h:45</code></td>
+</tr>
+<tr>
+<td><code>singleton(e,r)</code></td>
+<td>Build a one-term vector</td>
+<td><code>modules/3.h:73</code></td>
+</tr>
+<tr>
+<td><code>component(n,x)</code></td>
+<td>Binary-search the coefficient at index <code>n</code></td>
+<td><code>modules/6.h:29</code></td>
+</tr>
+<tr>
+<td><code>re_index(rule,x)</code> / <code>filtered_reindex(rule,x,invalid)</code></td>
+<td>Reindex (optionally dropping invalid terms)</td>
+<td><code>modules/5.h:4</code>, <code>:33</code></td>
+</tr>
+<tr>
+<td><code>filter(rule,x)</code></td>
+<td>Keep only terms matching a predicate</td>
+<td><code>modules/5.h:48</code></td>
+</tr>
+<tr>
+<td><code>termwise_operation(rule,x)</code></td>
+<td>Map a function over every (index,coefficient) or coefficient</td>
+<td><code>modules/5.h:73</code>, <code>:88</code></td>
+</tr>
+<tr>
+<td><code>next_non_trvial_entry(n,x)</code> / <code>first_invertible(x)</code> / <code>last_entry(x)</code></td>
+<td>Locate structurally-significant terms (used by <code>curtis_table</code> reduction)</td>
+<td><code>modules/6.h:34</code>,<code>:61</code>,<code>:81</code></td>
+</tr>
+<tr>
+<td><code>sum(summands,start,end)</code></td>
+<td>Parallel (OpenMP) reduction-tree sum of a vector array</td>
+<td><code>modules/9.h:28</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="hopf_algebroidringalgebroid-hopf_algebroid4h-unless-noted"><code>Hopf_Algebroid&lt;ring,algebroid&gt;</code> (<code>hopf_algebroid/4.h</code> unless noted)<a class="heading-anchor" href="#hopf_algebroidringalgebroid-hopf_algebroid4h-unless-noted">#</a></h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Method</th>
+<th>Description</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>etaL</code>/<code>etaR</code></td>
+<td>Left/right unit maps <code>ring → algebroid</code> (pure virtual)</td>
+<td><code>hopf_algebroid/4.h:15-16</code></td>
+</tr>
+<tr>
+<td><code>delta(matrix_index)</code></td>
+<td>Comultiplication on <code>i</code>-th base element (pure virtual)</td>
+<td><code>hopf_algebroid/4.h:24</code></td>
+</tr>
+<tr>
+<td><code>adjoint(X, n, adjoint_map, shift)</code></td>
+<td>Build cofree-comodule-on-one-generator + adjoint map from <code>X</code></td>
+<td><code>hopf_algebroid/8.h:4</code></td>
+</tr>
+<tr>
+<td><code>adjoint(X, gens, pos, i, shift)</code></td>
+<td>Compute row <code>i</code> of the adjoint map for several generators at once</td>
+<td><code>hopf_algebroid/8.h:25</code></td>
+</tr>
+<tr>
+<td><code>embed2cofree(X, inj, table, gens, ...)</code></td>
+<td>Embed <code>X</code> into a cofree comodule, minimally (degree order)</td>
+<td><code>hopf_algebroid/9.h:4</code></td>
+</tr>
+<tr>
+<td><code>resolvor(X, inj, indj, quot, table, ...)</code></td>
+<td>One full resolution step: embed, Gaussian-eliminate, quotient</td>
+<td><code>hopf_algebroid/5.h:4</code></td>
+</tr>
+<tr>
+<td><code>pre_resolution_tab(resolved, ..., resolution_length, result, gens, ...)</code></td>
+<td>Iterate <code>resolvor</code> for <code>resolution_length+1</code> steps, persisting to disk</td>
+<td><code>hopf_algebroid/4.h:51</code></td>
+</tr>
+<tr>
+<td><code>quotient</code>/<code>quotient_p</code></td>
+<td>Compute the coaction of the quotient comodule (serial / OpenMP-parallel)</td>
+<td><code>hopf_algebroid/12.h:4</code>, <code>:30</code></td>
+</tr>
+<tr>
+<td><code>resolution(...)</code></td>
+<td>Splice per-step short exact sequences into a chain complex</td>
+<td><code>hopf_algebroid/6.h:4</code></td>
+</tr>
+<tr>
+<td><code>make_multiplication_table(x, deg_x, result)</code></td>
+<td>Tabulate right-multiplication-by-<code>x</code> on all basis elements below a degree</td>
+<td><code>hopf_algebroid/13.h:3</code></td>
+</tr>
+<tr>
+<td><code>set_to_trivial(X, deg)</code></td>
+<td>Initialize <code>X</code> as the rank-1 trivial comodule (resolution starting point)</td>
+<td><code>hopf_algebroid/12.h:1-12</code></td>
+</tr>
+<tr>
+<td><code>init_cofree_data(cofree_degree)</code></td>
+<td>Wire up <code>cofree_comodule</code>&#39;s static coaction/degree functions to this algebroid&#39;s <code>delta</code></td>
+<td><code>hopf_algebroid/13.h:17</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="curtis_tablering-matrices9h"><code>curtis_table&lt;ring&gt;</code> (<code>matrices/9.h</code>)<a class="heading-anchor" href="#curtis_tablering-matrices9h">#</a></h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Method</th>
+<th>Description</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>is_member(matrix_index)</code> / <code>search(matrix_index)</code> / <code>search_ref</code></td>
+<td>Table lookup by cycle index (pure virtual, backend-specific)</td>
+<td><code>matrices/9.h:19-23</code></td>
+</tr>
+<tr>
+<td><code>symplify_to_led(x, homotopy)</code></td>
+<td>Reduce <code>x</code> against the table, accumulating a homotopy</td>
+<td><code>matrices/9.h:108</code></td>
+</tr>
+<tr>
+<td><code>simplify_to_led(target_rank, source_rank, x, homotopy)</code></td>
+<td>Dense-vector variant of the above (converts to <code>std::vector&lt;ring&gt;</code> for speed)</td>
+<td><code>matrices/9.h:124</code></td>
+</tr>
+<tr>
+<td><code>insert(cycle, tag, full_cycle, full_tag)</code></td>
+<td>Add a new table entry (pure virtual)</td>
+<td><code>matrices/9.h:156</code></td>
+</tr>
+<tr>
+<td><code>cycle_matrix(cyc_mat, tag_mat, source_rank)</code></td>
+<td>Extract cycle/tag matrices + leading-term array from the table</td>
+<td><code>matrices/9.h:159</code></td>
+</tr>
+<tr>
+<td><code>cycle_matrix(result, source_rank, transformer, Map)</code></td>
+<td>Transform-and-reinsert variant, used by the &quot;modeled&quot; resolution path</td>
+<td><code>matrices/9.h:191</code></td>
+</tr>
+<tr>
+<td><code>save</code>/<code>load</code></td>
+<td>Binary serialize/deserialize the whole table</td>
+<td><code>matrices/9.h:215</code>, <code>:236</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="comodule_genericalgebroiddegree_type-hopf_algebroid2h"><code>comodule_generic&lt;algebroid,degree_type&gt;</code> (<code>hopf_algebroid/2.h</code>)<a class="heading-anchor" href="#comodule_genericalgebroiddegree_type-hopf_algebroid2h">#</a></h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Method</th>
+<th>Description</th>
+<th>Location</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>rank()</code></td>
+<td>Number of base generators</td>
+<td><code>hopf_algebroid/2.h:27</code></td>
+</tr>
+<tr>
+<td><code>coaction(i)</code></td>
+<td>Coaction on generator <code>i</code>, read from <code>coaction_matrix</code></td>
+<td><code>hopf_algebroid/2.h:31</code></td>
+</tr>
+<tr>
+<td><code>degree(i)</code></td>
+<td>Degree of generator <code>i</code>, read from <code>base_module</code></td>
+<td><code>hopf_algebroid/2.h:35</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="notably-confusing-redundant-flag-for-top-level-architecture-doc">Notably confusing / redundant (flag for top-level architecture doc)<a class="heading-anchor" href="#notably-confusing-redundant-flag-for-top-level-architecture-doc">#</a></h2>
+<ul>
+<li><strong><code>others.h</code> (397 lines) is dead code</strong>: it defines a second, incompatible
+<code>curtis_table&lt;R&gt;</code>/<code>matrix_array&lt;R&gt;</code>/<code>quasi_table&lt;R&gt;</code> hierarchy under
+namespaces (<code>Modules::</code>, <code>Algebra::</code>, <code>MapTable::</code>, <code>Paralell::</code>) that
+appear nowhere else in the repo, and it <code>#include</code>s a nonexistent
+<code>filedmatrices.h</code>. It is not included from any other file. The real,
+live <code>curtis_table&lt;ring&gt;</code> lives in <code>matrices/9.h</code>, with backends
+<code>curtis_table_mem</code> (<code>matrices_mem/3.h</code>) and <code>curtisTable_stream</code>
+(<code>curtis.h</code>).</li>
+<li><strong>The numbered-fragment convention is easy to misread</strong>: opening a
+mid-range fragment (e.g. <code>matrices/6.h</code>, <code>hopf_algebroid/10.h</code>) shows bare
+out-of-line template method bodies with no visible class declaration —
+the declaration lives in a lower-numbered fragment in the same directory,
+stitched together only via the parent manifest header&#39;s <code>#include</code> order.
+<code>matrices/9.h</code> is a trap in this scheme: unlike its siblings, it is not a
+fragment of <code>matrix&lt;R&gt;</code> at all but an entirely separate class
+(<code>curtis_table&lt;ring&gt;</code>) that only happens to live in the same directory.</li>
+<li><strong><code>lift.h</code> looks unfinished/possibly non-compiling</strong>: e.g. <code>adjoint()</code> at
+<code>lift.h:19-34</code> calls <code>HA_oper-&gt;algebroidModuleOper-&gt;component(i)</code> with a
+single argument on a <code>component(index, vec)</code> that needs two, and accesses
+<code>F.pos</code> where <code>cofree_comodule</code> has no member <code>pos</code> (only
+<code>position_of_gens</code>). Treat as an unverified/legacy utility, not a reference
+implementation.</li>
+</ul>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>

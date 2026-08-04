@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Computing the E2 Page for a General Comodule — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">GENERAL_COMODULES</span></div>
+  <div class="actions">
+    <a class="src-link" href="GENERAL_COMODULES.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="computing-the-e2-page-for-a-general-comodule">Computing the E2 Page for a General Comodule<a class="heading-anchor" href="#computing-the-e2-page-for-a-general-comodule">#</a></h1>
+<p>By default, this repo computes the algebraic Novikov E2 page only for the
+<strong>sphere</strong>: <code>mr_BP</code> resolves the trivial <code>BP_*BP</code>-comodule <code>BP_*</code> itself (see
+<code>docs/CODE_WALKTHROUGH.md</code> §3 for exactly where <code>set_to_trivial</code> builds
+that). This page documents a new, additive capability — <code>BP_generic_init.h</code>/
+<code>.cpp</code>, <code>Steenrod_generic_init.h</code>/<code>.cpp</code>, <code>BP_mod_I.h</code>/<code>.cpp</code>,
+<code>comodules.h</code>/<code>.cpp</code>, and <code>mr_BP_comod.cpp</code> — for computing the same kind of
+E2 page for <strong>any</strong> finitely generated <code>BP_*BP</code>-comodule <code>M</code> that is free
+over <code>BP_*</code> (e.g. the BP-homology of a finite complex), given as a rank, a
+per-generator degree, and a coaction matrix.</p>
+<p>Comodules live in a <strong>registry</strong> (<code>comodules.cpp</code>) and are selected by name
+on the command line:</p>
+<pre><code>./mr_BP_comod &lt;halfT&gt; &lt;resolution_length&gt; [comodule]   # default: sphere
+./mr_BP_comod --list                                    # show what's available</code></pre>
+<p>Nothing in the existing pipeline is modified; this is purely additive.</p>
+<h2 id="why-this-isnt-a-one-line-change">Why this isn&#39;t a one-line change<a class="heading-anchor" href="#why-this-isnt-a-one-line-change">#</a></h2>
+<p>The obvious approach — build a <code>comodule_generic&lt;BPBP,int&gt;</code> from your own
+data instead of calling <code>set_to_trivial</code>, then call
+<code>Hopf_Algebroid::pre_resolution_tab</code> directly — <strong>does not work</strong>, and the
+reason is worth understanding before using this:</p>
+<p><code>PolyOp::invertible(x)</code> (<code>polynomial/6.h:27-28</code>), which <code>curtis_table</code>&#39;s
+pivot-finding (<code>symplify_to_led</code>) relies on to decide whether a leading term
+is &quot;already accounted for,&quot; only recognizes an element as invertible if it&#39;s
+a bare constant <em>and</em> that constant is itself invertible in the base ring.
+For <code>BP = BP_* = Z_(3)[v_1,v_2,...]</code>, that means an element is invertible
+only if it has <strong>no <code>v_i</code>&#39;s in it at all</strong>. Almost anything a real coaction
+produces (<code>η_R(v_1)</code>, anything genuinely involving the <code>v_i</code>&#39;s) is never
+invertible by this test — so the pivot search that <code>pre_resolution_tab</code>
+relies on can&#39;t reliably find pivots when the ring is <code>BP_*</code> itself. This
+isn&#39;t a corner case: it&#39;s why the <em>existing</em>, shipped <code>mr_BP</code> never calls
+<code>pre_resolution_tab</code> with <code>ring=BP</code> at all — it exclusively uses the
+&quot;modeled&quot; path (<code>pre_resolution_modeled</code>), which never searches for pivots
+over <code>BP_*</code>; it reuses pivots already found on the <code>F_3</code> side (a genuine
+field, where every nonzero element is invertible) and only <em>lifts</em> the
+resulting values into <code>BP_*BP</code> via <code>BP_Op::lift</code>.</p>
+<p>(This was found by testing, not just reasoning: an earlier version of this
+feature that called <code>pre_resolution_tab</code> directly over <code>BP</code> compiled cleanly
+but produced an empty algebraic Novikov page for the sphere, where the known
+answer has several classes — a concrete illustration of why every nontrivial
+change here should be checked against a case with an already-known answer,
+not just compiled.)</p>
+<h2 id="is-reduce-mod-i-then-resolve-then-lift-new-no">Is &quot;reduce mod <code>I</code>, then resolve, then lift&quot; new? No<a class="heading-anchor" href="#is-reduce-mod-i-then-resolve-then-lift-new-no">#</a></h2>
+<p>It&#39;s tempting to read the two-phase approach below as a new architecture
+introduced for the general case. It isn&#39;t — <strong>the sphere&#39;s own E2-page
+computation already works exactly this way</strong>; see
+<code>docs/CODE_WALKTHROUGH.md</code> §4.0 for the precise, function-by-function
+trace. In brief: <code>BP_*</code> is the simplest possible <code>BP_*BP</code>-comodule (one
+generator, coaction &quot;1 times itself&quot;), so its reduction mod <code>I</code> has a
+one-line answer that doesn&#39;t need computing — that one-liner <em>is</em>
+<code>set_to_trivial</code> (<code>hopf_algebroid/12.h:1-12</code>), called on the <code>P</code> side by
+<code>mr_st</code> (<code>steenrod_init.cpp:32</code>). <code>mr_st</code> resolving that reduction and
+<code>mr_BP</code> lifting it (<code>BP_init.cpp:43-54</code>) are phases 2 and 3 of the exact
+same pattern used below. The only genuinely new piece for a general <code>M</code> is
+<code>BP_mod_I.cpp</code>&#39;s reduction functions — a real computation, because a general
+<code>M</code>&#39;s mod-<code>I</code> reduction isn&#39;t simple enough to hardcode by hand the way
+<code>set_to_trivial</code> does for <code>BP_*</code> itself.</p>
+<h2 id="the-two-phase-approach">The two-phase approach<a class="heading-anchor" href="#the-two-phase-approach">#</a></h2>
+<ol>
+<li><strong>Reduce <code>M</code> mod <code>I = (p, v_1, v_2, ...)</code></strong> to get a comodule over
+<code>P = BP_*BP/I</code> — a genuine field-based Hopf algebra (<code>F_3[t_1,t_2,...]</code>).
+Since <code>M</code> is free over <code>BP_*</code>, this reduction is always well-defined, and
+it&#39;s exactly the general <code>M</code>/<code>M/I</code> language <code>MinimalResolution.pdf</code> §5
+already uses (not specific to <code>M = BP_*</code>). <code>BP_mod_I.h</code>&#39;s
+<code>reduce_coaction_rows_mod_I</code> derives this automatically from your
+<code>BP_*BP</code>-valued coaction — you only enter your comodule&#39;s data once.</li>
+<li><strong>Resolve that reduction with the classical (Steenrod-style) machinery</strong>
+— <code>SteenrodGenericInit::set_comodule</code> + the inherited
+<code>SteenrodInit::resolve()</code>, i.e. <code>pre_resolution_tab</code> over <code>ring=Fp</code>. This
+<em>does</em> work correctly, since <code>F_3</code> is a field.</li>
+<li><strong>Lift that resolution to <code>BP_*BP</code> via <code>pre_resolution_modeled</code></strong> —
+<code>BPGenericInit::set_comodule</code> + <code>BPGenericInit::resolve(model_gens_data, model_table_file)</code>, pointed at the files phase 2 wrote, exactly mirroring
+how <code>mr_BP</code> already lifts <code>mr_st</code>&#39;s resolution for the sphere.</li>
+</ol>
+<div class="mermaid-wrap"><pre class="mermaid">flowchart LR
+    A["Your data:&lt;br/&gt;rank, degree,&lt;br/&gt;BP_*BP-valued coaction"] --&gt; B["BPGenericInit::set_comodule"]
+    A --&gt; C["reduce_coaction_rows_mod_I&lt;br/&gt;(BP_mod_I.h)"]
+    C --&gt; D["SteenrodGenericInit::set_comodule&lt;br/&gt;(comodule over P = BP_*BP/I)"]
+    D --&gt; E["SteenrodInit::resolve()&lt;br/&gt;(pre_resolution_tab, correct: F_3 is a field)"]
+    E --&gt; F["model gens/table files"]
+    B --&gt; G["BPGenericInit::resolve(...)&lt;br/&gt;(pre_resolution_modeled, lifts the model)"]
+    F --&gt; G
+    G --&gt; H["BPInit::resolution() / make_algNov() / make_Boc()&lt;br/&gt;(unchanged -- only ever read the resolution's own output)"]</pre><div class="mermaid-fallback-note">Diagram (renders automatically when online; source shown above as plain text otherwise — also viewable pre-rendered on GitHub)</div></div>
+<h2 id="how-to-use-it">How to use it<a class="heading-anchor" href="#how-to-use-it">#</a></h2>
+<p>Build once, then pick a comodule by name:</p>
+<pre><code>sh BP_comod_compile
+./BPtab 20                      # same prerequisite as mr_BP
+./mr_BP_comod 20 4              # the sphere (default)
+./mr_BP_comod 20 4 alpha_1      # S/alpha_1
+./mr_BP_comod --list            # what's available</code></pre>
+<p>Output is prefixed <code>&lt;halfT&gt;_&lt;comodule&gt;BP...</code> for the final resolution and its
+<code>algNov</code>/<code>Boc</code> tables, and <code>&lt;halfT&gt;_&lt;comodule&gt;P...</code> for the mod-<code>I</code> model
+resolution — so different comodules, and a plain <code>mr_st</code>/<code>mr_BP</code> run, all
+coexist in one directory without clobbering each other.</p>
+<h3 id="shipped-comodules">Shipped comodules<a class="heading-anchor" href="#shipped-comodules">#</a></h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>name</th>
+<th>complex</th>
+<th>rank</th>
+<th>degrees</th>
+<th>coaction</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sphere</code> (default)</td>
+<td><code>S</code></td>
+<td>1</td>
+<td><code>0</code></td>
+<td><code>ψ(x_0) = 1 ⊗ x_0</code></td>
+</tr>
+<tr>
+<td><code>alpha_1</code></td>
+<td><code>S/α₁ = cofib(S³ → S⁰)</code></td>
+<td>2</td>
+<td><code>0, 4</code></td>
+<td><code>ψ(x_0) = 1 ⊗ x_0</code>, <code>ψ(x_4) = 1 ⊗ x_4 + t_1 ⊗ x_0</code></td>
+</tr>
+<tr>
+<td><code>triv_01</code></td>
+<td><code>S ∨ S¹</code></td>
+<td>2</td>
+<td><code>0, 1</code></td>
+<td>identity: <code>ψ(x_i) = 1 ⊗ x_i</code></td>
+</tr>
+</tbody>
+</table></div>
+<p><code>triv_01</code> is split (<code>BP_*(S ∨ S¹) = BP_* ⊕ ΣBP_*</code>), which makes it a useful
+self-test of the rank &gt; 1 machinery: since <code>Ext</code> takes direct sums to direct
+sums, its E2 page must be <em>exactly</em> two copies of the sphere&#39;s, one shifted
+one step along the stem — see &quot;A sanity check with mathematical content&quot;
+below. It also exercises odd-degree bookkeeping, which neither the sphere nor
+<code>alpha_1</code> touches (everything in <code>BP_*</code> sits in even degrees).</p>
+<h3 id="adding-your-own">Adding your own<a class="heading-anchor" href="#adding-your-own">#</a></h3>
+<p>Two steps, both in <code>comodules.cpp</code>, and nothing else in the program changes:</p>
+<ol>
+<li>Write a builder function setting <code>rank</code>, <code>degree</code>, and <code>coaction_rows</code>.
+<code>coaction_rows(i)</code> returns generator <code>i</code>&#39;s coaction as a sparse
+<code>vectors&lt;matrix_index,BPBP&gt;</code> — a list of <code>(j, c)</code> pairs, <code>j</code> the index of
+another generator (<code>0..rank-1</code>), <code>c</code> a <code>BP_*BP</code> element built with
+<code>BP_oper.BPBP_opers</code>&#39;s ring operations (<code>.unit(1)</code>, <code>.add(x,y)</code>,
+<code>.multiply(x,y)</code>, …). Read the warning directly below before writing any
+coefficient by hand.</li>
+<li>Add one row to <code>comodule_table</code> at the bottom of the file.</li>
+</ol>
+<p>Degrees are <strong>full topological degrees</strong>, the same units <code>exponents.cpp</code>&#39;s
+<code>xnDegs</code> uses: <code>|v_n| = |t_n| = 2(3ⁿ−1)</code>, so <code>|v_1| = |t_1| = 4</code> at <code>p=3</code>.</p>
+<p><code>BP_oper</code>&#39;s structure tables are already loaded when your builder runs, so
+<code>BP_oper.h0()</code> (<code>= t_1</code>) and <code>BP_oper.thetas()</code> (<code>= β₁</code>, …) are available —
+these are the standard connecting-homomorphism constructions
+(<code>α₁ = δ(v_1/p)</code>, <code>β₁ = δ(v_2/v_1)</code>) and are the safest way to get hold of
+the cobar cocycles you&#39;ll need as off-diagonal entries.</p>
+<h3 id="warning-bpbps-two-exponent-slots-are-not-what-youd-guess">Warning: <code>BPBP</code>&#39;s two exponent slots are not what you&#39;d guess<a class="heading-anchor" href="#warning-bpbps-two-exponent-slots-are-not-what-youd-guess">#</a></h3>
+<p><code>BPBP = polynomial&lt;BP&gt;</code> is <strong>not</strong> &quot;polynomial in the <code>t_i</code> with <code>BP_*</code>
+coefficients&quot; in the layout the type name suggests. Per <code>BP.cpp:69</code> — <em>&quot;the
+right unit, <code>vn</code> is in the outer&quot;</em> — it is the other way around:</p>
+<ul>
+<li>the <strong>outer</strong> exponent indexes the <code>v_i</code> (included via the <strong>right</strong> unit
+<code>η_R</code>), and</li>
+<li>the <strong>inner</strong> (coefficient) <code>BP</code>&#39;s exponent indexes the <code>t_i</code>.</li>
+</ul>
+<p>So <code>BPBP_opers.monomial(singleVar(1,1), unit(1))</code> — the obvious-looking way
+to write <code>t_1</code> — is actually <strong><code>η_R(v_1)</code></strong>. The correct <code>t_1</code> is</p>
+<pre><code>// t_1: outer exponent 0 (no v's), inner coefficient carrying t-exponent 1
+BP   inner = BP_oper.monomial(singleVar(1,1), BP_oper.Z3_oper-&gt;unit(1));
+BPBP t1    = BP_oper.BPBP_opers.monomial(0, inner);</code></pre>
+<p>Better still, for <code>t_1</code> specifically, just call <strong><code>BP_oper.h0()</code></strong>, which the
+repo already provides: it computes <code>(η_R(v_1) - η_L(v_1))/p</code> from the loaded
+structure tables, which is exactly <code>t_1</code>, and it can&#39;t be gotten backwards.
+(Verified: <code>h0()</code> and the two-line construction above are bitwise equal, and
+both differ from <code>BPBP_opers.monomial(singleVar(1,1),unit(1))</code>.)</p>
+<p>This matters because getting it backwards fails <em>silently</em> in a particularly
+nasty way: <code>η_R(v_1)</code> is not in the augmentation ideal, so a coaction using it
+violates counitality — and, per the caveats below, nothing checks that.</p>
+<h2 id="verifying-a-change-here">Verifying a change here<a class="heading-anchor" href="#verifying-a-change-here">#</a></h2>
+<p>Because resolving the trivial comodule through this path should produce
+<em>exactly</em> the same answer as the existing <code>mr_BP</code> (they&#39;re computing the
+same thing, <code>Ext_{BP_*BP}(BP_*,BP_*)</code>, just via different code paths), the
+<code>sphere</code> comodule — the default — is a real regression test, not a smoke
+test. Run both and diff:</p>
+<pre><code>./mr_st 20 5 &amp;&amp; ./BPtab 20 &amp;&amp; ./mr_BP 20 4     # reference
+./mr_BP_comod 20 4                              # same thing, generic path
+diff 20_BPAANSS_table.txt 20_sphereBPAANSS_table.txt
+diff 20_BPBocSS_table.txt 20_sphereBPBocSS_table.txt</code></pre>
+<p>Both are currently byte-identical (as are the <code>_binary</code> and <code>_a0.txt</code>
+variants), at <code>halfT=20</code>/<code>length=4</code> and at two smaller ranges including one
+with a nontrivial differential. This comparison is how the original
+from-scratch-over-<code>BP</code> approach was caught as incorrect. If you change
+anything in <code>BP_generic_init.*</code>, <code>Steenrod_generic_init.*</code>, or <code>BP_mod_I.*</code>,
+re-run it before trusting the result on a real complex.</p>
+<h3 id="a-sanity-check-with-mathematical-content">A sanity check with mathematical content<a class="heading-anchor" href="#a-sanity-check-with-mathematical-content">#</a></h3>
+<p>Diffing against the sphere only tests the plumbing. For a check that the
+<em>comodule data itself</em> is right, look for something the topology predicts.
+For <code>alpha_1</code>: coning off <code>α₁</code> should kill it, so the class the sphere has
+in stem 3, filtration 1 must be absent from <code>S/α₁</code>:</p>
+<pre><code>grep -c "deg=(3,1)" 20_sphereBPAANSS_table.txt    # 1  -- alpha_1 itself
+grep -c "deg=(3,1)" 20_alpha_1BPAANSS_table.txt   # 0  -- killed, as it must be</code></pre>
+<p>For <code>triv_01</code> the prediction is sharper still, and needs no topology input:
+<code>Ext</code> takes direct sums to direct sums, so its page must be exactly the
+sphere&#39;s page plus a copy of it shifted one step along the stem — for every
+sphere class at <code>deg=(a,b)</code>, classes at <code>(a,b)</code> and <code>(a+1,b)</code>, and nothing
+else. At <code>halfT=20, length=4</code> that holds exactly: 11 sphere classes → 22,
+with the degree multiset matching term for term, and the single <code>d2</code>
+doubling to two.</p>
+<p>Find the analogous prediction for your own complex before trusting its
+output; it is the only check that can catch a wrong coaction matrix, since
+nothing verifies the comodule axioms.</p>
+<h2 id="caveats">Caveats<a class="heading-anchor" href="#caveats">#</a></h2>
+<ul>
+<li><strong>No comodule-axiom verification.</strong> Nothing here checks that the coaction
+you supply actually satisfies coassociativity or counitality. A mistake
+won&#39;t crash — it will silently produce a wrong <code>Ext</code> computation.
+<code>set_comodule</code> only checks that your data is structurally well-formed
+(indices in range, rows sorted).</li>
+<li><strong>Same degree-range and generator-count limits as the rest of the
+pipeline</strong> — bounded by <code>max_degree</code>/<code>monomial_index</code>, and by the shared
+<code>exponents.h</code> table&#39;s generator cap (<code>v_1..v_5</code>/<code>t_1..t_5</code>), exactly as for
+the sphere computation.</li>
+<li><strong>&quot;Free over <code>BP_*</code>&quot; is assumed, not checked.</strong> This matches the
+framework&#39;s blanket assumption throughout (<code>comodule_generic</code> has no
+notion of torsion), per <code>MinimalResolution.pdf</code> Definition 1.</li>
+</ul>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>

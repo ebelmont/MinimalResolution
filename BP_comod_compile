@@ -1,0 +1,1 @@
+g++ -O2 BPcomplex.cpp streams.cpp algNov.cpp Boc.cpp multiplication.cpp exponents.cpp Fp.cpp mon_index.cpp Z3.cpp BP.cpp BP_init.cpp BP_generic_init.cpp steenrod.cpp steenrod_init.cpp Steenrod_generic_init.cpp BP_mod_I.cpp comodules.cpp mr_BP_comod.cpp -std=c++11  -I./ -Wall -Wfatal-errors -fopenmp -omr_BP_comod
