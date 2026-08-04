@@ -26,7 +26,7 @@
 //resolution of this SAME comodule's reduction mod I (built with
 //SteenrodGenericInit, see Steenrod_generic_init.h and BP_mod_I.h) and lifts
 //it via Hopf_Algebroid::pre_resolution_modeled. See
-//mr_BP_generic_example.cpp for how the two phases fit together, and
+//comodules.cpp / mr_BP_comod.cpp for how the two phases fit together, and
 //docs/CODE_WALKTHROUGH.md / docs/ARCHITECTURE.md section 5 for the
 //background this assumes.
 //
@@ -56,7 +56,7 @@ public:
 	//    returned vectors<matrix_index,BPBP> need not already be sorted by
 	//    index -- set_comodule sorts it for you -- but every index it uses
 	//    must be in range [0, rank).
-	//See mr_BP_generic_example.cpp for a complete worked example.
+	//See comodules.cpp for complete worked examples.
 	void set_comodule(int rank, const std::vector<int> &degree,
 	                   std::function<vectors<matrix_index,BPBP>(int)> coaction_rows);
 

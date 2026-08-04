@@ -21,11 +21,15 @@
 <strong>sphere</strong>: <code>mr_BP</code> resolves the trivial <code>BP_*BP</code>-comodule <code>BP_*</code> itself (see
 <code>docs/CODE_WALKTHROUGH.md</code> §3 for exactly where <code>set_to_trivial</code> builds
 that). This page documents a new, additive capability — <code>BP_generic_init.h</code>/
-<code>.cpp</code>, <code>Steenrod_generic_init.h</code>/<code>.cpp</code>, <code>BP_mod_I.h</code>/<code>.cpp</code>, and
-<code>mr_BP_generic_example.cpp</code> — for computing the same kind of E2 page for
-<strong>any</strong> finitely generated <code>BP_*BP</code>-comodule <code>M</code> that is free over <code>BP_*</code>
-(e.g. the BP-homology of a finite complex), given as a rank, a per-generator
-degree, and a coaction matrix.</p>
+<code>.cpp</code>, <code>Steenrod_generic_init.h</code>/<code>.cpp</code>, <code>BP_mod_I.h</code>/<code>.cpp</code>,
+<code>comodules.h</code>/<code>.cpp</code>, and <code>mr_BP_comod.cpp</code> — for computing the same kind of
+E2 page for <strong>any</strong> finitely generated <code>BP_*BP</code>-comodule <code>M</code> that is free
+over <code>BP_*</code> (e.g. the BP-homology of a finite complex), given as a rank, a
+per-generator degree, and a coaction matrix.</p>
+<p>Comodules live in a <strong>registry</strong> (<code>comodules.cpp</code>) and are selected by name
+on the command line:</p>
+<pre><code>./mr_BP_comod &lt;halfT&gt; &lt;resolution_length&gt; [comodule]   # default: sphere
+./mr_BP_comod --list                                    # show what's available</code></pre>
 <p>Nothing in the existing pipeline is modified; this is purely additive.</p>
 <h2 id="why-this-isnt-a-one-line-change">Why this isn&#39;t a one-line change<a class="heading-anchor" href="#why-this-isnt-a-one-line-change">#</a></h2>
 <p>The obvious approach — build a <code>comodule_generic&lt;BPBP,int&gt;</code> from your own
@@ -95,19 +99,61 @@ how <code>mr_BP</code> already lifts <code>mr_st</code>&#39;s resolution for the
     F --&gt; G
     G --&gt; H["BPInit::resolution() / make_algNov() / make_Boc()&lt;br/&gt;(unchanged -- only ever read the resolution's own output)"]</pre><div class="mermaid-fallback-note">Diagram (renders automatically when online; source shown above as plain text otherwise — also viewable pre-rendered on GitHub)</div></div>
 <h2 id="how-to-use-it">How to use it<a class="heading-anchor" href="#how-to-use-it">#</a></h2>
+<p>Build once, then pick a comodule by name:</p>
+<pre><code>sh BP_comod_compile
+./BPtab 20                      # same prerequisite as mr_BP
+./mr_BP_comod 20 4              # the sphere (default)
+./mr_BP_comod 20 4 alpha_1      # S/alpha_1
+./mr_BP_comod --list            # what's available</code></pre>
+<p>Output is prefixed <code>&lt;halfT&gt;_&lt;comodule&gt;BP...</code> for the final resolution and its
+<code>algNov</code>/<code>Boc</code> tables, and <code>&lt;halfT&gt;_&lt;comodule&gt;P...</code> for the mod-<code>I</code> model
+resolution — so different comodules, and a plain <code>mr_st</code>/<code>mr_BP</code> run, all
+coexist in one directory without clobbering each other.</p>
+<h3 id="shipped-comodules">Shipped comodules<a class="heading-anchor" href="#shipped-comodules">#</a></h3>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>name</th>
+<th>complex</th>
+<th>rank</th>
+<th>degrees</th>
+<th>coaction</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>sphere</code> (default)</td>
+<td><code>S</code></td>
+<td>1</td>
+<td><code>0</code></td>
+<td><code>ψ(x_0) = 1 ⊗ x_0</code></td>
+</tr>
+<tr>
+<td><code>alpha_1</code></td>
+<td><code>S/α₁ = cofib(S³ → S⁰)</code></td>
+<td>2</td>
+<td><code>0, 4</code></td>
+<td><code>ψ(x_0) = 1 ⊗ x_0</code>, <code>ψ(x_4) = 1 ⊗ x_4 + t_1 ⊗ x_0</code></td>
+</tr>
+</tbody>
+</table></div>
+<h3 id="adding-your-own">Adding your own<a class="heading-anchor" href="#adding-your-own">#</a></h3>
+<p>Two steps, both in <code>comodules.cpp</code>, and nothing else in the program changes:</p>
 <ol>
-<li>Copy <code>mr_BP_generic_example.cpp</code> to a new name (e.g. <code>mr_BP_myComplex.cpp</code>)
-and make a copy of <code>BP_generic_compile</code> that builds it instead.</li>
-<li>Edit <code>build_comodule()</code> in your copy: set <code>rank</code>, <code>degree</code>, and
-<code>coaction_rows</code> for your complex. <code>coaction_rows(i)</code> must return generator
-<code>i</code>&#39;s coaction as a sparse <code>vectors&lt;matrix_index,BPBP&gt;</code> — a list of
-<code>(j, c)</code> pairs, <code>j</code> the index of another generator (0..rank-1), <code>c</code> a
-<code>BP_*BP</code> element built with <code>BP_oper.BPBP_opers</code>&#39;s ring operations
-(<code>.unit(1)</code>, <code>.monomial(e,coeff)</code>, <code>.add(x,y)</code>, <code>.multiply(x,y)</code>). See the
-comments in the file for a worked example (it ships reconstructing the
-trivial comodule, as a self-test — see below), and read the warning
-directly below about which variable <code>.monomial</code>&#39;s exponent refers to.</li>
+<li>Write a builder function setting <code>rank</code>, <code>degree</code>, and <code>coaction_rows</code>.
+<code>coaction_rows(i)</code> returns generator <code>i</code>&#39;s coaction as a sparse
+<code>vectors&lt;matrix_index,BPBP&gt;</code> — a list of <code>(j, c)</code> pairs, <code>j</code> the index of
+another generator (<code>0..rank-1</code>), <code>c</code> a <code>BP_*BP</code> element built with
+<code>BP_oper.BPBP_opers</code>&#39;s ring operations (<code>.unit(1)</code>, <code>.add(x,y)</code>,
+<code>.multiply(x,y)</code>, …). Read the warning directly below before writing any
+coefficient by hand.</li>
+<li>Add one row to <code>comodule_table</code> at the bottom of the file.</li>
 </ol>
+<p>Degrees are <strong>full topological degrees</strong>, the same units <code>exponents.cpp</code>&#39;s
+<code>xnDegs</code> uses: <code>|v_n| = |t_n| = 2(3ⁿ−1)</code>, so <code>|v_1| = |t_1| = 4</code> at <code>p=3</code>.</p>
+<p><code>BP_oper</code>&#39;s structure tables are already loaded when your builder runs, so
+<code>BP_oper.h0()</code> (<code>= t_1</code>) and <code>BP_oper.thetas()</code> (<code>= β₁</code>, …) are available —
+these are the standard connecting-homomorphism constructions
+(<code>α₁ = δ(v_1/p)</code>, <code>β₁ = δ(v_2/v_1)</code>) and are the safest way to get hold of
+the cobar cocycles you&#39;ll need as off-diagonal entries.</p>
 <h3 id="warning-bpbps-two-exponent-slots-are-not-what-youd-guess">Warning: <code>BPBP</code>&#39;s two exponent slots are not what you&#39;d guess<a class="heading-anchor" href="#warning-bpbps-two-exponent-slots-are-not-what-youd-guess">#</a></h3>
 <p><code>BPBP = polynomial&lt;BP&gt;</code> is <strong>not</strong> &quot;polynomial in the <code>t_i</code> with <code>BP_*</code>
 coefficients&quot; in the layout the type name suggests. Per <code>BP.cpp:69</code> — <em>&quot;the
@@ -129,27 +175,33 @@ structure tables, which is exactly <code>t_1</code>, and it can&#39;t be gotten 
 both differ from <code>BPBP_opers.monomial(singleVar(1,1),unit(1))</code>.)</p>
 <p>This matters because getting it backwards fails <em>silently</em> in a particularly
 nasty way: <code>η_R(v_1)</code> is not in the augmentation ideal, so a coaction using it
-violates counitality — and, per the caveats below, nothing checks that.
-3. Build and run exactly like <code>mr_BP</code>, after a matching <code>BPtab &lt;halfT&gt;</code> run:
-   <code>./mr_BP_myComplex &lt;halfT&gt; &lt;resolution_length&gt;</code>.</p>
-<p>Output files use two internal prefixes: <code>&lt;halfT&gt;_gP...</code> for the phase-2
-(model) resolution over <code>P</code>, and <code>&lt;halfT&gt;_gBP...</code> for the final phase-3
-resolution and its <code>algNov</code>/<code>Boc</code> tables (e.g. <code>&lt;halfT&gt;_gBPAANSS_table.txt</code>) —
-chosen to avoid colliding with a real <code>mr_st</code>/<code>mr_BP</code> run&#39;s own files
-(<code>&lt;halfT&gt;_...</code>/<code>&lt;halfT&gt;_BP...</code>) in the same directory.</p>
+violates counitality — and, per the caveats below, nothing checks that.</p>
 <h2 id="verifying-a-change-here">Verifying a change here<a class="heading-anchor" href="#verifying-a-change-here">#</a></h2>
-<p>Because resolving the trivial comodule through this new path should produce
+<p>Because resolving the trivial comodule through this path should produce
 <em>exactly</em> the same answer as the existing <code>mr_BP</code> (they&#39;re computing the
 same thing, <code>Ext_{BP_*BP}(BP_*,BP_*)</code>, just via different code paths), the
-shipped <code>build_comodule()</code> reconstructs the trivial comodule by default.
-Comparing its <code>algNov</code>/<code>Boc</code> output against a normal <code>mr_st</code>+<code>BPtab</code>+<code>mr_BP</code>
-run for the same <code>&lt;halfT&gt;</code>/<code>&lt;resolution_length&gt;</code> is a real regression test,
-not just a smoke test — this is how the from-scratch-over-<code>BP</code> approach
-above was caught as incorrect, and how the corrected, two-phase approach was
-confirmed correct (byte-identical <code>algNov</code>/<code>Boc</code> tables at two different
-degree ranges, including one with a nontrivial differential). If you change
+<code>sphere</code> comodule — the default — is a real regression test, not a smoke
+test. Run both and diff:</p>
+<pre><code>./mr_st 20 5 &amp;&amp; ./BPtab 20 &amp;&amp; ./mr_BP 20 4     # reference
+./mr_BP_comod 20 4                              # same thing, generic path
+diff 20_BPAANSS_table.txt 20_sphereBPAANSS_table.txt
+diff 20_BPBocSS_table.txt 20_sphereBPBocSS_table.txt</code></pre>
+<p>Both are currently byte-identical (as are the <code>_binary</code> and <code>_a0.txt</code>
+variants), at <code>halfT=20</code>/<code>length=4</code> and at two smaller ranges including one
+with a nontrivial differential. This comparison is how the original
+from-scratch-over-<code>BP</code> approach was caught as incorrect. If you change
 anything in <code>BP_generic_init.*</code>, <code>Steenrod_generic_init.*</code>, or <code>BP_mod_I.*</code>,
-re-run this comparison before trusting the result on a real complex.</p>
+re-run it before trusting the result on a real complex.</p>
+<h3 id="a-sanity-check-with-mathematical-content">A sanity check with mathematical content<a class="heading-anchor" href="#a-sanity-check-with-mathematical-content">#</a></h3>
+<p>Diffing against the sphere only tests the plumbing. For a check that the
+<em>comodule data itself</em> is right, look for something the topology predicts.
+For <code>alpha_1</code>: coning off <code>α₁</code> should kill it, so the class the sphere has
+in stem 3, filtration 1 must be absent from <code>S/α₁</code>:</p>
+<pre><code>grep -c "deg=(3,1)" 20_sphereBPAANSS_table.txt    # 1  -- alpha_1 itself
+grep -c "deg=(3,1)" 20_alpha_1BPAANSS_table.txt   # 0  -- killed, as it must be</code></pre>
+<p>Find the analogous prediction for your own complex before trusting its
+output; it is the only check that can catch a wrong coaction matrix, since
+nothing verifies the comodule axioms.</p>
 <h2 id="caveats">Caveats<a class="heading-anchor" href="#caveats">#</a></h2>
 <ul>
 <li><strong>No comodule-axiom verification.</strong> Nothing here checks that the coaction

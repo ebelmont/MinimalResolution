@@ -30,6 +30,6 @@ vectors<matrix_index,P> reduce_row_mod_I(vectors<matrix_index,BPBP> const &row);
 //I. Since M is free over BP_*, M/I has the SAME rank and generator degrees
 //as M -- only the coaction needs reducing. This is the one function that
 //lets you enter a comodule's data once (in BP_*BP) and get both phases of
-//the computation (see mr_BP_generic_example.cpp) from it.
+//the computation (see mr_BP_comod.cpp) from it.
 std::function<vectors<matrix_index,P>(int)> reduce_coaction_rows_mod_I(
     std::function<vectors<matrix_index,BPBP>(int)> bp_rows);

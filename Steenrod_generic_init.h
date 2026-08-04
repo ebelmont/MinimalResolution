@@ -15,7 +15,7 @@
 //BP_* itself). The resulting resolution is then used as the "model" that
 //BPGenericInit lifts into a genuine BP_*BP-comodule resolution of M -- see
 //BP_mod_I.h for the M -> M/I reduction that connects the two, and
-//mr_BP_generic_example.cpp for how the two phases are wired together.
+//mr_BP_comod.cpp for how the two phases are wired together.
 class SteenrodGenericInit : public SteenrodInit{
 public:
 	//re-use SteenrodInit's constructor unchanged: this still needs the

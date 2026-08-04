@@ -4,11 +4,19 @@ By default, this repo computes the algebraic Novikov E2 page only for the
 **sphere**: `mr_BP` resolves the trivial `BP_*BP`-comodule `BP_*` itself (see
 `docs/CODE_WALKTHROUGH.md` §3 for exactly where `set_to_trivial` builds
 that). This page documents a new, additive capability — `BP_generic_init.h`/
-`.cpp`, `Steenrod_generic_init.h`/`.cpp`, `BP_mod_I.h`/`.cpp`, and
-`mr_BP_generic_example.cpp` — for computing the same kind of E2 page for
-**any** finitely generated `BP_*BP`-comodule `M` that is free over `BP_*`
-(e.g. the BP-homology of a finite complex), given as a rank, a per-generator
-degree, and a coaction matrix.
+`.cpp`, `Steenrod_generic_init.h`/`.cpp`, `BP_mod_I.h`/`.cpp`,
+`comodules.h`/`.cpp`, and `mr_BP_comod.cpp` — for computing the same kind of
+E2 page for **any** finitely generated `BP_*BP`-comodule `M` that is free
+over `BP_*` (e.g. the BP-homology of a finite complex), given as a rank, a
+per-generator degree, and a coaction matrix.
+
+Comodules live in a **registry** (`comodules.cpp`) and are selected by name
+on the command line:
+
+```
+./mr_BP_comod <halfT> <resolution_length> [comodule]   # default: sphere
+./mr_BP_comod --list                                    # show what's available
+```
 
 Nothing in the existing pipeline is modified; this is purely additive.
 
@@ -91,17 +99,49 @@ flowchart LR
 
 ## How to use it
 
-1. Copy `mr_BP_generic_example.cpp` to a new name (e.g. `mr_BP_myComplex.cpp`)
-   and make a copy of `BP_generic_compile` that builds it instead.
-2. Edit `build_comodule()` in your copy: set `rank`, `degree`, and
-   `coaction_rows` for your complex. `coaction_rows(i)` must return generator
-   `i`'s coaction as a sparse `vectors<matrix_index,BPBP>` — a list of
-   `(j, c)` pairs, `j` the index of another generator (0..rank-1), `c` a
-   `BP_*BP` element built with `BP_oper.BPBP_opers`'s ring operations
-   (`.unit(1)`, `.monomial(e,coeff)`, `.add(x,y)`, `.multiply(x,y)`). See the
-   comments in the file for a worked example (it ships reconstructing the
-   trivial comodule, as a self-test — see below), and read the warning
-   directly below about which variable `.monomial`'s exponent refers to.
+Build once, then pick a comodule by name:
+
+```
+sh BP_comod_compile
+./BPtab 20                      # same prerequisite as mr_BP
+./mr_BP_comod 20 4              # the sphere (default)
+./mr_BP_comod 20 4 alpha_1      # S/alpha_1
+./mr_BP_comod --list            # what's available
+```
+
+Output is prefixed `<halfT>_<comodule>BP...` for the final resolution and its
+`algNov`/`Boc` tables, and `<halfT>_<comodule>P...` for the mod-`I` model
+resolution — so different comodules, and a plain `mr_st`/`mr_BP` run, all
+coexist in one directory without clobbering each other.
+
+### Shipped comodules
+
+| name | complex | rank | degrees | coaction |
+|---|---|---|---|---|
+| `sphere` (default) | `S` | 1 | `0` | `ψ(x_0) = 1 ⊗ x_0` |
+| `alpha_1` | `S/α₁ = cofib(S³ → S⁰)` | 2 | `0, 4` | `ψ(x_0) = 1 ⊗ x_0`, `ψ(x_4) = 1 ⊗ x_4 + t_1 ⊗ x_0` |
+
+### Adding your own
+
+Two steps, both in `comodules.cpp`, and nothing else in the program changes:
+
+1. Write a builder function setting `rank`, `degree`, and `coaction_rows`.
+   `coaction_rows(i)` returns generator `i`'s coaction as a sparse
+   `vectors<matrix_index,BPBP>` — a list of `(j, c)` pairs, `j` the index of
+   another generator (`0..rank-1`), `c` a `BP_*BP` element built with
+   `BP_oper.BPBP_opers`'s ring operations (`.unit(1)`, `.add(x,y)`,
+   `.multiply(x,y)`, …). Read the warning directly below before writing any
+   coefficient by hand.
+2. Add one row to `comodule_table` at the bottom of the file.
+
+Degrees are **full topological degrees**, the same units `exponents.cpp`'s
+`xnDegs` uses: `|v_n| = |t_n| = 2(3ⁿ−1)`, so `|v_1| = |t_1| = 4` at `p=3`.
+
+`BP_oper`'s structure tables are already loaded when your builder runs, so
+`BP_oper.h0()` (`= t_1`) and `BP_oper.thetas()` (`= β₁`, …) are available —
+these are the standard connecting-homomorphism constructions
+(`α₁ = δ(v_1/p)`, `β₁ = δ(v_2/v_1)`) and are the safest way to get hold of
+the cobar cocycles you'll need as off-diagonal entries.
 
 ### Warning: `BPBP`'s two exponent slots are not what you'd guess
 
@@ -131,29 +171,44 @@ both differ from `BPBP_opers.monomial(singleVar(1,1),unit(1))`.)
 This matters because getting it backwards fails *silently* in a particularly
 nasty way: `η_R(v_1)` is not in the augmentation ideal, so a coaction using it
 violates counitality — and, per the caveats below, nothing checks that.
-3. Build and run exactly like `mr_BP`, after a matching `BPtab <halfT>` run:
-   `./mr_BP_myComplex <halfT> <resolution_length>`.
-
-Output files use two internal prefixes: `<halfT>_gP...` for the phase-2
-(model) resolution over `P`, and `<halfT>_gBP...` for the final phase-3
-resolution and its `algNov`/`Boc` tables (e.g. `<halfT>_gBPAANSS_table.txt`) —
-chosen to avoid colliding with a real `mr_st`/`mr_BP` run's own files
-(`<halfT>_...`/`<halfT>_BP...`) in the same directory.
 
 ## Verifying a change here
 
-Because resolving the trivial comodule through this new path should produce
+Because resolving the trivial comodule through this path should produce
 *exactly* the same answer as the existing `mr_BP` (they're computing the
 same thing, `Ext_{BP_*BP}(BP_*,BP_*)`, just via different code paths), the
-shipped `build_comodule()` reconstructs the trivial comodule by default.
-Comparing its `algNov`/`Boc` output against a normal `mr_st`+`BPtab`+`mr_BP`
-run for the same `<halfT>`/`<resolution_length>` is a real regression test,
-not just a smoke test — this is how the from-scratch-over-`BP` approach
-above was caught as incorrect, and how the corrected, two-phase approach was
-confirmed correct (byte-identical `algNov`/`Boc` tables at two different
-degree ranges, including one with a nontrivial differential). If you change
+`sphere` comodule — the default — is a real regression test, not a smoke
+test. Run both and diff:
+
+```
+./mr_st 20 5 && ./BPtab 20 && ./mr_BP 20 4     # reference
+./mr_BP_comod 20 4                              # same thing, generic path
+diff 20_BPAANSS_table.txt 20_sphereBPAANSS_table.txt
+diff 20_BPBocSS_table.txt 20_sphereBPBocSS_table.txt
+```
+
+Both are currently byte-identical (as are the `_binary` and `_a0.txt`
+variants), at `halfT=20`/`length=4` and at two smaller ranges including one
+with a nontrivial differential. This comparison is how the original
+from-scratch-over-`BP` approach was caught as incorrect. If you change
 anything in `BP_generic_init.*`, `Steenrod_generic_init.*`, or `BP_mod_I.*`,
-re-run this comparison before trusting the result on a real complex.
+re-run it before trusting the result on a real complex.
+
+### A sanity check with mathematical content
+
+Diffing against the sphere only tests the plumbing. For a check that the
+*comodule data itself* is right, look for something the topology predicts.
+For `alpha_1`: coning off `α₁` should kill it, so the class the sphere has
+in stem 3, filtration 1 must be absent from `S/α₁`:
+
+```
+grep -c "deg=(3,1)" 20_sphereBPAANSS_table.txt    # 1  -- alpha_1 itself
+grep -c "deg=(3,1)" 20_alpha_1BPAANSS_table.txt   # 0  -- killed, as it must be
+```
+
+Find the analogous prediction for your own complex before trusting its
+output; it is the only check that can catch a wrong coaction matrix, since
+nothing verifies the comodule axioms.
 
 ## Caveats
 
