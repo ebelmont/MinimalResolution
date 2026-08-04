@@ -112,6 +112,52 @@ static void build_S_alpha1(BP_Op &BP_oper, int &rank, std::vector<int> &degree,
 	};
 }
 
+//---------------------------------------------------------------------
+//S v S^1: the wedge of the sphere and its first suspension
+//---------------------------------------------------------------------
+//BP-homology takes wedges to direct sums, so
+//
+//    BP_*(S v S^1) = BP_* (+) Sigma BP_*,
+//
+//free over BP_* of rank 2, on a class x_0 in degree 0 and a class x_1 in
+//degree 1. There are no attaching maps, so the extension is SPLIT and the
+//coaction is the identity matrix:
+//
+//    psi(x_0) = 1 (x) x_0
+//    psi(x_1) = 1 (x) x_1
+//
+//i.e. as a matrix on (x_0, x_1):   [ 1  0 ]
+//                                  [ 0  1 ]
+//
+//Coassociativity and counitality are immediate (each generator is primitive,
+//exactly as for the trivial comodule).
+//
+//WHY THIS IS A USEFUL TEST: Ext takes direct sums in the second variable to
+//direct sums, so
+//
+//    Ext(BP_*, BP_* (+) Sigma BP_*) = Ext(BP_*,BP_*) (+) Ext(BP_*,BP_*)[1].
+//
+//The E2 page therefore has to be exactly two copies of the SPHERE's answer,
+//the second shifted one step along the stem -- for every class the sphere has
+//at deg=(a,b) there must be classes at (a,b) and (a+1,b), and nothing else.
+//That is a sharp, checkable prediction about a nontrivial-looking run, which
+//makes this a good regression test of the rank>1 machinery independently of
+//any topology input. (Note the degree-1 generator is odd, while everything in
+//BP_* itself sits in even degrees; this exercises the odd-degree bookkeeping
+//that the sphere and S/alpha_1 never touch.)
+static void build_triv_01(BP_Op &BP_oper, int &rank, std::vector<int> &degree,
+                           std::function<vectors<matrix_index,BPBP>(int)> &coaction_rows){
+	rank = 2;
+	degree = {0, 1};
+
+	//identity coaction: generator i is primitive, so row i is just {i, 1}
+	coaction_rows = [&BP_oper](int i) -> vectors<matrix_index,BPBP>{
+		vectors<matrix_index,BPBP> row;
+		row.push({(matrix_index)i, BP_oper.BPBP_opers.unit(1)});
+		return row;
+	};
+}
+
 //=====================================================================
 //ADDING YOUR OWN COMODULE
 //
@@ -147,6 +193,7 @@ static void build_S_alpha1(BP_Op &BP_oper, int &rank, std::vector<int> &degree,
 static const std::vector<ComoduleSpec> comodule_table = {
 	{"sphere",    "the sphere: the trivial comodule BP_* (rank 1, degree 0) -- what mr_BP resolves", build_sphere},
 	{"alpha_1",   "S/alpha_1 = cofib(S^3 -> S^0) (rank 2, degrees 0 and 4, off-diagonal t_1)",       build_S_alpha1},
+	{"triv_01",   "S v S^1: BP_* (+) Sigma BP_* (rank 2, degrees 0 and 1, identity coaction)",       build_triv_01},
 };
 
 const std::vector<ComoduleSpec>& all_comodules(){

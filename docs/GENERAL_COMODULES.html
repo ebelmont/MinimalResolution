@@ -133,8 +133,21 @@ coexist in one directory without clobbering each other.</p>
 <td><code>0, 4</code></td>
 <td><code>ψ(x_0) = 1 ⊗ x_0</code>, <code>ψ(x_4) = 1 ⊗ x_4 + t_1 ⊗ x_0</code></td>
 </tr>
+<tr>
+<td><code>triv_01</code></td>
+<td><code>S ∨ S¹</code></td>
+<td>2</td>
+<td><code>0, 1</code></td>
+<td>identity: <code>ψ(x_i) = 1 ⊗ x_i</code></td>
+</tr>
 </tbody>
 </table></div>
+<p><code>triv_01</code> is split (<code>BP_*(S ∨ S¹) = BP_* ⊕ ΣBP_*</code>), which makes it a useful
+self-test of the rank &gt; 1 machinery: since <code>Ext</code> takes direct sums to direct
+sums, its E2 page must be <em>exactly</em> two copies of the sphere&#39;s, one shifted
+one step along the stem — see &quot;A sanity check with mathematical content&quot;
+below. It also exercises odd-degree bookkeeping, which neither the sphere nor
+<code>alpha_1</code> touches (everything in <code>BP_*</code> sits in even degrees).</p>
 <h3 id="adding-your-own">Adding your own<a class="heading-anchor" href="#adding-your-own">#</a></h3>
 <p>Two steps, both in <code>comodules.cpp</code>, and nothing else in the program changes:</p>
 <ol>
@@ -199,6 +212,13 @@ For <code>alpha_1</code>: coning off <code>α₁</code> should kill it, so the c
 in stem 3, filtration 1 must be absent from <code>S/α₁</code>:</p>
 <pre><code>grep -c "deg=(3,1)" 20_sphereBPAANSS_table.txt    # 1  -- alpha_1 itself
 grep -c "deg=(3,1)" 20_alpha_1BPAANSS_table.txt   # 0  -- killed, as it must be</code></pre>
+<p>For <code>triv_01</code> the prediction is sharper still, and needs no topology input:
+<code>Ext</code> takes direct sums to direct sums, so its page must be exactly the
+sphere&#39;s page plus a copy of it shifted one step along the stem — for every
+sphere class at <code>deg=(a,b)</code>, classes at <code>(a,b)</code> and <code>(a+1,b)</code>, and nothing
+else. At <code>halfT=20, length=4</code> that holds exactly: 11 sphere classes → 22,
+with the degree multiset matching term for term, and the single <code>d2</code>
+doubling to two.</p>
 <p>Find the analogous prediction for your own complex before trusting its
 output; it is the only check that can catch a wrong coaction matrix, since
 nothing verifies the comodule axioms.</p>

@@ -120,6 +120,14 @@ coexist in one directory without clobbering each other.
 |---|---|---|---|---|
 | `sphere` (default) | `S` | 1 | `0` | `ψ(x_0) = 1 ⊗ x_0` |
 | `alpha_1` | `S/α₁ = cofib(S³ → S⁰)` | 2 | `0, 4` | `ψ(x_0) = 1 ⊗ x_0`, `ψ(x_4) = 1 ⊗ x_4 + t_1 ⊗ x_0` |
+| `triv_01` | `S ∨ S¹` | 2 | `0, 1` | identity: `ψ(x_i) = 1 ⊗ x_i` |
+
+`triv_01` is split (`BP_*(S ∨ S¹) = BP_* ⊕ ΣBP_*`), which makes it a useful
+self-test of the rank > 1 machinery: since `Ext` takes direct sums to direct
+sums, its E2 page must be *exactly* two copies of the sphere's, one shifted
+one step along the stem — see "A sanity check with mathematical content"
+below. It also exercises odd-degree bookkeeping, which neither the sphere nor
+`alpha_1` touches (everything in `BP_*` sits in even degrees).
 
 ### Adding your own
 
@@ -205,6 +213,14 @@ in stem 3, filtration 1 must be absent from `S/α₁`:
 grep -c "deg=(3,1)" 20_sphereBPAANSS_table.txt    # 1  -- alpha_1 itself
 grep -c "deg=(3,1)" 20_alpha_1BPAANSS_table.txt   # 0  -- killed, as it must be
 ```
+
+For `triv_01` the prediction is sharper still, and needs no topology input:
+`Ext` takes direct sums to direct sums, so its page must be exactly the
+sphere's page plus a copy of it shifted one step along the stem — for every
+sphere class at `deg=(a,b)`, classes at `(a,b)` and `(a+1,b)`, and nothing
+else. At `halfT=20, length=4` that holds exactly: 11 sphere classes → 22,
+with the degree multiset matching term for term, and the single `d2`
+doubling to two.
 
 Find the analogous prediction for your own complex before trusting its
 output; it is the only check that can catch a wrong coaction matrix, since
