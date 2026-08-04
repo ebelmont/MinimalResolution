@@ -14,6 +14,27 @@ Requires Python 3 and nothing else. The argument is the same `<halfT>` you
 gave the pipeline; that's how it finds the files. Run it in the directory
 holding the run, or pass `--dir`.
 
+### Charting a comodule other than the sphere
+
+`mr_BP_comod` (see [`GENERAL_COMODULES.md`](GENERAL_COMODULES.md)) writes its
+tables with a `<halfT>_<comodule>BP...` prefix rather than `<halfT>_BP...`.
+Pass `-c/--comodule` to chart one:
+
+```sh
+./BPtab 20 && ./mr_BP_comod 20 4 alpha_1   # resolve S/alpha_1
+./anss_chart.py 20 -c alpha_1              # -> 20_alpha_1anss_E2.svg
+```
+
+The comodule name lands in the output filename and the chart title, so
+charts for different complexes don't overwrite each other. Without the flag
+the script behaves exactly as before, reading a plain `mr_BP` run.
+
+One caveat when reading such a chart: `mr_BP_comod` runs `mult_table()` (so
+the `α₁` structure lines are drawn) but deliberately **not** `mult_theta()`,
+which is specific to the Moore spectrum and carries a hardcoded table of
+theta degrees. The `theta_i` tables are Bockstein-side and aren't drawn on an
+ANSS chart anyway (see §3), so this costs nothing here.
+
 ## 1. Grading convention
 
 The default (`--grading anss`) plots the Adams–Novikov bidegree:
@@ -102,7 +123,8 @@ difference, so treat the right-hand edge as unreliable and crop it with
 | Flag | Effect |
 |---|---|
 | `-d, --dir` | directory holding the tables (default `.`) |
-| `-o, --output` | output file (default `<halfT>_anss_E2.svg`) |
+| `-c, --comodule` | chart an `mr_BP_comod` run for this comodule (e.g. `alpha_1`); default is a plain `mr_BP` run |
+| `-o, --output` | output file (default `<halfT>_<comodule>anss_E2.svg`) |
 | `--grading anss\|algnov` | see §1 |
 | `--omit-stem0` | drop `Ext^0 = Z_(3)`, as the published charts do |
 | `--max-stem`, `--max-filt` | crop |

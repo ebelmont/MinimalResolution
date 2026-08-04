@@ -253,6 +253,10 @@ def main():
         epilog='Run in the directory containing a finished mr_BP run.')
     ap.add_argument('halfT', help="mr_BP's first argument, e.g. 25")
     ap.add_argument('-d', '--dir', default='.', help='where the tables live')
+    ap.add_argument('-c', '--comodule', default='',
+                    help="chart an ./mr_BP_comod run for this comodule (e.g. "
+                         "alpha_1), which writes <halfT>_<comodule>BP... "
+                         "instead of <halfT>_BP.... Default: plain mr_BP output.")
     ap.add_argument('-o', '--output', help='default <halfT>_anss_E2.svg')
     ap.add_argument('--grading', choices=['anss', 'algnov'], default='anss',
                     help='anss (default): (t-s, s), one dot per generator. '
@@ -271,9 +275,14 @@ def main():
     ap.add_argument('--no-title', action='store_true')
     a = ap.parse_args()
 
-    base = os.path.join(a.dir, f'{a.halfT}_BP')
+    base = os.path.join(a.dir, f'{a.halfT}_{a.comodule}BP')
     table = base + 'AANSS_table.txt'
     if not os.path.exists(table):
+        if a.comodule:
+            sys.exit(f'error: {table} not found.\n'
+                     f'Run ./BPtab {a.halfT} && '
+                     f'./mr_BP_comod {a.halfT} <s> {a.comodule} first, '
+                     f'or pass --dir.')
         sys.exit(f'error: {table} not found.\n'
                  f'Run ./mr_st {a.halfT} <s+1> && ./BPtab {a.halfT} && '
                  f'./mr_BP {a.halfT} <s> first, or pass --dir.')
@@ -314,10 +323,12 @@ def main():
     elif a.title is None:
         grading = ('Adams-Novikov E2, p=3' if a.grading == 'anss'
                    else 'algebraic Novikov table, p=3')
-        a.title = f'{grading}   (halfT={a.halfT}, {len(classes)} classes)'
+        subject = f' of {a.comodule}' if a.comodule else ''
+        a.title = (f'{grading}{subject}   '
+                   f'(halfT={a.halfT}, {len(classes)} classes)')
 
     svg = render(classes, diffs, struct, towers, a)
-    out = a.output or os.path.join(a.dir, f'{a.halfT}_anss_E2.svg')
+    out = a.output or os.path.join(a.dir, f'{a.halfT}_{a.comodule}anss_E2.svg')
     with open(out, 'w') as fh:
         fh.write(svg)
 

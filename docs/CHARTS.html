@@ -27,6 +27,21 @@ old output, including output from other machines.</p>
 <p>Requires Python 3 and nothing else. The argument is the same <code>&lt;halfT&gt;</code> you
 gave the pipeline; that's how it finds the files. Run it in the directory
 holding the run, or pass <code>--dir</code>.</p>
+<h3 id="charting-a-comodule-other-than-the-sphere">Charting a comodule other than the sphere<a class="heading-anchor" href="#charting-a-comodule-other-than-the-sphere">#</a></h3>
+<p><code>mr_BP_comod</code> (see <a href="GENERAL_COMODULES.html">GENERAL_COMODULES.md</a>) writes its
+tables with a <code>&lt;halfT&gt;_&lt;comodule&gt;BP...</code> prefix rather than <code>&lt;halfT&gt;_BP...</code>.
+Pass <code>-c/--comodule</code> to chart one:</p>
+<pre><code class="language-sh">./BPtab 20 &amp;&amp; ./mr_BP_comod 20 4 alpha_1   # resolve S/alpha_1
+./anss_chart.py 20 -c alpha_1              # -&gt; 20_alpha_1anss_E2.svg
+</code></pre>
+<p>The comodule name lands in the output filename and the chart title, so
+charts for different complexes don't overwrite each other. Without the flag
+the script behaves exactly as before, reading a plain <code>mr_BP</code> run.</p>
+<p>One caveat when reading such a chart: <code>mr_BP_comod</code> runs <code>mult_table()</code> (so
+the <code>α₁</code> structure lines are drawn) but deliberately <strong>not</strong> <code>mult_theta()</code>,
+which is specific to the Moore spectrum and carries a hardcoded table of
+theta degrees. The <code>theta_i</code> tables are Bockstein-side and aren't drawn on an
+ANSS chart anyway (see §3), so this costs nothing here.</p>
 <h2 id="1-grading-convention">1. Grading convention<a class="heading-anchor" href="#1-grading-convention">#</a></h2>
 <p>The default (<code>--grading anss</code>) plots the Adams–Novikov bidegree:</p>
 <ul>
@@ -106,8 +121,12 @@ difference, so treat the right-hand edge as unreliable and crop it with
 <td>directory holding the tables (default <code>.</code>)</td>
 </tr>
 <tr>
+<td><code>-c, --comodule</code></td>
+<td>chart an <code>mr_BP_comod</code> run for this comodule (e.g. <code>alpha_1</code>); default is a plain <code>mr_BP</code> run</td>
+</tr>
+<tr>
 <td><code>-o, --output</code></td>
-<td>output file (default <code>&lt;halfT&gt;_anss_E2.svg</code>)</td>
+<td>output file (default <code>&lt;halfT&gt;_&lt;comodule&gt;anss_E2.svg</code>)</td>
 </tr>
 <tr>
 <td><code>--grading anss\|algnov</code></td>

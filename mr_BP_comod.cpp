@@ -110,6 +110,18 @@ int main(int argc, char** argv){
 	BPoper.make_algNov();
 	BPoper.make_Boc();
 
+	//multiplication by h0 = t_1. Ext_{BP_*BP}(BP_*, M) is a module over
+	//Ext_{BP_*BP}(BP_*, BP_*) for any comodule M, so this is meaningful
+	//whichever comodule was resolved -- and anss_chart.py reads the
+	//resulting <prefix>AANSS_h0.txt to draw the alpha_1 lines.
+	//
+	//NOTE: mr_BP additionally calls mult_theta(), which is NOT done here.
+	//That one is specific to the Moore spectrum (see BP_init.cpp:152, "make
+	//multiplication table for top theta on the Moore spectrum") and carries
+	//a hardcoded table of theta degrees, so it is not meaningful for an
+	//arbitrary comodule.
+	BPoper.mult_table();
+
 	std::cout << "\ndone. output written with prefix " << bp_dir << "\n" << std::flush;
 	return 0;
 }
