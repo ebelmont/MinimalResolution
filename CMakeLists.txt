@@ -257,6 +257,14 @@ add_executable(tauBoc
 )
 set_target_properties(tauBoc PROPERTIES CXX_STANDARD 11)
 target_link_libraries(tauBoc PRIVATE homebrew_omp)
+
+# tau-torsion: kernel of multiplication-by-tau on Ext, from the tau-Bockstein cyc[] basis
+add_executable(tautorsion
+  tautorsion.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp Fp.cpp
+)
+set_target_properties(tautorsion PROPERTIES CXX_STANDARD 14)
+target_link_libraries(tautorsion PRIVATE homebrew_omp)
+list(APPEND EXPONENT_WIDTH_TARGETS tautorsion)
 list(APPEND EXPONENT_WIDTH_TARGETS tauBoc)
 
 # e2p_compile -> e2p (-std=c++11)
