@@ -2,6 +2,49 @@
 
 _Last updated: 2026-07-12_
 
+**RESOLVED (2026-07-17): exhaustive Yoneda-product commutativity sweep is fully clean —
+no real bug found, after chasing (and retracting) two false leads.** An exhaustive
+pairwise sweep (12194 genuine-class pairs, both product orders, `s1+s2<=30`) originally
+found 905/12194 (7.4%) "mismatches." All 905 are now fully explained by two known,
+benign phenomena — **zero residual, unexplained disagreements**:
+- **575** are un-simplified τ-torsion terms (`find_cycle_sum`/`get_cycles()`,
+  `tao_bockstein.cpp`, has no way to cancel a term once its τ-power reaches a
+  boundary index's own torsion order — e.g. `t^3{9-13}` looks nonzero but is actually 0
+  since `{9-13}`'s torsion order is 1).
+- **330** are degree-truncation artifacts: `deg(alpha)+deg(beta) > maxDeg=40` in BOTH
+  directions for every one of these pairs, confirmed by direct computation. Found (and
+  will want to fix separately, low priority) a blind spot in `TRACE_SQUARE_CHECK`
+  (`yoneda2.cpp:709`): its degree check only runs inside the `LHS!=RHS` branch, so a
+  position degree-truncated identically on both sides of the chain-map square passes
+  silently instead of being flagged as untested.
+
+**Two false leads chased and retracted this session** (both instructive, both
+confirmed wrong via direct empirical checks, not just re-reasoned away): (1) `build_M`
+(`yoneda2.cpp:67-85`) dropping non-cogenerator φ content — checked directly, it's a
+no-op for cogenerator inputs (coaction of a cogenerator is primitive). (2)
+`Hopf_Algebroid::resolution`'s (`hopf_algebroid/8.h`) cogenerator filter on `inj` before
+building `mot_res` — checked directly (`d(cogenerator)` is provably always
+pure-cogenerator, since primitives of a cofree comodule over a connected coalgebra are
+exactly the cogenerators), also a no-op, not a bug.
+
+Full derivation and the numeric confirmations for all of the above are in
+`debug_notes.md`'s "CONFIRMED, fully closed out" section (and the sections leading up
+to it). The `lift.h` target-cofree rewrite (below) and the whole product-evaluation
+pipeline are now considered verified clean — no known open Yoneda-product correctness
+issues remain.
+
+**Fixed (2026-07-17)**: `TRACE_SQUARE_CHECK`'s degree-truncation check
+(`yoneda2.cpp:696-722`) moved to run unconditionally at the top of the position loop,
+instead of only inside the `LHS!=RHS` branch — closes the blind spot described above
+(a position truncated identically on both sides could silently "pass" with the degree
+check never running). Rebuilt, redeployed, full regression suite re-verified green
+(`40 30 1 1`, `phi_1(tau_1[1-0])`, both `{4-6}`/`{6-9}` product orders,
+`TRACE_SQUARE_CHECK=24` on the `{6-9}` chain), and directly confirmed on the motivating
+`{1-3}`/`{8-21}` case (`k=1, p=2628` is now correctly reported as a skipped
+degree-truncation artifact instead of silently absorbed).
+
+---
+
 The target-cofree rewrite of `lift.h` (per the plan below) is **implemented, fully
 verified, and closed out**. `TRACE_SQUARE_CHECK` — the direct chain-map correctness test
 — now runs clean across **every genuine class at every homological-degree level of the

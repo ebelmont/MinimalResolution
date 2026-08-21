@@ -13,6 +13,507 @@ explicitly asked to check whether `yoneda.cpp` (both working-tree and git `HEAD`
 explicitly requested check, not a standing change to the rule above; treat the
 prohibition as back in force unless the user says otherwise again.
 
+## Current status (2026-07-12 — NEW task: exhaustive commutativity sweep, not a bug hunt)
+
+User request this session: exhaustively check commutativity of the Yoneda product itself
+(`{as-aa}*{bs-bb}` vs `{bs-bb}*{as-aa}`, run as two separate `./yoneda2 40 30 <as> <aa>
+<bs> <bb>` invocations), across many genuine class pairs — distinct from the
+already-completed `TRACE_SQUARE_CHECK` internal chain-map sweep (161/161 clean, see
+below). User's own example: `40 30 4 6 6 9` and `40 30 6 9 4 6` both give `t^0{10-25}`
+(agrees). Known hazards to watch for, per user: (1) spurious boundary "classes" like
+`{3-2}` (tau-Bockstein differential sources, not genuine survivors — see the
+"ROOT CAUSE FOUND for the {3-2}-is-not-a-cycle" section below) must be excluded from the
+`(bs,bb)`/`(as,aa)` pairs tested, using the same `TRACE_TAG_SEM` genuine-class filter the
+prior sweep used; (2) some products may legitimately land out of bounds (degree
+truncation at `maxDeg=40`, same mechanism as the `p=112` finding below) or hit the `ok=false`
+("= ?") fallback in `fwd_product`/`find_cycle_sum` — these are expected-limitation cases,
+not commutativity bugs, and should be reported separately from genuine mismatches.
+
+**Ruled in so far**: a single product run is fast (~0.13s wall, `time ./yoneda2 40 30 4 6
+6 9` measured just now) — much faster than an earlier session's "3-5s/run" estimate in
+the exhaustive-sweep section below, so a full pairwise sweep over the ~161 previously-
+enumerated genuine `(bs,bb)` classes (161^2 ≈ 26k pairs, or fewer if restricted to
+unordered pairs ≈13k) is plausibly tractable in one script, though may still want to
+restrict to a subset (e.g. lower `bs` filtrations) to keep runtime/output reasonable.
+`git status` shows only `debug_notes.md` modified (this file) — no code changes yet, this
+is a verification task with the binary as-is (rebuild only if `yoneda2.cpp` itself turns
+out stale before use).
+
+**Progress**: enumerated genuine `(s,a)` classes for every `s=0..29` via `TRACE_TAG_SEM`
+(dummy invocation `./yoneda2 40 30 0 0 <s> 0`, reading `tables[s].cycle_index` entries
+tagged `INVALID/genuine-cycle`) — confirms the same **161 genuine classes total** found
+in the prior session's sweep (counts per `s` match exactly: 1,6,15,17,16,17,14,12,13,13,9,
+5,3,3,2,1,1,... for `s=0..29`). Saved to
+`/tmp/.../scratchpad/commute/classes.json`. Built the list of all unordered `(s1,a1,s2,a2)`
+pairs with `s1+s2<=30` (required for both product directions to be within the
+resolution's lifted range at `res_len=30`) — **12194 pairs** (including 161 self-pairs).
+
+Timed a couple of single-product runs to size the sweep: a cache-hit run (`4 6 6 9`,
+cache from earlier sessions) took 0.13s; a cold run building a fresh 15-level phi chain
+(`10 5 15 3`) took 1.37s (~0.09s/level). Estimated pre-building phi caches for all 161
+genuine classes (each as `bs`, one-time cost) at ~5.4 min total; then each pairwise
+product comparison should be cheap (cache hit, ~0.1-0.2s/run) once caches exist.
+
+**Phi-cache pre-build (job `b72por7c4`) completed cleanly** — 162 `40_yoneda2_*_phi0`
+cache files present (161 genuine classes + 1 pre-existing extra), all built without
+error via `xargs -P4` over `./yoneda2 40 30 0 0 <s> <a>`.
+
+**Pairwise sweep launched** (job `bmh98xkv5`, `run_pair.sh` at
+`/tmp/.../scratchpad/commute/run_pair.sh`): for all 12194 valid pairs
+(`s1+s2<=30`, both genuine), runs `./yoneda2 40 30 s1 a1 s2 a2` and the reverse-order
+call, extracts the `fmt(...)` result string, and tags MATCH/MISMATCH. Output ->
+`/tmp/.../scratchpad/commute/sweep_results.log`. Sized at ~0.17s/pair sequentially (a
+10-pair pilot ran clean, all MATCH); with `-P8` parallelism expect ~5-10 min total.
+
+**Sweep complete (`bmh98xkv5`)**: 12194 pairs, **11289 MATCH / 905 MISMATCH (7.4%)**.
+825 mismatches are "0 on one side, nonzero on the other"; 80 are two DIFFERENT nonzero
+answers. Mismatch rate by `s1` (alpha's own filtration): 0% at `s1=0`, rises to a peak
+~13-14% at `s1=4,5`, falls back to ~0% by `s1>=10` — not monotonic in a way that matches
+a simple "closer to maxDeg=40" story on its own.
+
+**Ruled out as the explanation, with direct evidence**:
+- NOT the `{3-2}`-style boundary/non-cycle pseudo-class issue (all pairs pre-filtered to
+  `tag=INVALID/genuine-cycle` via `TRACE_TAG_SEM`).
+- NOT degree-truncation-at-maxDeg=40 in the φ **chain-map construction** itself: spot-
+  checked the smallest clean mismatch, `{1-0}*{8-13}` (fwd) vs `{8-13}*{1-0}` (rev) —
+  `t^0{9-14}` vs `t^3{9-13}+t^0{9-14}` — with `TRACE_SQUARE_CHECK` at a `checkmax` large
+  enough to cover the relevant level in BOTH directions' own φ builds. **Both directions'
+  φ pass cleanly** (only expected/skippable truncation-boundary artifacts, zero genuine
+  chain-map-square failures) — so both `φ_{beta={8,13}}` and `φ_{beta={1,0}}` are
+  independently valid, correct chain maps by the project's own strongest available test.
+
+**Strong concrete lead — likely root cause found**: `build_M` (`yoneda2.cpp:67-85`),
+used by `fwd_product` (`yoneda2.cpp:891-896`) for literally every product evaluation via
+`M_beta[s].maps_to(rep)`, takes the RAW `phi_lev.find(pa)` value at a cogenerator
+position and explicitly **discards every non-cogenerator ("offset != 0") term**, keeping
+only entries whose target position IS itself a cogenerator
+(`R[lev+ss].F.find_index(...) != invalid_pos`). This is precisely the operation
+**CLAUDE.md pitfall #4/#6 calls out as WRONG and lossy**: "the cofree-up output `φ_k`...
+must NOT be projected down to 'cogenerators only'... doing that to `φ_k`'s final value is
+lossy and silently drops real terms." `build_M`'s own doc comment ("Project the image of
+each cogenerator... to cogen indices") confirms this is exactly what it does, on
+purpose, for every level, in the code AS IT STANDS TODAY — this is not a stale
+comment from before the target-cofree rewrite; it's live and load-bearing for every
+product computed by this tool.
+
+**Why this plausibly explains the observed asymmetry**: forward and reverse directions
+build genuinely different `φ_beta` chain maps (different betas). Both are valid chain
+maps in the raw-position sense (`TRACE_SQUARE_CHECK`-clean), but `build_M` throws away
+different non-cogenerator content on each side before the two results are ever compared
+— so even though the underlying raw `φ` values may be chain-homotopic/consistent, their
+COGENERATOR-ONLY projections used for the actual product output can legitimately differ.
+This matches the empirical shape of the data (worse in the "middle" `s1` range where
+there's more room/opportunity for `φ(cogenerator)` to have genuine non-cogenerator
+spread, vanishing at `s1=0` where `φ` is forced primitive/pure-cogenerator by
+construction, per the earlier "level 0" argument in this file).
+
+**Status: reporting to user now, per CLAUDE.md's "stop and explain math-level plan
+changes" directive** — this is a candidate architectural fix to the whole product-
+evaluation pipeline (should `fwd_product`/`build_M` reduce the FULL raw `φ` value via
+`find_cycle_sum`-style logic instead of pre-truncating to cogenerators?), not a
+mechanical bug fix, and has NOT been touched. No code modified this session besides
+this file.
+
+## RETRACTED: build_M is NOT the bug (user caught this, confirmed empirically)
+
+Directly traced `phi_beta[1].find(pos_of_gens[0])` (fwd, beta={8,13}) and
+`phi_beta[8].find(pos_of_gens[13])` (rev, beta={1,0}) via `TRACE_PHI_TABLE`/
+`TRACE_PROD_S`/`_A`: in BOTH cases the RAW φ value at the cogenerator is **already
+purely cogenerator-valued** (no offset content to drop) — `build_M`'s cogen-projection
+is a no-op here. Makes sense mathematically: the coaction of a cogenerator position
+itself is primitive (`ρ(1⊗gen)=1⊗1⊗gen`, a single term), so the cofree-up formula only
+ever contributes `φ̄(pivot)` there, which is pure-cogenerator by construction. **This
+claim is wrong and retracted.**
+
+**New concrete data instead**: fwd's raw image = `{14:t^0}`; rev's raw image =
+`{13:t^3, 14:t^0}` — an extra `cog13` term. `TRACE_TAG_SEM=9` shows level-9 cogenerator
+13 has `tag=15` (a tau-Bockstein BOUNDARY, not `INVALID/genuine-cycle`) — same species
+as the `{3-2}` anomaly from an earlier session. `TRACE_FIND_CYCLE_SUM` shows
+`table.at(13) = {13:t^0}` — a bare singleton with NO correction terms — so
+`find_cycle_sum`'s reduction mechanically CANNOT cancel this term (its own lookup table
+says index 13 has nothing to substitute); the extra `cog13^t^3` term is not a bug in
+`find_cycle_sum`'s reduction loop itself, it's genuinely present in the table it's
+given.
+
+## ROOT CAUSE FOUND (read the actual code, per user's request): `Hopf_Algebroid::resolution`
+## (`hopf_algebroid/8.h`) builds the tau-Bockstein input matrix via the SAME forbidden
+## cogenerator-only projection that CLAUDE.md pitfall #4/#6 already warns against elsewhere
+
+Read `tao_bockstein.{h,cpp}` in full (confirmed via `CMakeLists.txt:239-241` that
+`yoneda2` links `tao_bockstein.cpp`, NOT the unused/out-of-build `tao_boc.cpp` — a
+different, dead file with a similarly-named class that must not be confused with this).
+
+**What the tau-Bockstein table actually computes** (worked out from `make_pretable`,
+`tao_bockstein.cpp:80-145`): a purely-cogenerator-indexed spectral-sequence-style
+reduction. Every cogenerator index at every level ends up in EXACTLY one of two states
+(confirmed this accounts for every `tag=.../INVALID` split seen all session):
+- **Genuine survivor** (`tag=Invalid`): `cyc[s][a] = e_a + (strictly-positive-tau-power
+  corrections)` — a normalized representative.
+- **Boundary** (`tag=<level s-1 index>`, i.e. paired with/killed by a specific
+  lower-level cogenerator): `cyc[s][a]` (via `get_cycles()`'s else-branch,
+  `tao_bockstein.cpp:237-242`) = `tau^{-diff_length} * full_cycle`, which reduces to
+  `e_a + (strictly-positive-tau-power corrections)` too, by construction (the leading
+  term of `full_cycle` is exactly `tau^diff_length * e_a`). **Both kinds of entries are
+  legitimate unitriangular basis vectors of the SAME underlying space** — so
+  `find_cycle`/`find_cycle_sum`'s substitution loop (`v -= cf*table.at(ind)`, recording
+  `ind` into the result) is a perfectly ordinary change-of-basis/Gauss-reduction
+  algorithm, NOT buggy in its own right. A boundary index legitimately CAN remain in a
+  `find_cycle_sum` output with a nonzero tau-power coefficient if that coefficient
+  sits BELOW the tau-power at which the differential actually kills it — this by itself
+  isn't evidence of anything wrong.
+
+**But the INPUT DATA feeding this whole apparatus is built wrong.** The per-level
+"boundary map on cogenerators" (`CMP.maps[i]`, loaded in `motComplex::load`,
+`tao_bockstein.cpp:24-61`) is read directly from a precomputed file `"mot_res"`.
+Traced where `"mot_res"` comes from: `MOP.resolution(...)` (`mot_main.cpp:76`,
+`mot_combine.cpp:39`) → `Hopf_Algebroid<ring,algebroid>::resolution`
+(`hopf_algebroid/8.h:4-69`). That function, for each level, does:
+```cpp
+std::function<matrix_index(matrix_index)> ri = [&F2](matrix_index n){
+    return F2.find_index(n); };          // cogenerator index, or invalid_pos
+...
+inj->load_modify(maps_file, rule);        // rule = filtered_reindex(ri, v, invalid)
+composed->clear();
+inj->compose(qut, composed);              // composed = (filtered inj) ∘ qut
+composed->save(res_file);                 // <-- this becomes "mot_res"
+```
+`filtered_reindex` (`modules/6.h:33-44`) is confirmed, by direct read, to **DROP** (not
+error, not correct, literally `continue`/skip) any term whose `rule(ind)` is
+`invalid_pos` — i.e. **every non-cogenerator ("offset≠0") term of `inj`'s raw rows is
+silently discarded before `inj` is composed with `qut` and saved as `mot_res`.**
+
+This is the EXACT SAME forbidden operation CLAUDE.md pitfall #4/#6 warns about for
+`phi_k`'s raw output — except here it's applied to the resolution's OWN differential
+(`inj`), whose rows we have directly observed, repeatedly this session and in prior
+ones, to be generically IMPURE (e.g. `inj_1.find(26)` has 6 terms spread across
+multiple owners/offsets; `PHI_EXTENSION_ISSUE.md`'s `inj_1(x5)` example is a 2-term
+impure row) — so this filtering step is NOT a harmless no-op in general; it silently
+throws away real boundary/differential information on exactly the impure rows, and only
+happens to be a no-op when a given `inj(x)` row happens to already be a pure singleton.
+
+**Consequence**: `"mot_res"` (hence `CMP.maps[]`, hence the ENTIRE tau-Bockstein table
+construction, hence every `cyc[]` entry, hence the genuine/boundary classification of
+every single cogenerator in the resolution) is built from a systematically INCOMPLETE
+version of the true resolution differential. This plausibly explains BOTH: (a) the
+`{3-2}`-is-not-a-cycle anomaly from an earlier session (a class misclassified because
+the differential data used to detect it was missing real terms), and (b) today's
+`{1-0}`/`{8-13}` commutativity mismatch (cogenerator 13 of level 9 may be misclassified,
+or its recorded boundary/correction data may itself be incomplete, because of exactly
+this same upstream data-generation gap) — a single, shared root cause for two
+previously-separate-looking anomalies.
+
+**Not yet fixed, not yet even fully scoped** — this is a foundational data-generation
+issue (in a build step run by a *different* tool, `mot_main`/`mot_combine`, not
+`yoneda2` itself) that feeds essentially every downstream consumer of `cyc[]`/tau tables
+project-wide, not something scoped to Yoneda products. A correct fix would need to
+replace the naive cogenerator-filter with a genuine reduction of `inj`'s impure rows
+into cogenerator space (echelon-style, in the spirit of `lift.h`'s φ̄ construction, not a
+blind projection) — a substantial change to shared infrastructure. **Reporting to user
+now rather than proceeding further or attempting a fix.**
+
+## USER PUSHED BACK HARD ON BOTH THE "mot_res filtering" CLAIM AND ON WHETHER `{3-2}`
+## SHOULD BE EXCLUDED AT ALL — re-deriving from first principles, likely retracting
+## the "root cause" claim above (2026-07-12, still same day)
+
+**Question 1 (user)**: isn't `hopf_algebroid/8.h`'s cogenerator-filter on `inj` exactly
+the "build φ̄ first, cogenerator-valued by design" strategy already used correctly
+elsewhere — i.e. not a bug at all?
+
+**Re-derivation (in progress)**: the resolution's differential `d = inj∘qut : G_i ->
+G_{i+1}` IS a genuine comodule map (this is the entire point of resolving by cofree
+comodules). A cogenerator's own coaction is PRIMITIVE (`ρ(1⊗gen)=1⊗1⊗gen`, a single
+term — established earlier this session while re-deriving the `build_M` retraction).
+Since `d` is a comodule map, `d(cogenerator)` must ALSO be primitive:
+`ρ(d(gen))=(1⊗d)ρ(gen)=(1⊗d)(1⊗gen)=1⊗d(gen)`. **Claim (needs empirical check): the
+ONLY primitives of a cofree comodule `A⊗Z` over a CONNECTED coalgebra `A` are the pure
+cogenerator combinations `{1⊗z}`** — because for `w=Σ_z a_z⊗z` to satisfy `ρ(w)=1⊗w`,
+each `a_z` individually needs `Δ(a_z)=1⊗a_z`, and for a connected graded coalgebra this
+forces `a_z=0` unless `deg(a_z)=0` (i.e. `a_z` is a scalar, i.e. that term is already a
+pure cogenerator term) — the counit axiom guarantees `Δ(a)` always has BOTH a `1⊗a` AND
+an `a⊗1` piece for `deg(a)>0`, so `Δ(a)=1⊗a` exactly is impossible unless `a=0`.
+
+**If this is right**: `d(cogenerator)` is ALWAYS already pure-cogenerator-valued as a
+mathematical fact (not something achieved by filtering) — so `hopf_algebroid/8.h`'s
+filter is a no-op on genuine data, exactly analogous to the legitimate `φ̄` strategy, and
+my "root cause" claim above is **WRONG, likely to be retracted** pending direct
+empirical confirmation (need to compute `d(pos_of_gens[a])` = `inj∘qut` FULLY
+UNFILTERED for some concrete cogenerator and check whether it already has zero
+non-cogenerator content, using `R[]`'s own `inj`/`qut` matrices inside `yoneda2` itself
+— NOT the separate `mot_res` file — since both should agree if the resolution's
+`inj`/`qut` really are the comodule maps CLAUDE.md already treats as "solid ground").
+
+**Question 2 (user)**: `{3-2}` — G_3 is a literal direct sum of copies of `A`
+(cofree summands), so shouldn't every raw cogenerator index correspond 1-1 with an Ext
+element? Is `{3-2}`'s exclusion (a) an indexing artifact (real sum is over
+`{0,1,3,4,...}`, skipping "2"), or (b) a genuine cogenerator that the (non-minimal?)
+resolution just doesn't reduce away?
+
+**Re-derivation**: re-read the EXACT earlier trace output (`debug_notes.md`'s "ROOT
+CAUSE FOUND for the {3-2}-is-not-a-cycle anomaly" section, further up this file):
+`table[3].cycle_index` has NO entry at all for index 2 (neither tag=Invalid NOR
+tag=<something> — genuinely ABSENT), while `table[4].tag_index` DOES have "2" as a key
+(a level-3 SOURCE feeding level 4). Tracing `make_pretable`'s recursion precisely: table
+`s`'s entries come from TWO different processing passes — (a) entries with
+`tag=<level s-1 index>`, registered while processing level s-1's pot (these say "level-s
+index `cycle` is HIT by/in the image of level (s-1)'s differential", i.e. `cycle` is a
+literal BOUNDARY of the cochain complex of cogenerators), and (b) entries with
+`tag=Invalid`, registered while processing level s's OWN pot one iteration later (these
+say "this level-s index, having NOT already been claimed as a boundary target, has ZERO
+image under `d_{s,s+1}` — i.e. it IS a cycle of this complex"). `pot_maker` deliberately
+EXCLUDES from the pot any index already claimed as a boundary target, exploiting `d²=0`
+(a boundary is automatically a cycle, no need to re-derive). **`{3-2}` is registered as
+NEITHER**: it's not a boundary target from level 2 (nothing pairs `tag=<lvl2 idx>,
+cycle=2` into table[3]), and it's not a cycle either (table[4] shows it as an active
+SOURCE, i.e. `d(gen_{3,2}) ≠ 0` going into level 4) — **so `{3-2}` genuinely fails to be
+a cycle of the cogenerator-complex, i.e. `d_{3,4}(gen_{3,2})` is nonzero.**
+
+**This directly answers Q2, refining option (2)**: `{3-2}` IS a real, literal cogenerator
+of `G_3` (a genuine "copy of A" in the direct sum, not an indexing artifact — option 1 is
+wrong). But this resolution is minimal only in the **F2[τ]-associated-graded sense**
+(matches CLAUDE.md's own description: "not every cogenerator survives as an actual Ext
+class — some die in a d_τ-type differential"), not literally minimal over a field: a
+cogenerator can have `d(cogenerator) ≠ 0` PROVIDED that image has strictly positive
+τ-valuation (i.e. it's invisible at τ⁰, so it doesn't spoil "minimality" in the associated
+-graded/E_1-page sense, but the actual chain-level differential is still genuinely
+nonzero). `{3-2}` is exactly this: an E_1-page cogenerator that supports a genuine
+outgoing τ-Bockstein differential (dies going INTO level 4) rather than surviving to
+`E_∞` — i.e. NOT a valid permanent Ext class, correctly excluded, and this is NOT a bug
+in the resolution or in `cyc[]`'s construction — it's the resolution correctly doing its
+job over `F2[τ]` rather than a field.
+
+## UPDATE: Q1 confirmed (root-cause claim retracted), Q2 answered, and a SHARPER
+## hypothesis emerges — today's "mismatch" may not be a bug at all, just an unreduced
+## τ-torsion term
+
+**Q1 confirmed empirically**: computed `d({3-2})` directly via `R[3].qut`/`R[4].inj`
+(NOT the separate `mot_res` file) — `qut_3(pos=1461)=τ¹·x395`, `inj_4(395)=τ⁰·{4-1}` —
+already pure-cogenerator, nothing for the filter to drop. Matches the theoretical claim
+(primitives of a cofree comodule over a connected coalgebra are exactly the pure
+cogenerators, forced by the counit axiom). **`hopf_algebroid/8.h`'s cogenerator filter
+retracted as a bug — it's a legitimate no-op**, same species as `φ̄`.
+
+**Q2 answered**: `{3-2}` is a real cogenerator (not an indexing artifact), and
+`d({3-2})=τ¹·{4-1}` is genuinely nonzero — so it fails to be a cycle of the
+cogenerator-complex and is correctly excluded. Confirmed the homology computation
+itself lives at `yoneda2.cpp:358-366` (`Complex.load(...)` from `mot_res`, then
+`make_table(Complex)` — literally `ker/im` over `F2[τ]`, via `make_pretable`,
+`tao_bockstein.cpp:80-145`) and is used for reporting at `yoneda2.cpp:918`
+(`tables[s+1].tag_index.count(a)` — skip if `[s-a]` is a registered boundary target).
+
+**Sharper hypothesis on today's `{1-0}`/`{8-13}` mismatch**: since `F2[τ]` has no zero
+divisors, `d(gen_{8,15})=τ^{diff_length}·{9-13}` (exact, bare singleton, confirmed via
+`table.at(13)={13}` after `get_cycles()`'s `τ^{-diff_length}` scaling) forces
+`d({9-13})=0` exactly — so `{9-13}` is a genuine nonzero τ-torsion Ext class (torsion
+order = `diff_length`), NOT an exact zero the way `{3-2}` is. **If `diff_length <= 3`,
+then `τ³·{9-13}` — literally the extra term in `rev`'s answer
+(`t^3{9-13}+t^0{9-14}`) — is itself already a coboundary, i.e. EXACTLY ZERO in Ext**,
+and `fwd`'s `t^0{9-14}` and `rev`'s `t^3{9-13}+t^0{9-14}` would represent the SAME class
+after all — meaning today's "MISMATCH" may not be a real bug, just an un-simplified
+τ-torsion term the tool doesn't know to cancel. **Not yet confirmed numerically** — need
+the actual `diff_length` value for the `table[9]` entry with `cycle=13, tag=15`; no
+existing trace hook prints it (`TRACE_TAG_SEM` prints `tag` only). About to add a
+one-line temporary print of `diff_length` to the existing `TRACE_TAG_SEM` block
+(`yoneda2.cpp:402-407`) to check `diff_length <= 3` directly before concluding anything.
+
+**Confirmed**: added a one-line `diff_length` print to the existing `TRACE_TAG_SEM`
+block (`yoneda2.cpp:402-407`, temporary/env-gated), rebuilt, redeployed. Level-9 index
+13's entry: `diff_length=1`. Since `1<=3`, `τ³·{9-13} = τ²·(τ¹·{9-13}) = τ²·0 = 0`
+exactly (`τ¹·{9-13}` IS `d(gen_{8,15})`, a literal coboundary). **Confirmed: today's
+`{1-0}`/`{8-13}` "mismatch" is NOT a real bug** — `rev`'s extra `t^3{9-13}` term is
+already zero, just not simplified away by `find_cycle_sum` (which has no "cancel once
+τ-power ≥ diff_length" rule, only ever substitutes/no-ops). `fwd` and `rev` genuinely
+agree once this is accounted for.
+
+**Now checking ALL 905 mismatches from the earlier sweep against this same
+explanation** (user asked to check the rest): plan is (1) re-run `TRACE_TAG_SEM` for
+every level `s=0..29` with the new `diff_length` print to build a per-level
+`{boundary_index: diff_length}` table (only boundary/`tag!=Invalid` entries have a
+real `diff_length`; genuine/`Invalid` entries print `diff_length=-1`, ignore those);
+(2) for each mismatched pair's `fwd`/`rev` answer strings (already captured in
+`sweep_results.log`), parse each `t^k{L-idx}` term and drop it if `idx` is a boundary
+at level `L` with `diff_length<=k` (i.e. provably zero by the same argument as above);
+(3) re-compare the two "torsion-corrected" answers; tally how many of the 905 become
+genuine matches this way vs. how many have a real residual disagreement. Data files:
+`/tmp/.../scratchpad/commute/tag_sem_raw.txt` (fresh per-level dump, in progress),
+`sweep_results.log` (already have, from the original sweep).
+
+**Results of the corrected re-check across all 905 mismatches**: built a per-level
+classification (`classification.json`) of every cogenerator index into GENUINE
+(`tag=Invalid` in `tables[s].cycle_index`), BOUNDARY-WITH-`diff_length` (`tag!=Invalid`
+in `tables[s].cycle_index`, has a real `diff_length` — the `{9-13}` species), or
+NONCYCLE (present only in `tables[s+1].tag_index`, never even registered as a cycle at
+its own level — the `{3-2}` species, no `diff_length` available for these at all since
+`get_tags()` doesn't preserve it). Re-parsed every `fwd`/`rev` answer pair from
+`sweep_results.log`, dropped any `t^k{L-idx}` term where `idx` is BOUNDARY-WITH-`dl` and
+`k>=dl` (provably zero, same argument as the `{9-13}` case), and re-compared:
+
+- **575 / 905 (63.5%) resolved** — the torsion-cancellation rule alone fully explains
+  the disagreement; these are NOT real bugs.
+- **162 / 905 residual, involving a NONCYCLE-tagged term** on at least one side (e.g.
+  `{11-10}`, `{9-20}` at various tau powers) — a genuinely different, not-yet-understood
+  phenomenon: a term sitting on an index that isn't even a cycle (stronger than mere
+  torsion) surviving into a printed answer. Not yet explained.
+- **168 / 905 residual, "clean"** (every surviving term is on a fully GENUINE index,
+  no torsion or noncycle involvement) — these are the most concerning, e.g.
+  `{1-3}*{8-21}=t^0{9-29}` vs `{8-21}*{1-3}=t^1{9-29}`: SAME genuine index `{9-29}` but
+  DIFFERENT tau powers on the two sides — if `{9-29}` really has no torsion at all, a
+  genuine class times `t^0` vs `t^1` are genuinely different Ext elements, so this looks
+  like a real disagreement, not an artifact of the reduction bookkeeping.
+
+**Caveats on this analysis (not yet run down)**: (1) this is a single-pass per-term
+check, not a full recursive re-reduction — if a "genuine" index's own representative
+secretly involves further corrections not captured by my simple classification, some of
+the 168+162 could still resolve with deeper analysis; (2) have NOT re-checked
+degree-truncation (`deg(p)+deg(beta)>maxDeg=40`) for these residual pairs specifically —
+only the original `{1-0}`/`{8-13}` example was checked via `TRACE_SQUARE_CHECK`; some of
+the 168+162 residuals could still be truncation artifacts at high total degree, not
+inspected yet. Data: `/tmp/.../scratchpad/commute/classification.json`,
+analysis script inline in this session (not yet saved to a checked-in file).
+
+**Next concrete action**: report this breakdown to the user; likely next investigative
+step (pending direction) is to pick 1-2 of the "clean residual" cases (e.g. the
+`{9-29}` t^0-vs-t^1 example) and trace them by hand the same way the `{9-13}` case was
+traced, to determine if there's a deeper/different torsion mechanism at play or a
+genuine remaining bug.
+
+## Investigated the `{9-29}` "clean residual" case (`{1-3}*{8-21}=t^0{9-29}` vs
+## `{8-21}*{1-3}=t^1{9-29}`) — likely explained by degree truncation, but via a
+## DIFFERENT mechanism than the earlier `p=112` finding: TRACE_SQUARE_CHECK's OWN
+## boundary-skip logic has a blind spot
+
+Confirmed `{9-29}` really is fully genuine (`tag=INVALID/genuine-cycle,diff_length=-1`
+at level 9) — no torsion-cancellation applies here, unlike `{9-13}`. Confirmed both
+directions' φ pass `TRACE_SQUARE_CHECK` cleanly (no genuine failures, only degree-skips)
+— so, same as the `{1-0}`/`{8-13}` case initially, this LOOKED like a genuine
+disagreement between two individually-valid chain maps.
+
+**But checked degrees directly** (`TRACE_DESCRIBE_LVL`/`_POS`): `deg({1-3})=8`
+(pos 2628), `deg({8-21})=36` (pos 1960, cog21) — **sum = 44 > maxDeg=40**. This pair is
+symmetric in the sense that EITHER assignment of alpha/beta hits the same total (44),
+unlike the `{9-13}` case where only one specific term was affected.
+
+**Re-read `TRACE_SQUARE_CHECK`'s skip logic closely (`yoneda2.cpp:696-722`) and found a
+blind spot**: the `d_p + deg_beta > maxDeg` degree check (which is what correctly
+recognized the `p=112` truncation artifact in an earlier session) is only ever
+evaluated **inside the `if (!diff.dataArray.empty())` branch** — i.e. ONLY when
+`LHS != RHS`. If a position is degree-truncated on BOTH sides such that `LHS` and `RHS`
+come out silently equal anyway (e.g. both truncated to zero, or both truncated to the
+same partial value) — which is entirely possible since `phi_beta[k]`/`phi_beta[k+1]`
+are built from the SAME truncated resolution data on both sides of the square — the
+scan sees `diff` empty and treats it as "the square commutes," with **no degree check
+ever applied, and no skip/warning printed**. So a position like `p=2628` (cog3, deg 8)
+combined with `deg_beta=36` (sum 44 > 40) can sail through `TRACE_SQUARE_CHECK`
+completely silently, self-consistently "passing" a check that was never actually
+meaningful there — the whole φ chain at that point may be built from missing/truncated
+data on both sides, self-consistently agreeing with itself while still being
+disconnected from the true (untruncated) answer.
+
+**This would fully explain the `{9-29}` t^0-vs-t^1 disagreement**: `{1-3}*{8-21}`
+evaluates φ (built for beta of degree 36) at a position of degree 8 (sum 44); `{8-21}*
+{1-3}` evaluates φ (built for beta of degree 8) at a position of degree 36 (sum 44) —
+**both directions are individually degree-truncated for this exact pair**, regardless
+of which class plays alpha vs beta, since `deg(alpha)+deg(beta)=44` either way. Neither
+side's answer is trustworthy at `maxDeg=40`; the two "wrong" truncated answers simply
+don't happen to agree, which is not evidence of a real commutativity bug — it's exactly
+the same species of artifact as the earlier `p=112` finding, just one that
+`TRACE_SQUARE_CHECK`'s current implementation fails to flag because of the
+"only checks degree when `diff` is already nonzero" gap above.
+
+**Not yet fully confirmed as the SOLE explanation for the other 167 "clean" residuals**
+— checking degree sums for the rest of the 168 (`clean_residuals.txt`, 100 unique
+`(s,a)` classes involved) now, to see how many/whether ~all of them also have
+`deg(alpha)+deg(beta) > 40`. If so, this closes out essentially the entire investigation
+(all 905 original "mismatches" explained by known, benign phenomena: τ-torsion
+un-simplified terms, or degree-truncation past `maxDeg=40` in either direction) with no
+remaining evidence of a genuine Yoneda-product commutativity bug in `yoneda2`/`lift.h`.
+**Worth fixing (separately, pending user direction)**: `TRACE_SQUARE_CHECK`'s degree
+check should run unconditionally (not just inside the `diff`-nonzero branch) so it can
+proactively flag "this test is meaningless, skip it" BEFORE comparing LHS/RHS, closing
+this blind spot for future use of the tool as a regression check.
+
+**CONFIRMED, fully closed out**: computed `deg(s,a)` for all 100 unique classes
+appearing in the 168 "clean" residuals — **every single one has
+`deg(s1,a1)+deg(s2,a2) > 40`** (168/168). Repeated the same check for the 162
+"noncycle-involving" residuals using the SAME degree-sum test on the original queried
+`(s1,a1,s2,a2)` — **also 162/162 over the `maxDeg=40` budget**.
+
+**Final tally across the entire exhaustive sweep (12194 pairs)**:
+- 11289 clean MATCH
+- 905 originally flagged MISMATCH, now fully explained:
+  - 575 by τ-torsion (an un-simplified-but-actually-zero term, `{9-13}`-species)
+  - 330 (168+162) by degree truncation past `maxDeg=40` in both directions
+    (`{9-29}`-species — `TRACE_SQUARE_CHECK`'s blind spot: it only degree-checks when
+    `LHS!=RHS`, so a position degree-truncated on BOTH sides of the square can pass
+    silently)
+- **0 residual, unexplained mismatches.**
+
+**Conclusion: the Yoneda product commutativity check is fully clean.** No evidence of
+any genuine bug in `yoneda2`/`lift.h`'s φ construction or product evaluation remains —
+every one of the 905 originally-flagged mismatches is accounted for by one of two
+known, benign phenomena, both already understood mechanistically. The two false leads
+chased earlier this session (`build_M` cogenerator-projection, `hopf_algebroid/8.h`'s
+mot_res filter) were both real dead ends, correctly retracted after direct empirical
+checks — the ACTUAL explanations were (1) `find_cycle_sum`/`get_cycles()` has no way to
+cancel a term once its τ-power reaches a boundary's own torsion order, and (2)
+`TRACE_SQUARE_CHECK`'s existing degree-truncation detector only fires on `LHS!=RHS`,
+missing the case where truncation makes both sides silently agree.
+
+**Loose ends / possible follow-ups (not yet done, low priority)**:
+1. `TRACE_SQUARE_CHECK`'s degree check (`yoneda2.cpp:709`) could be moved outside the
+   `diff`-nonzero branch so it flags "untested, degree-truncated" positions
+   proactively rather than only when they happen to disagree — would make it a more
+   trustworthy regression tool going forward, though not required for anything found
+   this session.
+2. `find_cycle_sum`/`get_cycles()` (`tao_bockstein.cpp`) could in principle be taught to
+   recognize "τ^k · (boundary index) = 0 once k >= diff_length" and simplify it away,
+   so the tool's raw output doesn't show spurious-looking-but-actually-zero terms like
+   `t^3{9-13}` — purely cosmetic/usability, not a correctness issue.
+3. The temporary `diff_length` print added to `TRACE_TAG_SEM`
+   (`yoneda2.cpp:402-407`, this session) is harmless/env-gated; could be kept
+   permanently (useful diagnostic) or reverted — up to the user.
+
+Reported to user; awaiting direction on next steps (if any).
+
+## Fix applied (2026-07-17): TRACE_SQUARE_CHECK's degree check moved to run
+## unconditionally, closing the "both-sides-truncated-so-LHS==RHS-passes-silently" gap
+
+Per user request, fixed the blind spot identified above. `yoneda2.cpp:696-722`: moved
+the `d_p + deg_beta > maxDeg` computation and skip-`continue` to the TOP of the position
+loop, BEFORE computing `LHS`/`RHS`/`diff` at all (previously it only ran inside
+`if (!diff.dataArray.empty())`, so a position truncated identically on both sides could
+silently "pass" without the degree check ever running). Behavior now: every degree-
+truncated position is unconditionally counted/reported as a skip (same
+`n_boundary_skipped` counter, same `TRACE_SQUARE_CHECK_VERBOSE_SKIPS` output format,
+unchanged), and only positions within the real degree budget are ever compared via
+LHS/RHS — so a genuine failure can no longer be masked by (nor can a false pass be
+produced by) both sides independently running out of data the same way. No other logic
+changed; the FIRST-FAILURE reporting branch is otherwise identical (its own now-dead
+degree check inside that branch was removed since degree-truncated positions never
+reach it anymore).
+
+**Verified after rebuild + redeploy** (`cmake --build build --target yoneda2`,
+`/bin/cp -f build/yoneda2 ./yoneda2`): full regression suite still green —
+`40 30 1 1` self-product regression unchanged (`{1-1}->t^0{2-1}` etc.),
+`phi_1(tau_1[1-0])={7-10}` still correct, both `{4-6}*{6-9}`/`{6-9}*{4-6}` still agree
+(`t^0{10-25}`), `TRACE_SQUARE_CHECK=24` on the `{6-9}` chain still reports "no failure
+found" (skip count went from 20802 -> 33719, expected: MORE positions are now
+proactively caught as degree-truncated instead of silently passing when both sides
+happened to agree). **Directly confirmed the fix on the motivating case**:
+`TRACE_SQUARE_CHECK=22 TRACE_SQUARE_CHECK_VERBOSE_SKIPS=1 ./yoneda2 40 30 1 3 8 21` now
+prints `skipping likely boundary artifact at k=1, p=2628 ({1-3}): deg(p)=8 +
+deg(beta)=36 = 44 > maxDeg=40` — previously this position produced no output at all
+(silently absorbed as "LHS==RHS, must be fine"). Fix complete, verified, no regressions.
+
+**Next concrete action (OLD, superseded by the above)**: empirically confirm the Q1 primitivity claim by computing
+`d(pos_of_gens_3[2])` (`=inj_4(qut_3(1461))`, `1461` = `position_of_gens[2]` for G_3,
+just confirmed via `TRACE_PROD_S=3 TRACE_PROD_A=2`) FULLY UNFILTERED using `R[3].qut`/
+`R[4].inj` directly, and check (a) whether it's already pure-cogenerator before any
+filtering (would fully retract the `hopf_algebroid/8.h` "root cause" claim), and (b)
+whether it's nonzero (confirming it's genuinely not a cycle, consistent with the Q2
+story above). If (a) holds, the ACTUAL open question becomes: what still explains
+today's `{1-0}`/`{8-13}` commutativity mismatch, since neither `build_M` nor `mot_res`
+filtering seem to be it after all — need to look elsewhere once this is confirmed.
+
 ## Current status (2026-07-11 — IMPLEMENTING the approved plan)
 
 **The root cause is understood, fix designed and approved.** Now implementing
@@ -906,6 +1407,38 @@ real bugs fixed, `TRACE_SQUARE_CHECK` hardened against degree-truncation false
 positives and passing clean across all 24 levels of the `{6-9}` chain, full regression
 suite green. Nothing outstanding for this plan. Task list was empty at session end (no
 open TaskCreate items to reconcile).
+
+## Cleaned up and committed (2026-07-12, commit 7caefa8)
+
+Per user request: stripped the temporary debug instrumentation used to chase now-
+resolved phantom issues (`TRACE_ECHELON_ROW`/`TRACE_ECHELON_N` in
+`echelon_pivots_tau0`, `TRACE_COACTION_POS`/`TRACE_COACTION_SRC_RANK` in
+`cofree_adjoint_row_sum`) out of `lift.h`, keeping `TRACE_SQUARE_CHECK` (with its
+degree-truncation hardening) as a permanent regression test per the user's explicit
+request. Rebuilt + reran the full regression suite (`40 30 1 1`, τ_1[1-0], both
+product orders, `TRACE_SQUARE_CHECK=24` on the `{6-9}` chain) after the cleanup --
+all still pass, confirming the strip was cosmetic only.
+
+Reverted `yoneda.cpp` to its clean committed HEAD state (`git restore yoneda.cpp`),
+discarding the uncommitted one-time-exception debug hooks from earlier in the saga --
+per the user's explicit "get rid of the uncommitted one."
+
+Discovered `yoneda2.cpp`, `dump_gens.cpp`, `test_lift.cpp` (all three referenced as
+real CMake target sources) had **never been git-added** across this whole multi-session
+saga -- confirmed via `comm` against `CMakeLists.txt`'s source list. Same for
+`CLAUDE.md`, `STATUS.md`, `debug_notes*.md`, `PHI_EXTENSION_ISSUE.md`, `PROGRESS.md`.
+Added all of them. Also found ~5300 untracked generated-data files (resolution/table
+dumps, phi caches, matching a `<maxdeg>_<name>` / `back<N>` naming convention) plus
+stray in-source CMake build artifacts and an accidental root-level Python venv
+(`pyvenv.cfg` etc.) -- added `.gitignore` patterns for all of these rather than
+individually deleting anything, so `git status` stays clean going forward without
+touching any data. `yoneda_products.pdf/tex` and `yoneda_table.py` were already
+deleted in the working tree (matching an existing `.gitignore` entry for the first
+two) -- finalized via `git rm --cached`.
+
+Final commit `7caefa8`: 25 files changed (9 new: source + docs; 3 deleted: superseded
+writeup outputs; rest modified). Working tree clean (`git status --short` empty)
+except gitignored build/data artifacts.
 
 **This retracts the earlier "phi_0 preimage-independence" math-level hypothesis** --
 that was speculation before finding this much more concrete, mechanistically-verified

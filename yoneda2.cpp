@@ -197,12 +197,9 @@ int main(int argc, char **argv) {
     // Load resolution
     std::vector<ResStep> R(resolution_length + 1);
     for (int i = 0; i <= resolution_length; ++i) {
-        std::cerr << "load_F[" << i << "]...\n" << std::flush;
         load_F(pre, i, R[i].F);
-        std::cerr << "load_maps[" << i << "]...\n" << std::flush;
         load_maps(pre, i, R[i].inj, R[i].qut);
         R[i].Xrank = R[i].inj.rank;
-        std::cerr << "step[" << i << "] ok, Xrank=" << R[i].Xrank << "\n" << std::flush;
     }
     std::cerr << "resolution loaded\n" << std::flush;
 
@@ -402,7 +399,9 @@ int main(int argc, char **argv) {
         std::cerr << "  tables[" << s << "].cycle_index keys (level " << s << " indices) with tag value:";
         for (auto &pr : tables[s].cycle_index) {
             int tag = tables[s].table[pr.second].tag;
-            std::cerr << " " << pr.first << "(tag=" << (tag == -1 ? "INVALID/genuine-cycle" : std::to_string(tag)) << ")";
+            int dl = tables[s].table[pr.second].diff_length;
+            std::cerr << " " << pr.first << "(tag=" << (tag == -1 ? "INVALID/genuine-cycle" : std::to_string(tag))
+                      << ",diff_length=" << dl << ")";
         }
         std::cerr << "\n";
         if (s+1 < (int)tables.size()) {
@@ -693,6 +692,25 @@ int main(int argc, char **argv) {
         };
         for (int k = 0; k <= std::min(maxlev - 1, checkmax) && !found; ++k) {
             for (int p = 0; p < R[k].F.total_rank && !found; ++p) {
+                // Check the degree-truncation condition FIRST, unconditionally --
+                // not only when LHS/RHS already disagree. A position degree-truncated
+                // identically on BOTH sides of the square (phi_beta[k] and
+                // phi_beta[k+1] alike, since both are built from the same
+                // degree-truncated resolution data) can come out LHS==RHS by simply
+                // both being incomplete in the same way -- that would silently pass
+                // as "the square commutes" while actually testing nothing meaningful.
+                // Skipping up front, before computing LHS/RHS at all, closes that gap.
+                int d_p = R[k].F.degree((matrix_index)p).deg;
+                if (d_p + deg_beta > (int)MOP.maxDeg) {
+                    ++n_boundary_skipped;
+                    if (getenv("TRACE_SQUARE_CHECK_VERBOSE_SKIPS"))
+                        std::cerr << "==== TRACE_SQUARE_CHECK: skipping likely boundary artifact at k="
+                                  << k << ", p=" << p << " (" << describe(k, (matrix_index)p)
+                                  << "): deg(p)=" << d_p << " + deg(beta)=" << deg_beta
+                                  << " = " << (d_p+deg_beta) << " > maxDeg=" << MOP.maxDeg << " ====\n";
+                    continue;
+                }
+
                 auto qk_poly = liftToPolySum(R[k].qut.find((matrix_index)p));
                 auto lhs_pre = apply_ring_matrix_to_sum(R[k+1].inj, qk_poly);
                 auto LHS = applyPhi(phi_beta[k+1], lhs_pre);
@@ -703,21 +721,6 @@ int main(int argc, char **argv) {
 
                 auto diff = tauPolySum_module_oper.add(LHS, RHS);
                 if (!diff.dataArray.empty()) {
-                    int d_p = R[k].F.degree((matrix_index)p).deg;
-                    if (d_p + deg_beta > (int)MOP.maxDeg) {
-                        // Degree-truncation boundary artifact, not a genuine phi bug:
-                        // testing this position asks phi to reach degree d_p+deg_beta,
-                        // past maxDeg, i.e. data that was never computed at all (see
-                        // the comment above deg_beta's declaration). Report once per
-                        // level and keep scanning instead of stopping.
-                        ++n_boundary_skipped;
-                        if (getenv("TRACE_SQUARE_CHECK_VERBOSE_SKIPS"))
-                            std::cerr << "==== TRACE_SQUARE_CHECK: skipping likely boundary artifact at k="
-                                      << k << ", p=" << p << " (" << describe(k, (matrix_index)p)
-                                      << "): deg(p)=" << d_p << " + deg(beta)=" << deg_beta
-                                      << " = " << (d_p+deg_beta) << " > maxDeg=" << MOP.maxDeg << " ====\n";
-                        continue;
-                    }
                     found = true;
                     std::cerr << "==== TRACE_SQUARE_CHECK: FIRST FAILURE at level k=" << k
                               << ", position p=" << p << " (" << describe(k, (matrix_index)p) << ") ====\n";
