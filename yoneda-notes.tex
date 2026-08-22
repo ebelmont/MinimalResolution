@@ -1,0 +1,183 @@
+\documentclass[11pt]{amsart}
+\usepackage{amssymb}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{mathrsfs} % \mathscr{}
+\usepackage[all, poly]{xy}
+\usepackage[x11names,svgnames]{xcolor}
+\usepackage{mathtools}
+\usepackage[top = 1in, bottom = 1in, left = 1.2in, right=1.2in]{geometry}
+
+
+\begin{document}
+
+\parskip=0.2in \parindent=0in
+
+\newcommand{\F}{\mathbb{F}}
+\newcommand{\C}{\mathbb{C}}
+\renewcommand{\Im}{\operatorname{Im}}
+\renewcommand{\l}{\overset}
+\newcommand{\into}{\hookrightarrow}
+\newcommand{\onto}{\twoheadrightarrow}
+\newcommand{\tto}{\longrightarrow}
+\newcommand{\too}[1]{\overset{#1}\to}
+\newcommand{\intoo}[1]{\overset{#1}\into}
+\newcommand{\ontoo}[1]{\overset{#1}\onto}
+\newcommand{\mapstoo}[1]{\overset{#1}\mapsto}
+\newcommand{\bto}{\leftarrow}
+\newcommand{\isom}{\cong}
+\newcommand{\dsum}{\oplus}
+\newcommand{\dsums}{\bigoplus}
+\newcommand{\tensor}{\otimes}
+\newcommand{\Hom}{\operatorname{Hom}}
+\renewcommand{\u}{\underbracket[0.7pt]} % requires mathtools
+
+\newcommand{\inj}{\mathtt{inj}}
+\newcommand{\injindex}{\mathtt{inj}\underline{\ }\mathtt{index}}
+\newcommand{\inverseind}{\mathtt{inverse}\underline{\ }\mathtt{ind}}
+\newcommand{\qut}{\mathtt{qut}}
+\newcommand{\phibar}{\bar{\phi}}
+
+\newtheoremstyle{gloss}{\topsep}{\topsep}{}{0pt}{\bfseries}{}{\newline}{\newline *{\bf #3} }
+\theoremstyle{gloss}
+\newtheorem*{defstar}{Definition}
+\newtheorem{theorem}{Theorem}
+
+\newtheoremstyle{newplain}{20pt}{0pt}{\it}{0pt}{\bfseries}{.}{1ex}{}
+\theoremstyle{newplain}
+
+\newtheorem{corollary}[theorem]{Corollary}
+\newtheorem{claim}[theorem]{Claim}
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{fact}[theorem]{Fact}
+
+\newtheoremstyle{newtextthm}{20pt}{0pt}{}{0pt}{\bfseries}{.}{1ex}{}
+\theoremstyle{newtextthm}
+\newtheorem{definition}[theorem]{Definition}
+\newtheorem{example}[theorem]{Example}
+\newtheorem{problem}[theorem]{Problem}
+\newtheorem{remark}[theorem]{Remark}
+\newtheorem{notation}[theorem]{Notation}
+
+
+\title{Yoneda products in Guozhen's code}
+\date{August 22, 2026}
+\maketitle
+
+\textit{I believe everything here goes through if you replace $(\F_2[\tau],
+A_\C)$ with $(BP_*, BP_*BP)$.}
+
+
+Start with a cofree resolution
+$$ \F_2[\tau] \to G_0 \to G_1\to G_2 \to \dots $$
+of $\F_2[\tau]$ over the dual $\C$-motivic Steenrod algebra $A_\C$.
+Suppose we have a cohomology class $\F_2[\tau]\to G_s$, and we want to construct a lift
+$$ \xymatrix{
+\F_2[\tau]\ar[r]\ar[rd] & G_0\ar[r]\ar[d] & G_1\ar[r]\ar[d] & \dots\ar[r] & G_k\ar[d]^-{\phi_k}\ar[r] &
+G_{k+1}\ar[d]^-{\phi_{k+1}}\ar[r] & \dots
+\\ & G_s\ar[r] & G_{s+1}\ar[r] & \dots\ar[r] & G_{s+k}\ar[r] & G_{s+k+1}\ar[r] & \dots
+}$$
+Suppose we have $\phi_k$ and we want to construct $\phi_{k+1}$. We will also
+use the fact that the structure maps $G_k\to G_{k+1}$ are constructed by a
+composition $G_k\ontoo{\qut} X_{k+1}\intoo{\inj} G_{k+1}$ where $\qut$ is the
+quotient map to the cokernel of the previous structure map, and $\inj$ is the
+inclusion into a new cofree module.
+
+We want to find an $A_\C$-comodule map $\phi_{k+1}$ that makes the diagram
+commute.
+\begin{equation}\label{eq:orig-square} \xymatrix{
+G_k\ar@{->>}[r]^\qut\ar[d]_-{\phi_k} & X_{k+1}\ar@{^(->}[r]^-{\inj} & G_{k+1}\ar@{.>}[d]^-{\phi_{k+1}}
+\\G_{s+k}\ar@{.>>}[r]_\qut & \ar@{^(->}[r]_-{\inj} & G_{s+k+1}
+}\end{equation}
+The idea is to \textbf{use the universal property of cofree modules}, which
+involves mapping \emph{into} a cofree module. Write $G_{s+k+1}= \dsums_{I_{s+k+1}} A_\C$
+where $I_{s+k+1}$ is a set of cogenerators.
+So we will first construct a
+diagram
+$$ \xymatrix{
+G_k\ar@{->>}[r]^-\qut\ar[d]_-{\phi_k} & X_{k+1}\ar@{^(->}[r]^-{\inj} &
+G_{k+1}\ar@{.>}[rd]^-{\phibar_{k+1}}
+\\G_{s+k}\ar@{.>>}[r]_-\qut & X_{s+k+1}\ar@{^(->}[r]_-{\inj} &
+\u{G_{s+k+1}}_{\dsums_{I_{s+k+1}} A_\C}
+\ar[r]_-\epsilon &  \dsums_{I_{s+k+1}} \F_2[\tau]
+}$$
+I claim it suffices to find $\phibar_{k+1}$.
+
+\begin{lemma}
+If $\phibar_{k+1}$ makes the diagram above commute, then \eqref{eq:orig-square}
+will commute when $\phi_k$ is defined as the composite
+$$ G_k \too{\psi} A_\C \tensor G_k \too{1\tensor \phibar_k} A_\C\tensor
+\dsums_{I_{s+k+1}} \F_2[\tau] \too{\text{scalar mult}} \dsums_{I_{s+k+1}}A_\C =
+G_{s+k+1}$$
+where $\psi$ is the coaction on the cofree comodule
+(coaction on each free summand).
+\end{lemma}
+\begin{proof}
+There is a cofree-forgetful adjunction
+$$ \Hom_{A_\C\text{-comod}}(M, A_\C\tensor_{\F_2[\tau]} N) \too{\isom}\Hom_{\F_2[\tau]\text{-mod}}(M,N) $$
+where the forwards map is post-composition with the counit $\epsilon:A_\C\to
+\F_2[\tau]$, and the backwards map is $\phibar \mapsto (1\tensor \phibar)\circ
+\psi$. In particular, two $A_\C$-comodule maps $G_k\to G_{s+k+1}$ are the same if and only if
+they are the same after post-composition with $\epsilon$.
+\end{proof}
+
+In order to construct $\phibar_{k+1}$, we claim that there is a decomposition of
+$G_{k+1}$ into free $\F_2[\tau]$-modules,
+$$ G_{k+1} \isom \Im(\inj) \dsum R $$
+for some $R$. One might worry that there is some element $x\in
+G_{k+1}$ that is not in the image, but $\tau x$ is. However, this is OK because
+of the construction of $\inj$ and $\qut$.
+
+The important point is that construction of the
+resolution comes with a function $\injindex$ that takes a cogenerator
+$x$ of $G_{k+1}$ and outputs an element $y\in X_{k+1}$ such that $\inj(y)=u
+\cdot x + (\text{higher Curtis terms})$ where $u$ is a unit. {\color{Gray}Isn't 1 the
+only unit in $\F_2[\tau]$? Regardless, this is relevant for the odd-primary
+generalization.}
+In particular, these start with a cogenerator and so are not $\tau$-divisible.
+(These terms are the pivot rows in the row-reduced
+matrix for $\inj$, and $x$ (or its position) is the pivot index.) Thus we can take:
+\begin{itemize} 
+\item Basis for $\Im(\inj) = $ these terms $u\cdot x+(\text{higher Curtis terms})$ 
+\item Basis for $R = $ a list of non-pivot rows (cogenerators that do not appear
+in the image up to higher terms) collected in $\inverseind$.
+\end{itemize}
+
+Unfortunately the fact that we don't get a clean $X_{k+1}$-preimage for cogenerators $x\in
+G_{k+1}$, only up to higher terms, means that we have to do another cancelation
+step. We want to determine $\phibar_{k+1}$ on cogenerators $x$ of $G_{k+1}$.
+\begin{itemize} 
+\item If $x\in \inverseind$, then define $\phibar_{k+1}(x)=0$. (We just need to
+define a $\F_2[\tau]$-linear map, and these are $\F_2[\tau]$-linear generators
+of $G_{k+1}$.)
+\item Otherwise, we can use $\injindex$ to write $u\cdot x + h = \inj(y)$ for some
+$y\in X_{k+1}$ where $u$ is a unit and $h$ represents ``higher terms'' in the Curtis ordered
+basis. Then 
+$$\phibar_{k+1}(\inj(y)) = u\cdot \phibar_{k+1}(x) + \phibar_{k+1}(h)$$
+is determined for us by chasing the diagram: take any preimage along $\qut$ and
+then apply $\inj\circ \qut\circ \phi_k$. To solve for
+$\phibar_{k+1}(x)$, we use relations like the one above to build a system of
+equations over $\F_2[\tau]$ where the pivot positions represent
+$\phibar_{k+1}(x)$.
+
+Now row-reduce the system of equations and solve for $\phibar_{k+1}(x)$
+using pre-existing row-reduction code (\verb=gaussian=, \verb=symplify_to_led= in
+\verb=matrices_mem/4.h=, \verb=matrices/9.h=).
+This works because the entries in pivot positions are all units (this is $u$
+above).
+\end{itemize}
+
+Some potential confusions:
+\begin{itemize} 
+\item $\mathtt{tauPoly}$ actually consists of $\F_2[\tau]$-monomials only, and
+adding $\tau^a + \tau^b$ for $a\neq b$ will silently result in zero.
+\item $\inj$ and $\qut$ as matrices only contain $\mathtt{tauPoly}$ entries, but
+this is actually correct (there are no hidden higher polynomial terms).
+\end{itemize}
+
+
+
+%\printbibliography
+
+\end{document}
