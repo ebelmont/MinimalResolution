@@ -138,12 +138,16 @@ Z3 Z3_Op::power_p(int n){
 	return 0;
 }
 
-//divide by p^n. The missing term casued by truncation is guessed by the sign
-//EB: I'm concerned because I have no idea what that comment ^ refers to
-//FIXME
+//divide by p^n. Callers only ever call this on an x already known (via
+//valuation()) to be exactly divisible by p^n, so x itself -- as the plain
+//residue in [0, MAX3) -- is a genuine unsigned multiple of p^n, and unsigned
+//integer division recovers the exact quotient residue mod 3^(40-n). (A
+//previous version tried to "guess" a missing borrow term via a signed
+//int64_t reinterpretation, treating residues above 2^63 as negative; that's
+//wrong here because it wraps at 2^64, not at MAX3=3^40, so any residue
+//representing a true negative value was off by the constant 2^64-3^40.)
 Z3 Z3_Op::divide(const Z3& x, int n){
-	int64_t y=x;
-	return y/(uint64_t)power_p(n);
+	return x/power_p(n);
 }
 
 //lift from residue field
