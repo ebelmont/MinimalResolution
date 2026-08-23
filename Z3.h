@@ -22,13 +22,13 @@ public:
 	Fp_Op F3_opers;
 	
 	//the valuation
-	unsigned valuation(Z3);
-	
+	unsigned valuation(Z3) override;
+
 	//n-th power of p
 	Z3 power_p(int n);
-	
+
 	// divide by p^n
-	Z3 divide(const Z3&, int n); 
+	Z3 divide(const Z3&, int n) override;
 	
 	//lift from the residue field
 	Z3 lift(F3);

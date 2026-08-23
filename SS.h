@@ -66,35 +66,51 @@ public:
 	virtual bool valid(const cycle_name&)=0;
 	
 	//simplify a cycle by subtraction boundaries using the data in the table
-	cycle_type simplify(typename SS_entry<cycle_name, ring>::value_type& cyc, typename SS_entry<cycle_name, ring>::value_type& htpy, int pric){
+	cycle_type simplify(typename SS_entry<cycle_name, ring>::value_type& cyc, typename SS_entry<cycle_name, ring>::value_type& htpy, int pric, int depth=0){
 		//if cycle is zero, then it is a boundary
 		if(Modop->isZero(cyc)) return Boundary;
-		
+
 		//compute the leading term
 		unsigned led = leading_term(cyc);
 		cycle_name led_name = naming(cyc.dataArray[led].coeficient, cyc.dataArray[led].ind);
-		
+
 		//if the filtration exceeds the required pricision, then regard it as a boundary
-		if(filtration(led_name)>pric) 
+		if(filtration(led_name)>pric)
 			return Boundary;
-		
+
 		//if not trivial, try to find it in the table
 		auto it = cycle_index.find(led_name);
 		if(it==cycle_index.end()) return NonFound;
-		
+
 		//if the searched entry is not tagged, then it is a nontrivial cycle
 		auto pas = it->second;
 		if(this->at(pas).tag.second==Invalid) return Untagged;
-		
-		//then we subtract the tagged entry from the cycle
-		auto nc = Modop->minus(this->at(pas).full_cycle);
-		auto nt = Modop->minus(this->at(pas).full_tag);
-		
+
+		//then we subtract the tagged entry from the cycle, scaled to exactly
+		//cancel the leading term. Unscaled subtraction only cancels correctly
+		//when the two leading coefficients are exactly equal -- true by
+		//accident at p=2 (F2 has a single nonzero residue) but not at odd
+		//primes, where mismatched residues need repeated retries against the
+		//same entry to converge. Scale by the ratio of leading coefficients
+		//instead, matching the Gaussian elimination pattern already used in
+		//matrices/9.h and matrices_mem/4.h. The two leading coefficients
+		//share the same valuation (guaranteed: they matched via cycle_name,
+		//which encodes valuation) but are not necessarily units themselves
+		//(e.g. a v0-power tag has coefficient p^j, valuation j) -- divide out
+		//the common p^valuation factor first so inverse() sees a genuine unit.
+		auto matched_coef = Modop->component(cyc.dataArray[led].ind, this->at(pas).full_cycle);
+		unsigned val = Modop->ringOper->valuation(cyc.dataArray[led].coeficient);
+		auto cyc_unit = Modop->ringOper->divide(cyc.dataArray[led].coeficient, val);
+		auto matched_unit = Modop->ringOper->divide(matched_coef, val);
+		auto scalar = Modop->ringOper->minus(Modop->ringOper->multiply(cyc_unit, Modop->ringOper->inverse(matched_unit)));
+		auto nc = Modop->scalor_mult(scalar, this->at(pas).full_cycle);
+		auto nt = Modop->scalor_mult(scalar, this->at(pas).full_tag);
+
 		cyc = Modop->add(std::move(cyc),std::move(nc));
 		htpy = Modop->add(std::move(htpy),std::move(nt));
 		
 		//then simplify the subtracted cycle
-		return simplify(cyc,htpy,pric);
+		return simplify(cyc,htpy,pric,depth+1);
 	}
         
 	//clear the table
