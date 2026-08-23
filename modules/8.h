@@ -4,11 +4,11 @@ return_type sum(std::function<return_type(int)> summands, int start, int end, st
 	if(end-start==1) return summands(start);
 	return_type s1,s2;
 	int mid = (start+end)/2;
-	#pragma omp parallel sections
+	/*#pragma omp parallel sections*/
 	{
-		#pragma omp section
+		/*#pragma omp section*/
 		{ s1 = sum(summands, start,mid, add); }
-		#pragma omp section
+		/*#pragma omp section*/
 		{ s2 = sum(summands, mid,end, add); }
 	}
 	return add(std::move(s1), std::move(s2));

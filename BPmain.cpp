@@ -2,9 +2,11 @@
 #include"BP.h"
 #include"BP_init.h"
 #include<cstring>
+#include <omp.h>
 
 int main(int argc, char** argv){
 	//set the maximal degree
+	omp_set_max_active_levels(1);
 	int max_degree = std::atoi(argv[1]);
 	int resolution_length = std::atoi(argv[2]);
 	//initialize the monomial index

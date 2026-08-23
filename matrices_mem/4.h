@@ -19,7 +19,7 @@ void matrix_mem<ring>::row_reduction(matrix_index row, matrix_index col){
 	//unify the given row
 	auto uv = unify(col,data[row]);
 
-	#pragma omp parallel for schedule(dynamic)
+	/*#pragma omp parallel for schedule(dynamic)*/
 	for(unsigned i=0; i<data.size(); ++i){
 		//unify the given row
 		if(i==row) data[i] = uv;
