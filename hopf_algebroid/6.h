@@ -66,7 +66,7 @@ void Hopf_Algebroid<ring,algebroid>::pre_resolution_modeled( comodule_generic<al
 	gens_file0.close();
 	maps_file.close();
 	
-	for(int i=0; i<resolution_length; ++i) {
+	for(int i=0; i<=resolution_length; ++i) {
 		inj->clear();
 		qut->clear();
 		
@@ -77,7 +77,13 @@ void Hopf_Algebroid<ring,algebroid>::pre_resolution_modeled( comodule_generic<al
 		std::cout << "ready to resolve" << i << "/" << resolution_length << "\n" << std::flush;
 		table->load(table_file);
  //		std::cout << table->output() << std::flush;
-		auto F = resolvor_modeled(resolved, inj, qut, indj, new_map, table, &gens[i], &gens[i+1],transformer, maps_file);
+		//gens[i+1] holds the model's lookahead choice of generators for the next
+		//stage (used by resolvor_modeled to protect them from deletion); if the
+		//model wasn't run with enough resolution length to supply it, there's no
+		//lookahead available and none are protected, rather than reading OOB.
+		static std::vector<int> no_lookahead;
+		std::vector<int> *nex_gens = (i+1 < (int)gens.size()) ? &gens[i+1] : &no_lookahead;
+		auto F = resolvor_modeled(resolved, inj, qut, indj, new_map, table, &gens[i], nex_gens,transformer, maps_file);
 		
 		//save the data
 		std::fstream gens_file(filename_generators + std::to_string(i), std::ios::out | std::fstream::binary);
