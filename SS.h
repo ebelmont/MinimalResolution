@@ -65,6 +65,25 @@ public:
 	//check if an entry is valid
 	virtual bool valid(const cycle_name&)=0;
 	
+	//the scalar s such that adding s*matched to a vector cancels its leading
+	//term exactly -- i.e. s*component(ind,matched) == -coef. Unscaled
+	//subtraction (just adding -matched) only cancels correctly when the two
+	//leading coefficients are exactly equal, true by accident at p=2 (F2 has
+	//a single nonzero residue) but not at odd primes. The two coefficients
+	//share the same p-adic valuation (guaranteed by the caller: they matched
+	//via cycle_name, which encodes valuation) but are not necessarily units
+	//themselves (e.g. a v0-power tag has coefficient p^j, valuation j) --
+	//divide out the common p^valuation factor first so inverse() sees a
+	//genuine unit. Matches the Gaussian elimination pattern already used in
+	//matrices/9.h and matrices_mem/4.h.
+	ring cancel_scalar(matrix_index ind, const ring &coef, typename SS_entry<cycle_name, ring>::value_type &matched){
+		auto matched_coef = Modop->component(ind, matched);
+		unsigned val = Modop->ringOper->valuation(coef);
+		auto c_unit = Modop->ringOper->divide(coef, val);
+		auto m_unit = Modop->ringOper->divide(matched_coef, val);
+		return Modop->ringOper->minus(Modop->ringOper->multiply(c_unit, Modop->ringOper->inverse(m_unit)));
+	}
+
 	//simplify a cycle by subtraction boundaries using the data in the table
 	cycle_type simplify(typename SS_entry<cycle_name, ring>::value_type& cyc, typename SS_entry<cycle_name, ring>::value_type& htpy, int pric, int depth=0){
 		//if cycle is zero, then it is a boundary
@@ -87,28 +106,14 @@ public:
 		if(this->at(pas).tag.second==Invalid) return Untagged;
 
 		//then we subtract the tagged entry from the cycle, scaled to exactly
-		//cancel the leading term. Unscaled subtraction only cancels correctly
-		//when the two leading coefficients are exactly equal -- true by
-		//accident at p=2 (F2 has a single nonzero residue) but not at odd
-		//primes, where mismatched residues need repeated retries against the
-		//same entry to converge. Scale by the ratio of leading coefficients
-		//instead, matching the Gaussian elimination pattern already used in
-		//matrices/9.h and matrices_mem/4.h. The two leading coefficients
-		//share the same valuation (guaranteed: they matched via cycle_name,
-		//which encodes valuation) but are not necessarily units themselves
-		//(e.g. a v0-power tag has coefficient p^j, valuation j) -- divide out
-		//the common p^valuation factor first so inverse() sees a genuine unit.
-		auto matched_coef = Modop->component(cyc.dataArray[led].ind, this->at(pas).full_cycle);
-		unsigned val = Modop->ringOper->valuation(cyc.dataArray[led].coeficient);
-		auto cyc_unit = Modop->ringOper->divide(cyc.dataArray[led].coeficient, val);
-		auto matched_unit = Modop->ringOper->divide(matched_coef, val);
-		auto scalar = Modop->ringOper->minus(Modop->ringOper->multiply(cyc_unit, Modop->ringOper->inverse(matched_unit)));
+		//cancel the leading term (see cancel_scalar)
+		auto scalar = cancel_scalar(cyc.dataArray[led].ind, cyc.dataArray[led].coeficient, this->at(pas).full_cycle);
 		auto nc = Modop->scalor_mult(scalar, this->at(pas).full_cycle);
 		auto nt = Modop->scalor_mult(scalar, this->at(pas).full_tag);
 
 		cyc = Modop->add(std::move(cyc),std::move(nc));
 		htpy = Modop->add(std::move(htpy),std::move(nt));
-		
+
 		//then simplify the subtracted cycle
 		return simplify(cyc,htpy,pric,depth+1);
 	}
@@ -236,16 +241,18 @@ public:
 					else{
 						if(filtration(next_table->at(ot->second).cycle)<pric && check_cycle)
 							std::cerr << "invalid table!";
-						//subtract the full tag
-						v = Modop->add(v, Modop->minus(next_table->at(ot->second).full_tag));
+						//subtract the full tag, scaled to cancel the leading term exactly (see cancel_scalar)
+						auto scalar = next_table->cancel_scalar(v.dataArray[led].ind, v.dataArray[led].coeficient, next_table->at(ot->second).full_tag);
+						v = Modop->add(v, Modop->scalor_mult(scalar, next_table->at(ot->second).full_tag));
 						//add the information of the tag
 						tgs.push_back(leading_name);
 					}
 				}
 			}
 			else {
-				//when find it in the cycle list, modify the vector
-				v = Modop->add(v, Modop->minus(this->at(it->second).full_cycle));
+				//when find it in the cycle list, modify the vector, scaled to cancel the leading term exactly (see cancel_scalar)
+				auto scalar = cancel_scalar(v.dataArray[led].ind, v.dataArray[led].coeficient, this->at(it->second).full_cycle);
+				v = Modop->add(v, Modop->scalor_mult(scalar, this->at(it->second).full_cycle));
 				//if it is untagged, mark as cycle, otherwise mark as boundary
 				if(!tagged(this->at(it->second))) 
 					cycs.push_back(leading_name);
