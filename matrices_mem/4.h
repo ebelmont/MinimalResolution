@@ -33,7 +33,13 @@ template<typename ring>
 void matrix_mem<ring>::gaussian(std::vector<std::pair<matrix_index,matrix_index>> const &row_cols){
 	int i = 0;
 	for(auto rc: row_cols){
-		std::cout << "\r" << ++i << std::flush;
+		//throttled: row_cols can be in the thousands per resolution stage x
+		//220 stages, and production stdout is typically redirected to a log
+		//file on a network filesystem, where an unthrottled per-iteration
+		//flush becomes a large number of remote-filesystem writes.
+		++i;
+		if(i % 500 == 0)
+			std::cout << "\r" << i << "/" << row_cols.size() << std::flush;
 		row_reduction(rc.first,rc.second);
 	}
 }

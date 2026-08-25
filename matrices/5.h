@@ -11,8 +11,10 @@ vectors<matrix_index,R> matrix<R>::maps_to(const vectors<matrix_index,R> &v){
 //compose this with rows, with rank of rows equal to res_rank
 template<typename R>
 void matrix<R>::compose(std::function<vectors<matrix_index,R>(int)> rows, int res_rank, matrix<R> *result){
-	std::function<vectors<matrix_index,R>(int)> res_rows = [this, rows, res_rank](int i){ 
-		std::cout << "\r" << i << "/" << res_rank  << std::flush;
+	std::function<vectors<matrix_index,R>(int)> res_rows = [this, rows, res_rank](int i){
+		//throttled -- see matrices_mem/4.h::gaussian
+		if(i % 500 == 0)
+			std::cout << "\r" << i << "/" << res_rank  << std::flush;
 		return maps_to(rows(i)); };
 	result->construct(res_rank, res_rows);
 }

@@ -16,8 +16,10 @@ void Hopf_Algebroid<ring,algebroid>::quotient(const CoModule<algebroid,degree_ty
 	std::function<vectors<matrix_index,algebroid>(int)> coactor = [X,quot,&inverse_ind,right_mult,this] (int i){
 		vectors<matrix_index,algebroid> coa = X->coaction(inverse_ind[i]);
 		AbGroupOp<vectors<matrix_index,algebroid>> *adop = algebroidModuleOper;
-		std::cout << "\r" << i << "/" << inverse_ind.size() << std::flush;
-		return quot->maps_to(coa,right_mult, adop); 
+		//throttled -- see matrices_mem/4.h::gaussian
+		if(i % 500 == 0)
+			std::cout << "\r" << i << "/" << inverse_ind.size() << std::flush;
+		return quot->maps_to(coa,right_mult, adop);
 	};
 	std::cout << "computing the coactions...\n" << std::flush;
 	result.coaction_matrix->construct(inverse_ind.size(), coactor);
@@ -47,8 +49,10 @@ void Hopf_Algebroid<ring,algebroid>::quotient_p(const CoModule<algebroid,degree_
 		std::function<vectors<matrix_index,algebroid>(int)> coactor = [X,quot,&inverse_ind,right_mult,this] (int i){
 			vectors<matrix_index,algebroid> coa = X->coaction(inverse_ind[i]);
 			AbGroupOp<vectors<matrix_index,algebroid>> *adop = algebroidModuleOper;
-			std::cout << "\r" << i << "/" << inverse_ind.size() << std::flush;
-			return quot->maps_to_p(coa,right_mult, adop); 
+			//throttled -- see matrices_mem/4.h::gaussian
+			if(i % 500 == 0)
+				std::cout << "\r" << i << "/" << inverse_ind.size() << std::flush;
+			return quot->maps_to_p(coa,right_mult, adop);
 		};
 		std::cout << "computing the coactions...\n" << std::flush;
 		result.coaction_matrix->construct_parallel(inverse_ind.size(), coactor);

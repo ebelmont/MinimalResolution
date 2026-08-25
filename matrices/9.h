@@ -129,10 +129,8 @@ public:
 		std::vector<ring> xx = x.toDense(target_rank);
 		std::vector<ring> htpy = homotopy.toDense(source_rank);
 		//simplify
-		std::cout << "t" << std::flush;
 		auto res = symplify_to_led(xx, start, &htpy);
 		//change back
-		std::cout << "b" << std::flush;
 		x.deDense(xx,ModOper->ringOper,start);
 		homotopy.deDense(htpy,ModOper->ringOper,0);
 //		return symplify_to_led(x,homotopy);

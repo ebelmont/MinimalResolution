@@ -31,8 +31,11 @@ void matrix<R>::make_quotient(std::vector<matrix_index> const &inverse_ind, std:
 	for(unsigned i=0; i<inj_index.size(); ++i) {
 		auto newTerm = moduleOper->minus(find(i));
 		newTerm = moduleOper->add(newTerm, moduleOper->singleton(inj_index[i]));
-		std::cout << i << " " << std::flush;
-		
+		//throttled -- see matrices_mem/4.h::gaussian; on resolvor_modeled's
+		//hot path, once per resolution stage
+		if(i % 500 == 0)
+			std::cout << "\r" << i << "/" << inj_index.size() << std::flush;
+
 		std::function<matrix_index(matrix_index)>  rule = [&quot_ind] (matrix_index n){ 
 			return quot_ind.at(n); };
 		result -> insert(inj_index.at(i), moduleOper -> re_index(rule, newTerm));
