@@ -26,6 +26,9 @@ public:
 
 	//the filtration by number of v's
 	virtual int v_valuation(Z3, exponent);
+	//same, given an already-computed Z3Oper->valuation(Z3) -- avoids
+	//recomputing it when the caller already has it
+	virtual int v_valuation_from(unsigned, exponent);
 	
 	//filtration of a cycle
 	int filtration(cycle_name);

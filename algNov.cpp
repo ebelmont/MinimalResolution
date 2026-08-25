@@ -13,7 +13,20 @@ int algNov_table::filtration(cycle_name cyc){
 
 //the filtration by number of v's
 int algNov_table::v_valuation(Z3 r, exponent e){
-	return Z3Oper->valuation(r) + total_deg(e, [](int){return 1;});
+	return v_valuation_from(Z3Oper->valuation(r), e);
+}
+
+//same as v_valuation, but given an already-computed Z3Oper->valuation(r),
+//so callers that separately need the raw valuation (naming(),
+//leading_term()) can avoid computing it twice -- Z3_Op::valuation averages
+//~19 divide-steps/call on degree-270 data, so this matters on the
+//leading_term hot path. Inlined rather than routed through the generic
+//total_deg(e, [](int){return 1;}) to avoid a std::function indirection per call.
+int algNov_table::v_valuation_from(unsigned val, exponent e){
+	int s = 0;
+	for(int i=1; i<=maxVar; ++i)
+		s += xnVal(e,i);
+	return (int)val + s;
 }
 	
 //transform a term into a cycle name
@@ -22,10 +35,16 @@ cycle_name algNov_table::naming(const Z3 &coeficient, matrix_index ind, primitiv
 	exponent e = P[ind].coeficient;
 	//construct the cycle
 	std::vector<int> eo;
+	//final size is always exactly maxVar+2, known up front
+	eo.reserve(maxVar+2);
+	//compute the valuation once and reuse it for both the algebraic Novikov
+	//filtration and the raw v0-count, instead of calling
+	//Z3Oper->valuation(coeficient) twice (see v_valuation_from)
+	unsigned val = Z3Oper->valuation(coeficient);
 	//first compute the algebraic Novikov filtration
-	eo.push_back(v_valuation(coeficient,e));
+	eo.push_back(v_valuation_from(val,e));
 	//then get the number of v0's
-	eo.push_back(Z3Oper->valuation(coeficient));
+	eo.push_back(val);
 	//then the exponent
 	for(int i=1; i<=maxVar; ++i)
 		eo.push_back(xnVal(e,i));
@@ -40,19 +59,48 @@ cycle_name algNov_table::naming(const Z3 &coeficient, matrix_index ind){
 }
 	
 //computing the leading term of a cycle vector
+//compares terms by a fixed-size stack key (no heap allocation) instead of
+//calling naming() -- a heap-allocating pair<vector<int>,int> -- per
+//candidate, and caches the current-best key rather than recomputing it
+//each iteration. The key's fields and order exactly match naming()'s eo
+//layout (v_valuation, v0-valuation, xnVal(1..maxVar)) plus gen_pos as the
+//tiebreaker (naming()'s pair comparison falls back to .second on a tie in
+//.first), so the winning index is unchanged. naming() itself is still
+//called exactly once per leading_term() call, by simplify() right after
+//this returns, to materialize the winner's actual name.
 unsigned algNov_table::leading_term(SS_entry<cycle_name, Z3>::value_type& v){
 	//case of zero
 	if(v.size()==0) return -1;
-	
-	//the current leading term
-	unsigned led = 0;
-	//the name of the i-th term
-	auto cn = [&v,this](int i){
-		return naming(v.dataArray[i].coeficient, v.dataArray[i].ind); };
+
+	struct Key{ int f[maxVar+2]; int gen_pos; };
+	auto compute_key = [&v,this](unsigned idx){
+		matrix_index ind = v.dataArray[idx].ind;
+		auto &pe = (*Pcyc)[ind];
+		exponent e = pe.coeficient;
+		unsigned val = Z3Oper->valuation(v.dataArray[idx].coeficient);
+		Key k;
+		k.f[0] = v_valuation_from(val,e);
+		k.f[1] = (int)val;
+		for(int i=1; i<=maxVar; ++i)
+			k.f[i+1] = xnVal(e,i);
+		k.gen_pos = pe.gen_pos;
+		return k;
+	};
+	auto key_less = [](const Key &a, const Key &b){
+		for(int i=0; i<maxVar+2; ++i)
+			if(a.f[i]!=b.f[i]) return a.f[i]<b.f[i];
+		return a.gen_pos < b.gen_pos;
+	};
+
 	//find the leading term with the smallest cycle name
+	unsigned led = 0;
+	Key best = compute_key(0);
 	for(unsigned i=1; i<v.size(); ++i){
-		if(cn(i) < cn(led))
+		Key ki = compute_key(i);
+		if(key_less(ki,best)){
 			led = i;
+			best = ki;
+		}
 	}
 	return led;
 }

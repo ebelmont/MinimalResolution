@@ -115,16 +115,21 @@ Z3 Z3_Op::inverse(const Z3& x){
 }
 
 //the 3-adic valuation
+//iterative rather than recursive: this is called ~10^8-10^9 times for
+//degree-270 data, some with non-trivially large valuations, so the
+//function-call/stack-frame overhead per unit of valuation was measurable.
 unsigned Z3_Op::valuation(Z3 x){
 	//convention for valuation of 0
 	//TODO: do we need to change max_val? I have no idea what's special about this number.
 	static constexpr int max_val = 35536;
 	if(isZero(x)) return max_val;
-	
-	//valuation of invertible is 0
-	if(invertible(x)) return 0;
-	//for non-invertible elements
-	return valuation(x/prime()) + 1;
+
+	unsigned v = 0;
+	while(!invertible(x)){
+		x = x/prime();
+		++v;
+	}
+	return v;
 }
 
 //p^n

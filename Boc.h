@@ -12,6 +12,8 @@ public:
 	
 	//re-define the valuation so that it is given by the number of v0's
 	int v_valuation(Z3, exponent) override;
+	//see algNov.h -- same, given a precomputed valuation
+	int v_valuation_from(unsigned, exponent) override;
 	
 	//number of v's
 	int num_v(cycle_name);

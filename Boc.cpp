@@ -1,8 +1,13 @@
 //Boc.cpp
 #include"Boc.h"
 
-int Boc_table::v_valuation(Z3 r, exponent){
-	return Z3Oper->valuation(r);
+int Boc_table::v_valuation(Z3 r, exponent e){
+	return v_valuation_from(Z3Oper->valuation(r), e);
+}
+
+//see algNov.h/algNov.cpp -- same, given a precomputed valuation
+int Boc_table::v_valuation_from(unsigned val, exponent){
+	return (int)val;
 }
 
 void Boc_tables::set_table(std::vector<algNov_table>*){
