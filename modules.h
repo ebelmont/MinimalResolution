@@ -1,4 +1,5 @@
 #pragma once
+#include<omp.h>
 #include"modules/1.h"
 #include"modules/2.h"
 #include"modules/3.h"

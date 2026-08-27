@@ -1,4 +1,5 @@
 #pragma once
+#include<omp.h>
 #include"polynomial/1.h"
 #include"polynomial/2.h"
 #include"polynomial/3.h"

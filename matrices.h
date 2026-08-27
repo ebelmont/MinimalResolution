@@ -1,4 +1,5 @@
 #pragma once
+#include<omp.h>
 #include"matrices/1.h"
 #include"matrices/2.h"
 #include"matrices/3.h"
