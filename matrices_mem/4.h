@@ -19,12 +19,20 @@ void matrix_mem<ring>::row_reduction(matrix_index row, matrix_index col){
 	//unify the given row
 	auto uv = unify(col,data[row]);
 
-	#pragma omp parallel for schedule(dynamic) if(!omp_in_parallel())
-	for(unsigned i=0; i<data.size(); ++i){
-		//unify the given row
-		if(i==row) data[i] = uv;
-		//transform the other rows with vanhishing given column
-		else take_away(col, data[i], uv);
+	if(omp_site_enabled(4) && !omp_in_parallel()){
+		#pragma omp parallel for schedule(dynamic)
+		for(unsigned i=0; i<data.size(); ++i){
+			//unify the given row
+			if(i==row) data[i] = uv;
+			//transform the other rows with vanhishing given column
+			else take_away(col, data[i], uv);
+		}
+	}
+	else {
+		for(unsigned i=0; i<data.size(); ++i){
+			if(i==row) data[i] = uv;
+			else take_away(col, data[i], uv);
+		}
 	}
 }
 

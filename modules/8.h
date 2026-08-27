@@ -4,12 +4,23 @@ return_type sum(std::function<return_type(int)> summands, int start, int end, st
 	if(end-start==1) return summands(start);
 	return_type s1,s2;
 	int mid = (start+end)/2;
-	#pragma omp parallel sections if(!omp_in_parallel())
-	{
-		#pragma omp section
-		{ s1 = sum(summands, start,mid, add); }
-		#pragma omp section
-		{ s2 = sum(summands, mid,end, add); }
+	//avoid ever entering the OpenMP runtime on the serial path -- an omp
+	//"if()" clause still dispatches through GOMP_parallel even when false,
+	//and sum()'s recursion hits this every level, so that dispatch overhead
+	//dominates real work (measured: 262% CPU of 24 requested, System time
+	//~4x User time, 10M+ context switches for a 130s run at degree 80)
+	if(omp_site_enabled(0) && !omp_in_parallel()){
+		#pragma omp parallel sections
+		{
+			#pragma omp section
+			{ s1 = sum(summands, start,mid, add); }
+			#pragma omp section
+			{ s2 = sum(summands, mid,end, add); }
+		}
+	}
+	else {
+		s1 = sum(summands, start,mid, add);
+		s2 = sum(summands, mid,end, add);
 	}
 	return add(std::move(s1), std::move(s2));
 }

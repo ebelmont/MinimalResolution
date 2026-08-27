@@ -8,10 +8,20 @@ poly<exponent_type,base_ring> PolyOp_Para<exponent_type,base_ring>::mon_multiply
 	poly<exponent_type,base_ring> result;
 	result.dataArray.resize(x.size());
 	
-#pragma omp parallel for schedule(dynamic) if(!omp_in_parallel())
-	for(unsigned i=0; i<x.size(); ++i){
-		result.dataArray[i].ind = x.dataArray[i].ind + e;
-		result.dataArray[i].coeficient = this->ringOper->multiply(x.dataArray[i].coeficient, r);
+	//see modules/8.h::sum() -- avoid the OpenMP runtime entirely on the
+	//serial (nested) path, not just an omp "if()" clause on it
+	if(omp_site_enabled(2) && !omp_in_parallel()){
+		#pragma omp parallel for schedule(dynamic)
+		for(unsigned i=0; i<x.size(); ++i){
+			result.dataArray[i].ind = x.dataArray[i].ind + e;
+			result.dataArray[i].coeficient = this->ringOper->multiply(x.dataArray[i].coeficient, r);
+		}
+	}
+	else {
+		for(unsigned i=0; i<x.size(); ++i){
+			result.dataArray[i].ind = x.dataArray[i].ind + e;
+			result.dataArray[i].coeficient = this->ringOper->multiply(x.dataArray[i].coeficient, r);
+		}
 	}
 	return result;
 }

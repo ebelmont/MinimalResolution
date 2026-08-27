@@ -49,10 +49,18 @@ public:
 		vectors<index,R> res;
 		res.dataArray.resize(x.size());
 				
-		#pragma omp parallel for schedule(dynamic) if(!omp_in_parallel())
-		for(unsigned i=0; i<x.size(); ++i){
-			res.dataArray[i].ind = x.dataArray[i].ind;
-			res.dataArray[i].coeficient = ringOper->multiply(x.dataArray[i].coeficient, r);
+		if(omp_site_enabled(7) && !omp_in_parallel()){
+			#pragma omp parallel for schedule(dynamic)
+			for(unsigned i=0; i<x.size(); ++i){
+				res.dataArray[i].ind = x.dataArray[i].ind;
+				res.dataArray[i].coeficient = ringOper->multiply(x.dataArray[i].coeficient, r);
+			}
+		}
+		else {
+			for(unsigned i=0; i<x.size(); ++i){
+				res.dataArray[i].ind = x.dataArray[i].ind;
+				res.dataArray[i].coeficient = ringOper->multiply(x.dataArray[i].coeficient, r);
+			}
 		}
 		return res;
 	}	
