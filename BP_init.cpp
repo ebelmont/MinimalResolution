@@ -98,7 +98,7 @@ void BPInit::load_gens(string gens_data){
 void BPInit::make_algNov(){
 	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
 	
-	AANtables.table_of_complex(Complex,resolution_length);
+	AANtables.table_of_complex(Complex,resolution_length,director + "AANback");
 	AANtables.save(director + "AANSS_table_binary");
 	std::fstream atb(director + "AANSS_table.txt", std::ios::out);
 	atb << AANtables.output_tables();

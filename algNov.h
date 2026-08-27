@@ -90,8 +90,12 @@ public:
 	std::vector<algNov_table*> tables;
 	//set the data of tables
 	void set_table(std::vector<algNov_table>*);
-	//construct the table from a complex of primitives
-	void table_of_complex(BPComplex&,int pric);
+	//construct the table from a complex of primitives. If back_up_prefix is
+	//non-empty, checkpoints per-table progress to back_up_prefix+"<i>" (see
+	//algNov.cpp) so a crash while building table i doesn't lose tables
+	//0..i-1, and automatically resumes from whatever checkpoint files are
+	//already present on disk.
+	void table_of_complex(BPComplex&,int pric, string back_up_prefix="");
 	//output the table
 	string output_tables();
 	//IO operations

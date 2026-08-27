@@ -136,8 +136,11 @@ unsigned Z3_Op::valuation(Z3 x){
 Z3 Z3_Op::power_p(int n){
 	if(n==0) return unit(1);
 	Z3 p = unit(prime());
+	//use multiply() (which reduces mod MAX3), not the raw uint64_t operator*
+	//-- for n>=40, 3^n exceeds MAX3=3^40 and the raw product overflows/aliases
+	//to a non-canonical garbage value instead of the mathematically-correct 0
 	if(n>0)
-		return power_p(n-1)*p;
+		return multiply(power_p(n-1), p);
 	//undefined if n<0
 	std::cerr << "not integral!";
 	return 0;

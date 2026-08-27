@@ -1,5 +1,6 @@
 //algNov.cpp
 #include"algNov.h"
+#include<cstdio>
 
 //the operators
 Z3_Op *algNov_table::Z3Oper;
@@ -227,18 +228,56 @@ int algNov_table::degree(cycle_name cyc){
 	return Pcyc->gen_deg[n];
 }
     
-//construct the table using the complex    
-void  algNov_tables::table_of_complex(BPComplex& Comp, int pric){
+//construct the table using the complex
+void  algNov_tables::table_of_complex(BPComplex& Comp, int pric, string back_up_prefix){
 	//initialize primitive data
 	tables[0]->Pcyc = &Comp.Prims[0];
 	for(unsigned i=1; i<Comp.size(); ++i){
 		tables[i]->Ptag = &Comp.Prims[i-1];
 		tables[i]->Pcyc = &Comp.Prims[i];
 	}
+
+	//resume from whatever checkpoints already exist. table i's checkpoint
+	//(written below, right after it's built) holds both tables[i-1] --
+	//which is finalized at that point, since the only thing that can ever
+	//add to a table after it's built is the *next* table's construction
+	//(make_table's Boundary branch inserts into the previous table -- see
+	//NOTES.md) -- and tables[i] itself, in its current (not yet finalized)
+	//state, which is exactly what's needed to resume building from there.
+	unsigned start = 1;
+	if(back_up_prefix!=""){
+		unsigned k=1;
+		for(; k<Comp.size(); ++k){
+			std::fstream fk(back_up_prefix + std::to_string(k), std::ios::in | std::ios::binary);
+			if(!fk.is_open()) break;
+			tables[k-1]->SS_table<cycle_name,Z3>::load(fk);
+			tables[k]->SS_table<cycle_name,Z3>::load(fk);
+		}
+		if(k>1){
+			std::cout << "resuming algNov tables from table " << (k-1) << "\n" << std::flush;
+			start = k;
+		}
+	}
+
 	//construct tables
-	for(unsigned i=1; i<Comp.size(); ++i){
+	for(unsigned i=start; i<Comp.size(); ++i){
 		std::cout << "\n" << "table:" << i << "\n" << std::flush;
 		tables[i]->make_table(pric-i,Comp.Maps[i],*tables[i-1]);
+
+		//checkpoint tables[i-1] (now finalized) and tables[i] (current)
+		//together in one file, written to a temp name and renamed into
+		//place atomically -- so a crash mid-write leaves the last good
+		//checkpoint intact instead of a half-written, silently-wrong one.
+		if(back_up_prefix!=""){
+			string fname = back_up_prefix + std::to_string(i);
+			string tmp = fname + ".tmp";
+			{
+				std::fstream fk(tmp, std::ios::out | std::ios::binary);
+				tables[i-1]->SS_table<cycle_name,Z3>::save(fk);
+				tables[i]->SS_table<cycle_name,Z3>::save(fk);
+			}
+			std::rename(tmp.c_str(), fname.c_str());
+		}
 	}
 }
 

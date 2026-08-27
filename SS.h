@@ -74,13 +74,30 @@ public:
 	//via cycle_name, which encodes valuation) but are not necessarily units
 	//themselves (e.g. a v0-power tag has coefficient p^j, valuation j) --
 	//divide out the common p^valuation factor first so inverse() sees a
-	//genuine unit. Matches the Gaussian elimination pattern already used in
-	//matrices/9.h and matrices_mem/4.h.
+	//genuine unit. NOTE: matrices/9.h and matrices_mem/4.h do NOT actually
+	//use this pattern yet (they call inverse() raw) despite an earlier
+	//version of this comment claiming otherwise -- see NOTES.md.
 	ring cancel_scalar(matrix_index ind, const ring &coef, typename SS_entry<cycle_name, ring>::value_type &matched){
 		auto matched_coef = Modop->component(ind, matched);
 		unsigned val = Modop->ringOper->valuation(coef);
 		auto c_unit = Modop->ringOper->divide(coef, val);
 		auto m_unit = Modop->ringOper->divide(matched_coef, val);
+		//the shared-valuation guarantee above is only a documented invariant,
+		//not an enforced one. If it's ever violated, m_unit still carries a
+		//factor of p and inverse() below is about to throw -- report exactly
+		//what broke first. This check and the print are only ever reached on
+		//that failure path: invertible() is the same test inverse() already
+		//runs internally, so it's essentially free on the billions-of-calls
+		//success path, and valuation(matched_coef) is only recomputed here,
+		//not on every call.
+		if(!Modop->ringOper->invertible(m_unit)){
+			std::cerr << "cancel_scalar: valuation mismatch -- ind=" << ind
+				<< " coef=" << Modop->ringOper->output(coef)
+				<< " (val=" << val << ")"
+				<< " matched_coef=" << Modop->ringOper->output(matched_coef)
+				<< " (val=" << Modop->ringOper->valuation(matched_coef) << ")"
+				<< "\n" << std::flush;
+		}
 		return Modop->ringOper->minus(Modop->ringOper->multiply(c_unit, Modop->ringOper->inverse(m_unit)));
 	}
 
