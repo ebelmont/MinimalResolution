@@ -21,8 +21,13 @@ public:
 	//output entries
 	std::pair<std::pair<int,int>,string> output(SS_entry<cycle_name, Z3>&, int);
 	
-	//output table 
+	//output table
 	std::set<std::pair<std::pair<int,int>,string>> output_table(int, int) override;
+
+	//a fresh, empty Boc_table (not algNov_table -- must match *this's own
+	//dynamic type so v_valuation/v_valuation_from keep dispatching to the
+	//Bockstein override) sharing this table's Ptag/Pcyc. See SS.h::make_table.
+	SS_table<cycle_name,Z3>* make_bucket_table();
 	
 	//transform Bockstein name into Algebraic Novikov name
 	multiplication_table<cycle_name> Bname2Aname(algNov_table &Atable, int pric, bool simple=true);

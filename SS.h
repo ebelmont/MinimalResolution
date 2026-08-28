@@ -1,6 +1,7 @@
 //SS.h
 #pragma once
 #include"matrices.h"
+#include<memory>
 
 //class for the entries in a spectral sequence
 template<typename cycle_name, typename ring>
@@ -27,6 +28,12 @@ public:
 	
 	//the filtration function
 	virtual int filtration(cycle_name)=0;
+
+	//the (internal, t-) degree of a cycle name -- used together with
+	//bucket_rows() below to partition one homological degree's search by
+	//degree (the differential is degree-preserving, so degree buckets are
+	//provably independent -- see algNov.cpp's bucket_by_degree)
+	virtual int degree(cycle_name)=0;
 	
 	//the length of the differential
 	int diff_length(SS_entry<cycle_name, ring> et){
@@ -59,6 +66,15 @@ public:
 	//the constructors
 	SS_table(ModuleOp<matrix_index, ring> *modoper) : Invalid(-65537){
 		Modop = modoper;	}
+
+	//virtual: make_table's bucketed temp tables are owned via a base-class
+	//(SS_table<cycle_name,ring>*) unique_ptr but are actually algNov_table/
+	//Boc_table instances reached through virtual inheritance -- deleting
+	//through a non-virtual base destructor there is undefined behavior
+	//(observed in practice as a heap-corrupting "free(): invalid pointer"
+	//crash), not merely a leak, since the delete needs the vtable to find
+	//the true most-derived object address.
+	virtual ~SS_table(){}
 		
 	//check the entry is a tag or not
 	virtual bool tagged(const SS_entry<cycle_name,ring>&)=0;
@@ -186,9 +202,11 @@ public:
 	//construct a full tag from the leading term
 	virtual typename SS_entry<cycle_name, ring>::value_type get_tag(cycle_name)=0;
 
-	//construct the cycle pot. pot has additional leading number for sorting reasons...
-	virtual std::set<cycle_name> cycle_pot(int pric)=0;
-	
+	//construct the cycle pot. pot has additional leading number for sorting
+	//reasons... When rows is non-null, only candidates built from those
+	//Ptag row indices are considered (used to restrict to one degree bucket)
+	virtual std::set<cycle_name> cycle_pot(int pric, const std::vector<unsigned>* rows=nullptr)=0;
+
 	//filter the pot to delete those boundaries
 	void filter_pot(std::set<cycle_name>  &pot, SS_table<cycle_name,ring> &prev_table){
 		for(auto &et : prev_table){
@@ -196,39 +214,92 @@ public:
 			pot.erase(et.cycle);
 		}
 	}
-	
-	//construct the table form a set of candidate of tags
-	void make_table(int pric, matrix<ring>* M, SS_table& T){
-		//construct the cycle_pot
-		auto pot = cycle_pot(pric);
-		//filter the cycle_pot, using the previoud table
-		filter_pot(pot, T);
-		
-		//construct the Curtis table. Note we start with tags of highest filtration
-		for(auto it = pot.rbegin(); it != pot.rend(); it++){
-			//get the canditate of the cycle
-			auto vs = get_tag(*it);
-			//get the boundary of the canditate
-			auto bs = M->maps_to(vs);
 
-			//try to add lower terms to make it a cycle
-			auto BT = simplify(bs,vs,pric);
-			
-			//make the new entry
-			SS_entry<cycle_name, ring> neE;
-			//if the candidate can be made a cycle, then insert into the previous table
-			if(BT==Boundary){
-				neE = {invalid(), *it, Modop->zero(), vs}; 
-				T.insert(neE);
-			} //if we find a nontrivial tag, then insert into the current table
-			else{
-				//find the leading term if the boundary
-				unsigned led = leading_term(bs);
+	//same as filter_pot, but iterates the (small, per-bucket) pot against a
+	//precomputed set of prev_table's tagged cycle names instead of iterating
+	//prev_table itself -- prev_table can be large and doesn't shrink per
+	//bucket, so scanning it once per bucket (as a naive per-bucket filter_pot
+	//call would) is an O(#buckets x |prev_table|) regression; build the
+	//tagged-name set once per homological degree instead (see make_table)
+	static void filter_pot_against(std::set<cycle_name> &pot, const std::set<cycle_name> &tagged_cycles){
+		for(auto it = pot.begin(); it != pot.end();){
+			if(tagged_cycles.count(*it)) it = pot.erase(it);
+			else ++it;
+		}
+	}
+
+	//group this table's Ptag row indices by internal (t) degree, so
+	//make_table can process one homological degree's search one degree
+	//bucket at a time (see algNov.cpp's bucket_by_degree, which is what
+	//actually implements this for algNov_table/Boc_table)
+	virtual std::map<int,std::vector<unsigned>> bucket_rows()=0;
+
+	//a fresh, empty instance of this table's own concrete type (same
+	//dynamic type as *this, so filtration/naming/v_valuation etc. still
+	//virtual-dispatch correctly), configured to search/build against the
+	//same Ptag/Pcyc as *this. Used by make_table to give each degree
+	//bucket its own small accumulation structure instead of searching the
+	//whole (much larger) shared table -- see NOTES.md's bucketing entry.
+	virtual SS_table<cycle_name,ring>* make_bucket_table()=0;
+
+	//construct the table form a set of candidate of tags. Partitioned by
+	//internal (t) degree: the differential is degree-preserving, so a
+	//candidate can only ever cycle_index.find()-match another entry of the
+	//same degree -- different buckets can never interact except through T
+	//(the previous table), and different buckets' T.insert() calls always
+	//touch disjoint keys, so processing buckets one at a time (in any
+	//order) is equivalent to the old single flat search, just against a
+	//much smaller table per candidate.
+	void make_table(int pric, matrix<ring>* M, SS_table& T){
+		auto buckets = bucket_rows();
+		//build the set of T's tagged cycle names once per homological degree
+		//(not once per bucket -- see filter_pot_against) so per-bucket
+		//filtering stays cheap regardless of how many buckets there are
+		std::set<cycle_name> tagged_cycles;
+		for(auto &et : T)
+			if(tagged(et))
+				tagged_cycles.insert(et.cycle);
+		for(auto &kv : buckets){
+			auto &rows = kv.second;
+			//construct the cycle_pot restricted to this bucket's rows
+			auto pot = cycle_pot(pric, &rows);
+			//filter the cycle_pot against T's (precomputed) tagged names
+			filter_pot_against(pot, tagged_cycles);
+
+			//this bucket's own fresh, empty table -- entries found while
+			//processing this bucket accumulate here, not in the shared *this
+			std::unique_ptr<SS_table<cycle_name,ring>> temp(make_bucket_table());
+
+			//construct the Curtis table. Note we start with tags of highest filtration
+			for(auto it = pot.rbegin(); it != pot.rend(); it++){
+				//get the canditate of the cycle
+				auto vs = get_tag(*it);
+				//get the boundary of the canditate
+				auto bs = M->maps_to(vs);
+
+				//try to add lower terms to make it a cycle -- searched
+				//against this bucket's own (small) table, not the shared one
+				auto BT = temp->simplify(bs,vs,pric);
+
 				//make the new entry
-				auto bn = naming(bs.dataArray[led].coeficient, bs.dataArray[led].ind);
-				neE = {*it, bn, vs, bs};
-				insert(neE);
+				SS_entry<cycle_name, ring> neE;
+				//if the candidate can be made a cycle, then insert into the previous table
+				if(BT==Boundary){
+					neE = {invalid(), *it, Modop->zero(), vs};
+					T.insert(neE);
+				} //if we find a nontrivial tag, then insert into this bucket's table
+				else{
+					//find the leading term if the boundary
+					unsigned led = leading_term(bs);
+					//make the new entry
+					auto bn = naming(bs.dataArray[led].coeficient, bs.dataArray[led].ind);
+					neE = {*it, bn, vs, bs};
+					temp->insert(neE);
+				}
 			}
+			//merge this bucket's entries into the real, shared table
+			for(auto &e : *temp)
+				this->insert(e);
 		}
 	}
 	

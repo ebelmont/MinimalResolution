@@ -93,3 +93,13 @@ std::vector<multiplication_table<cycle_name>> Boc_tables::Bname2Anames(int resol
 
 //constructor
 Boc_table::Boc_table() : SS_table(&algNov_table::BPoper->Z3Mod_opers){}
+
+//see SS.h::make_table / algNov.cpp::algNov_table::make_bucket_table -- must
+//return a genuine Boc_table (not algNov_table) so v_valuation/
+//v_valuation_from keep virtual-dispatching to the Bockstein override
+SS_table<cycle_name,Z3>* Boc_table::make_bucket_table(){
+	Boc_table *t = new Boc_table();
+	t->Ptag = Ptag;
+	t->Pcyc = Pcyc;
+	return t;
+}

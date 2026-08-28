@@ -3,6 +3,7 @@
 #include"algebra.h"
 #include"Fp.h"
 #include <cstdint>
+#include <vector>
 
 //we use 64-bit unsigned integer to denote 3-adic numbers
 typedef uint64_t Z3;
@@ -26,6 +27,13 @@ public:
 
 	//n-th power of p
 	Z3 power_p(int n);
+
+	//incremental cache for power_p: index n holds p^n once computed. get_tag/
+	//naming's v0-power computation used to recompute power_p(j) from scratch
+	//via naive recursion for every j, O(pric) redundant work per call --
+	//power_p() below fills this incrementally (one multiply() per new
+	//highest power ever requested) instead.
+	std::vector<Z3> power_p_cache;
 
 	// divide by p^n
 	Z3 divide(const Z3&, int n) override;

@@ -132,18 +132,26 @@ unsigned Z3_Op::valuation(Z3 x){
 	return v;
 }
 
-//p^n
+//p^n. Memoized: power_p_cache[n] holds p^n once computed, filled
+//incrementally from wherever it left off up to n (one multiply() per new
+//highest power ever requested), instead of recursing from scratch on every
+//call -- get_tag/naming's v0-power computation calls this once per shift,
+//and used to pay O(pric) redundant work per call before this cache existed.
 Z3 Z3_Op::power_p(int n){
-	if(n==0) return unit(1);
-	Z3 p = unit(prime());
+	if(n<0){
+		//undefined if n<0
+		std::cerr << "not integral!";
+		return 0;
+	}
+	if(power_p_cache.empty())
+		power_p_cache.push_back(unit(1)); //index 0 = p^0
 	//use multiply() (which reduces mod MAX3), not the raw uint64_t operator*
 	//-- for n>=40, 3^n exceeds MAX3=3^40 and the raw product overflows/aliases
 	//to a non-canonical garbage value instead of the mathematically-correct 0
-	if(n>0)
-		return multiply(power_p(n-1), p);
-	//undefined if n<0
-	std::cerr << "not integral!";
-	return 0;
+	Z3 p = unit(prime());
+	while((int)power_p_cache.size() <= n)
+		power_p_cache.push_back(multiply(power_p_cache.back(), p));
+	return power_p_cache[n];
 }
 
 //divide by p^n. Callers only ever call this on an x already known (via

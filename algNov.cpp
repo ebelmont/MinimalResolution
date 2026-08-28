@@ -127,10 +127,14 @@ cycle_name algNov_table::invalid(){
 	return std::make_pair(vd,Invalid);
 }
 
-//construct the cycle pot. pot has additional leading number for sorting reasons...
-std::set<cycle_name> algNov_table::cycle_pot(int pric){
+//construct the cycle pot. pot has additional leading number for sorting
+//reasons... When rows is given, only those Ptag row indices are considered
+//(used to restrict the search to one internal-degree bucket -- see
+//bucket_rows()/SS.h::make_table); passing nullptr reproduces the original
+//whole-Ptag behavior.
+std::set<cycle_name> algNov_table::cycle_pot(int pric, const std::vector<unsigned>* rows){
 	std::set<cycle_name> res;
-	for(unsigned i=0; i<Ptag->size(); ++i){
+	auto add_row = [&](unsigned i){
 		//construct ((l,0,v1^e1,...),gen_ind)
 		auto s = naming(Z3Oper->unit(1), i, *Ptag);
 		//compute the filtration
@@ -141,8 +145,41 @@ std::set<cycle_name> algNov_table::cycle_pot(int pric){
 			s.first[1] = j;
 			res.emplace(s);
 		}
-	}	
+	};
+	if(rows){
+		for(unsigned i : *rows) add_row(i);
+	} else {
+		for(unsigned i=0; i<Ptag->size(); ++i) add_row(i);
+	}
 	return res;
+}
+
+//group a primitive_data's row indices by internal (t) degree -- the
+//differential is degree-preserving (v0-shifts never cross t-degree), so
+//candidates built from rows of different degrees can never
+//cycle_index.find()-match each other. Grouping by the existing gen_deg
+//field (no new bookkeeping) is what SS.h::make_table uses to process one
+//homological degree's search a bucket at a time instead of as one flat
+//search over the whole table.
+std::map<int,std::vector<unsigned>> bucket_by_degree(primitive_data &P){
+	std::map<int,std::vector<unsigned>> buckets;
+	for(unsigned i=0; i<P.size(); ++i)
+		buckets[P.gen_deg[i]].push_back(i);
+	return buckets;
+}
+
+std::map<int,std::vector<unsigned>> algNov_table::bucket_rows(){
+	return bucket_by_degree(*Ptag);
+}
+
+//a fresh, empty algNov_table configured with the same Ptag/Pcyc as *this --
+//see SS.h::make_table for why each degree bucket needs its own small,
+//empty accumulation structure rather than searching the whole shared table
+SS_table<cycle_name,Z3>* algNov_table::make_bucket_table(){
+	algNov_table *t = new algNov_table();
+	t->Ptag = Ptag;
+	t->Pcyc = Pcyc;
+	return t;
 }
 
 //output of cycle names

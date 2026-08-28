@@ -68,7 +68,13 @@ public:
 	SS_entry<cycle_name, Z3>::value_type get_tag(cycle_name);
 	
 	//construct the cycle pot. pot has additional leading number for sorting reasons...
-	std::set<cycle_name> cycle_pot(int);
+	std::set<cycle_name> cycle_pot(int, const std::vector<unsigned>* rows=nullptr);
+
+	//group Ptag's row indices by internal (t) degree (see SS.h::make_table)
+	std::map<int,std::vector<unsigned>> bucket_rows();
+
+	//a fresh, empty algNov_table sharing this table's Ptag/Pcyc (see SS.h::make_table)
+	SS_table<cycle_name,Z3>* make_bucket_table();
 	
 	//check the entry is a tag or not
 	bool tagged(const SS_entry<cycle_name,Z3>&);
