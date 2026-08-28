@@ -1,5 +1,6 @@
 //BPcomplex.cpp
 #include"BPcomplex.h"
+#include"fast_itos.h"
 
 //BP operations
 BP_Op *primitive_data::BPoper;
@@ -92,14 +93,14 @@ vectors<matrix_index, Z3> primitive_data::expand(const vectors<matrix_index,BP>&
 //output primitive entris
 string prim_entry::output() const {
 	auto cf = coeficient;
-	return ::output(cf,"v") + "[" + std::to_string(gen_pos) + "]";
+	return ::output(cf,"v") + "[" + fast_itos(gen_pos) + "]";
 }
 
 //output the primitives
 string primitive_data::output(){
 	string res;
 	for(auto sf : *this)
-		res += std::to_string(prim_index[sf]) + ":" + sf.output() + "\n";
+		res += fast_itos(prim_index[sf]) + ":" + sf.output() + "\n";
 	return res;
 }
 

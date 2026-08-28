@@ -1,5 +1,6 @@
 //algNov.cpp
 #include"algNov.h"
+#include"fast_itos.h"
 #include<cstdio>
 
 //the operators
@@ -149,8 +150,8 @@ string algNov_table::output(cycle_name sn, int k){
 	string res;
 	for(unsigned i=1; i<sn.first.size(); ++i)
 		if(sn.first[i]!=0)
-			res += "v" + std::to_string(i-1) + "^" + std::to_string(sn.first[i]);
-	res += "[" + std::to_string(k) + "-" + std::to_string(sn.second) + "]";
+			res += "v" + fast_itos(i-1) + "^" + fast_itos(sn.first[i]);
+	res += "[" + fast_itos(k) + "-" + fast_itos(sn.second) + "]";
 	return res;
 }
 
@@ -162,11 +163,11 @@ std::pair<std::pair<int,int>,string> algNov_table::output(SS_entry<cycle_name, Z
 		res = output(et.cycle,k);
 	//if it is tagged, output cyc <- tag
 	else 
-		res = output(et.cycle,k) + "\t<-\t" + output(et.tag,k-1) +"\t|d" + std::to_string(diff_length(et)+1);
+		res = output(et.cycle,k) + "\t<-\t" + output(et.tag,k-1) +"\t|d" + fast_itos(diff_length(et)+1);
 	//degree = (t-s, s+i)
 	std::pair<int,int> degs = std::make_pair(degree(et.cycle)-k, k+filtration(et.cycle));
 	
-	return std::make_pair(degs, res + "\t|deg=(" + std::to_string(degs.first) + "," + std::to_string(degs.second)+ ")");
+	return std::make_pair(degs, res + "\t|deg=(" + fast_itos(degs.first) + "," + fast_itos(degs.second)+ ")");
 }
 
 //save the cycle  name

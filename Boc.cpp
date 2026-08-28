@@ -1,5 +1,6 @@
 //Boc.cpp
 #include"Boc.h"
+#include"fast_itos.h"
 
 int Boc_table::v_valuation(Z3 r, exponent e){
 	return v_valuation_from(Z3Oper->valuation(r), e);
@@ -37,10 +38,10 @@ std::pair<std::pair<int,int>,string> Boc_table::output(SS_entry<cycle_name, Z3>&
 		res = this->algNov_table::output(et.cycle,k);
 	//if it is tagged, output cyc <- tag
 	else 
-		res = this->algNov_table::output(et.cycle,k) + "\t<-\t" + this->algNov_table::output(et.tag,k-1) + "\t|d" + std::to_string(diff_length(et));
+		res = this->algNov_table::output(et.cycle,k) + "\t<-\t" + this->algNov_table::output(et.tag,k-1) + "\t|d" + fast_itos(diff_length(et));
 	
 	std::pair<int,int> degs = std::make_pair(degree(et.cycle)*2-k, k+filtration(et.cycle));
-	return std::make_pair(degs, res + "\t|deg=" + std::to_string(degs.first));
+	return std::make_pair(degs, res + "\t|deg=" + fast_itos(degs.first));
 }
 
 std::set<std::pair<std::pair<int,int>,string>> Boc_table::output_table(int k, int pric){
