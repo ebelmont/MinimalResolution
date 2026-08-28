@@ -49,15 +49,8 @@ public:
 	virtual void construct_parallel(int rk, std::function<vectors<matrix_index,R>(int)> rows){
 		clear();
 		set_rank(rk);
-		if(omp_site_enabled(3) && !omp_in_parallel()){
-			#pragma omp parallel for schedule(dynamic)
-			for(unsigned i=0; i<rank; ++i)
-				insert(i,rows(i));
-		}
-		else {
-			for(unsigned i=0; i<rank; ++i)
-				insert(i,rows(i));
-		}
+		for(unsigned i=0; i<rank; ++i)
+			insert(i,rows(i));
 	}
 	
 	//copy from another matrix

@@ -56,23 +56,10 @@ template<typename index, typename ring, typename module1,typename module2>
 module2 maps_to_p(vectors<index,ring> const &x, std::function<module2(const ring&, const module1&)> scalor_mult, AbGroupOp<module2> *modop2, unsigned start, unsigned stop, std::function<module1(index)> find){
 	if(stop<=start) return modop2->zero();
 	if(stop-start==1) return scalor_mult(x.dataArray[start].coeficient, find(x.dataArray[start].ind));
-	unsigned mid = (start+stop) / 2; 
+	unsigned mid = (start+stop) / 2;
 	vectors<index,ring> s1, s2;
-	//see modules/8.h::sum() -- avoid the OpenMP runtime entirely on the
-	//serial (nested) path, not just an omp "if()" clause on it
-	if(omp_site_enabled(1) && !omp_in_parallel()){
-		#pragma omp parallel sections
-		{
-		#pragma omp section
-			{ s1 = maps_to(x,scalor_mult,modop2,start,mid,find); }
-		#pragma omp section
-			{ s2 = maps_to(x,scalor_mult,modop2,mid,stop,find); }
-		}
-	}
-	else {
-		s1 = maps_to(x,scalor_mult,modop2,start,mid,find);
-		s2 = maps_to(x,scalor_mult,modop2,mid,stop,find);
-	}
+	s1 = maps_to(x,scalor_mult,modop2,start,mid,find);
+	s2 = maps_to(x,scalor_mult,modop2,mid,stop,find);
 	return modop2->add(std::move(s1), std::move(s2));
 }
 
