@@ -137,6 +137,13 @@ unsigned Z3_Op::valuation(Z3 x){
 //highest power ever requested), instead of recursing from scratch on every
 //call -- get_tag/naming's v0-power computation calls this once per shift,
 //and used to pay O(pric) redundant work per call before this cache existed.
+//NOT safe to call concurrently from multiple threads while the cache still
+//needs to grow (power_p_cache is a plain std::vector, grown by push_back,
+//with no locking) -- callers that parallelize across candidates (SS.h's
+//cross-bucket make_table) must pre-warm the cache with a single serial
+//call covering the largest n they'll ever pass, so every concurrent call
+//afterward hits the plain-read tail of this function. See
+//algNov.cpp::table_of_complex.
 Z3 Z3_Op::power_p(int n){
 	if(n<0){
 		//undefined if n<0

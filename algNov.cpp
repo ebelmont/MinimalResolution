@@ -300,6 +300,18 @@ void  algNov_tables::table_of_complex(BPComplex& Comp, int pric, string back_up_
 	//construct tables
 	for(unsigned i=start; i<Comp.size(); ++i){
 		std::cout << "\n" << "table:" << i << "\n" << std::flush;
+		//pre-warm the power_p cache serially, before make_table's parallel
+		//region: Z3Oper is one object shared by every algNov_table/
+		//Boc_table, and its power_p_cache (Z3.h) is a plain std::vector,
+		//grown in place by push_back -- safe to call concurrently only
+		//once every index it will ever be asked for during this table's
+		//build is already present, since a v0-exponent or valuation used
+		//by naming()/make_vec()/cancel_scalar() can never exceed this
+		//table's own pric (the algorithm's existing filtration-vs-pric
+		//invariant, not a new one introduced by parallelism). Once warmed
+		//to pric, power_p(n<=pric) is a pure read of an already-sized
+		//vector, safe for concurrent callers.
+		algNov_table::Z3Oper->power_p(pric-i);
 		tables[i]->make_table(pric-i,Comp.Maps[i],*tables[i-1]);
 
 		//checkpoint tables[i-1] (now finalized) and tables[i] (current)

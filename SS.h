@@ -2,6 +2,8 @@
 #pragma once
 #include"matrices.h"
 #include<memory>
+#include<algorithm>
+#include<omp.h>
 
 //class for the entries in a spectral sequence
 template<typename cycle_name, typename ring>
@@ -250,6 +252,28 @@ public:
 	//touch disjoint keys, so processing buckets one at a time (in any
 	//order) is equivalent to the old single flat search, just against a
 	//much smaller table per candidate.
+	//
+	//Cross-bucket parallelism: buckets run inside one persistent
+	//`#pragma omp parallel` region for this whole homological degree, not a
+	//fresh thread team per bucket (that fork/join-per-call pattern was
+	//already tried elsewhere in this codebase and reverted -- see NOTES.md).
+	//Each thread is handed a *static* subset of buckets, decided once up
+	//front by an LPT (longest-processing-time-first) partition -- sort
+	//buckets descending by candidate (pot) count, greedily assign each to
+	//the currently lightest thread -- since bucket sizes are skewed (up to
+	//~3x at degree-270 scale) and a plain round-robin/equal-count split
+	//would not balance real work.
+	//
+	//Two shared containers used to be mutated directly inside the
+	//sequential per-bucket loop: T (via T.insert() on the Boundary branch)
+	//and *this (via the temp->this merge at the end of each bucket).
+	//insert() does a std::vector::push_back plus two std::map::emplace()s
+	//on a container shared by every bucket -- a real data race once buckets
+	//run concurrently, not a keyed operation different buckets could safely
+	//interleave. Both are staged per-thread during the parallel region and
+	//merged into T/*this serially afterward -- the same temp->this merge
+	//pattern the sequential version already used, just pushed out one more
+	//level.
 	void make_table(int pric, matrix<ring>* M, SS_table& T){
 		auto buckets = bucket_rows();
 		//build the set of T's tagged cycle names once per homological degree
@@ -259,48 +283,94 @@ public:
 		for(auto &et : T)
 			if(tagged(et))
 				tagged_cycles.insert(et.cycle);
+
+		//build every bucket's (already-filtered) candidate pot up front --
+		//needed both to drive the parallel loop below and to size the LPT
+		//load-balancing partition
+		std::vector<std::set<cycle_name>> pots;
+		pots.reserve(buckets.size());
 		for(auto &kv : buckets){
-			auto &rows = kv.second;
-			//construct the cycle_pot restricted to this bucket's rows
-			auto pot = cycle_pot(pric, &rows);
-			//filter the cycle_pot against T's (precomputed) tagged names
+			auto pot = cycle_pot(pric, &kv.second);
 			filter_pot_against(pot, tagged_cycles);
-
-			//this bucket's own fresh, empty table -- entries found while
-			//processing this bucket accumulate here, not in the shared *this
-			std::unique_ptr<SS_table<cycle_name,ring>> temp(make_bucket_table());
-
-			//construct the Curtis table. Note we start with tags of highest filtration
-			for(auto it = pot.rbegin(); it != pot.rend(); it++){
-				//get the canditate of the cycle
-				auto vs = get_tag(*it);
-				//get the boundary of the canditate
-				auto bs = M->maps_to(vs);
-
-				//try to add lower terms to make it a cycle -- searched
-				//against this bucket's own (small) table, not the shared one
-				auto BT = temp->simplify(bs,vs,pric);
-
-				//make the new entry
-				SS_entry<cycle_name, ring> neE;
-				//if the candidate can be made a cycle, then insert into the previous table
-				if(BT==Boundary){
-					neE = {invalid(), *it, Modop->zero(), vs};
-					T.insert(neE);
-				} //if we find a nontrivial tag, then insert into this bucket's table
-				else{
-					//find the leading term if the boundary
-					unsigned led = leading_term(bs);
-					//make the new entry
-					auto bn = naming(bs.dataArray[led].coeficient, bs.dataArray[led].ind);
-					neE = {*it, bn, vs, bs};
-					temp->insert(neE);
-				}
-			}
-			//merge this bucket's entries into the real, shared table
-			for(auto &e : *temp)
-				this->insert(e);
+			pots.push_back(std::move(pot));
 		}
+
+		int nb = (int)pots.size();
+		int nthreads = std::max(1, std::min(omp_get_max_threads(), std::max(nb,1)));
+
+		//LPT partition: sort bucket indices descending by candidate count,
+		//then greedily assign each to whichever thread currently has the
+		//least assigned work -- a static decision made once, here, not a
+		//dynamic "grab a bucket when idle" scheme
+		std::vector<int> order(nb);
+		for(int i=0;i<nb;++i) order[i]=i;
+		std::sort(order.begin(), order.end(), [&](int a, int b){
+			return pots[a].size() > pots[b].size(); });
+		std::vector<std::vector<int>> assign(nthreads);
+		std::vector<size_t> load(nthreads, 0);
+		for(int idx : order){
+			int t = (int)(std::min_element(load.begin(), load.end()) - load.begin());
+			assign[t].push_back(idx);
+			load[t] += pots[idx].size();
+		}
+
+		//per-thread staging for the two deferred shared-container merges
+		//(see comment above); the only place T/*this are actually touched
+		//is the serial merge loop after the parallel region closes
+		std::vector<std::vector<SS_entry<cycle_name,ring>>> T_staging(nthreads), this_staging(nthreads);
+
+		#pragma omp parallel num_threads(nthreads)
+		{
+			int tid = omp_get_thread_num();
+			for(int bidx : assign[tid]){
+				auto &pot = pots[bidx];
+
+				//this bucket's own fresh, empty table -- entries found while
+				//processing this bucket accumulate here, not in the shared *this
+				std::unique_ptr<SS_table<cycle_name,ring>> temp(make_bucket_table());
+
+				//construct the Curtis table. Note we start with tags of highest filtration
+				for(auto it = pot.rbegin(); it != pot.rend(); it++){
+					//get the canditate of the cycle
+					auto vs = get_tag(*it);
+					//get the boundary of the canditate
+					auto bs = M->maps_to(vs);
+
+					//try to add lower terms to make it a cycle -- searched
+					//against this bucket's own (small) table, not the shared one
+					auto BT = temp->simplify(bs,vs,pric);
+
+					//make the new entry
+					SS_entry<cycle_name, ring> neE;
+					//if the candidate can be made a cycle, stage it for the
+					//previous table T (deferred -- see comment above)
+					if(BT==Boundary){
+						neE = {invalid(), *it, Modop->zero(), vs};
+						T_staging[tid].push_back(std::move(neE));
+					} //if we find a nontrivial tag, then insert into this bucket's table
+					else{
+						//find the leading term if the boundary
+						unsigned led = leading_term(bs);
+						//make the new entry
+						auto bn = naming(bs.dataArray[led].coeficient, bs.dataArray[led].ind);
+						neE = {*it, bn, vs, bs};
+						temp->insert(neE);
+					}
+				}
+				//stage this bucket's entries for the real, shared table
+				//(deferred -- see comment above)
+				for(auto &e : *temp)
+					this_staging[tid].push_back(e);
+			}
+		}
+
+		//serial merge -- the only place T/*this are mutated for this call
+		for(auto &v : T_staging)
+			for(auto &e : v)
+				T.insert(e);
+		for(auto &v : this_staging)
+			for(auto &e : v)
+				this->insert(e);
 	}
 	
 	//Return the set of cycles modulo filtration pric boundaries and cycles, original vector should be discarded after
