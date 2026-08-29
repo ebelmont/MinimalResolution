@@ -282,14 +282,35 @@ void  algNov_tables::table_of_complex(BPComplex& Comp, int pric, string back_up_
 	//(make_table's Boundary branch inserts into the previous table -- see
 	//NOTES.md) -- and tables[i] itself, in its current (not yet finalized)
 	//state, which is exactly what's needed to resume building from there.
+	//
+	//Each slot is preceded by a 1-byte flag: 1 means the slot's full
+	//SS_table payload follows (as before); 0 means "unchanged since the
+	//last time this table index was written" -- SS_table::insert only
+	//ever appends (see NOTES.md), so an unchanged entry-count means
+	//unchanged content, and the in-memory table object (already correct
+	//from the previous iteration's write, or from loading it as the
+	//*other* slot one file ago) can simply be left alone. `last_saved`
+	//tracks, per table index, the entry-count as of its last write, so
+	//both the resume-load below and the write loop further down can make
+	//the same skip decision.
+	std::vector<size_t> last_saved(Comp.size(), (size_t)-1);
 	unsigned start = 1;
 	if(back_up_prefix!=""){
 		unsigned k=1;
 		for(; k<Comp.size(); ++k){
 			std::fstream fk(back_up_prefix + std::to_string(k), std::ios::in | std::ios::binary);
 			if(!fk.is_open()) break;
-			tables[k-1]->SS_table<cycle_name,Z3>::load(fk);
-			tables[k]->SS_table<cycle_name,Z3>::load(fk);
+			char flag;
+			fk.read(&flag,1);
+			if(flag){
+				tables[k-1]->SS_table<cycle_name,Z3>::load(fk);
+				last_saved[k-1] = tables[k-1]->size();
+			}
+			fk.read(&flag,1);
+			if(flag){
+				tables[k]->SS_table<cycle_name,Z3>::load(fk);
+				last_saved[k] = tables[k]->size();
+			}
 		}
 		if(k>1){
 			std::cout << "resuming algNov tables from table " << (k-1) << "\n" << std::flush;
@@ -323,8 +344,23 @@ void  algNov_tables::table_of_complex(BPComplex& Comp, int pric, string back_up_
 			string tmp = fname + ".tmp";
 			{
 				std::fstream fk(tmp, std::ios::out | std::ios::binary);
-				tables[i-1]->SS_table<cycle_name,Z3>::save(fk);
-				tables[i]->SS_table<cycle_name,Z3>::save(fk);
+				//skip re-serializing a slot whose entry-count hasn't
+				//changed since it was last written (see comment above the
+				//resume-load loop for why this is safe)
+				size_t sz0 = tables[i-1]->size();
+				char flag0 = (sz0 != last_saved[i-1]) ? 1 : 0;
+				fk.write(&flag0,1);
+				if(flag0){
+					tables[i-1]->SS_table<cycle_name,Z3>::save(fk);
+					last_saved[i-1] = sz0;
+				}
+				size_t sz1 = tables[i]->size();
+				char flag1 = (sz1 != last_saved[i]) ? 1 : 0;
+				fk.write(&flag1,1);
+				if(flag1){
+					tables[i]->SS_table<cycle_name,Z3>::save(fk);
+					last_saved[i] = sz1;
+				}
 			}
 			std::rename(tmp.c_str(), fname.c_str());
 		}
