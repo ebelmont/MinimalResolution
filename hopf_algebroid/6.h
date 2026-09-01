@@ -67,15 +67,22 @@ void Hopf_Algebroid<ring,algebroid>::pre_resolution_modeled( comodule_generic<al
 	maps_file.close();
 	
 	for(int i=0; i<=resolution_length; ++i) {
+		//the table file holds one entry per degree in order, so it must be
+		//read every iteration to stay in sync with `i` even when degree i's
+		//resolution work below is being skipped because it was already
+		//completed (and its back<i>/gens<i>/maps<i> files already written)
+		//by an earlier, interrupted run that this call is resuming from
+		table->load(table_file);
+		if(i <= res_start) continue;
+
 		inj->clear();
 		qut->clear();
-		
+
 		//open the file for the maps
 		std::fstream maps_file(filename_maps + std::to_string(i), std::ios::out | std::fstream::binary);
-		
+
 		//do resolution
 		std::cout << "ready to resolve" << i << "/" << resolution_length << "\n" << std::flush;
-		table->load(table_file);
  //		std::cout << table->output() << std::flush;
 		//gens[i+1] holds the model's lookahead choice of generators for the next
 		//stage (used by resolvor_modeled to protect them from deletion); if the

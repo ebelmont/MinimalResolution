@@ -44,11 +44,22 @@ void BPInit::resolve(){
 	std::function<curtis_table<F3>*(int)> tables = [this](int i){
 		return &ResolutionTables[i]; };
 	
-	std::function<vectors<matrix_index,BP>(const vectors<matrix_index,Fp>&)> tfm = [this] (const vectors<matrix_index,Fp>& v){ 
+	std::function<vectors<matrix_index,BP>(const vectors<matrix_index,Fp>&)> tfm = [this] (const vectors<matrix_index,Fp>& v){
 		return BP_oper.lift(v); };
-		
-	BP_oper.pre_resolution_modeled(comod, director + "maps", director + "gens", resolution_length, director+"tables", &ctable, gens, tfm, &inj, &qut, &indj, &new_map, director + "back");
-	
+
+	//resume from the highest-numbered back-up file already on disk (each
+	//back<N> holds the resolved comodule's state *after* degree N was
+	//completed), instead of always starting the resolution over at degree 0
+	std::string back_prefix = director + "back";
+	int res_start = -1;
+	for(int i=0; i<=resolution_length; ++i){
+		std::ifstream back_file(back_prefix + std::to_string(i), std::ios::in | std::ios::binary);
+		if(!back_file.is_open()) break;
+		res_start = i;
+	}
+
+	BP_oper.pre_resolution_modeled(comod, director + "maps", director + "gens", resolution_length, director+"tables", &ctable, gens, tfm, &inj, &qut, &indj, &new_map, back_prefix, res_start);
+
 	//combining generator files
 	BP_oper.gens_file_combiner(director + "gens", resolution_length, comod);
 }
