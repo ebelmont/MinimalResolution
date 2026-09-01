@@ -66,10 +66,22 @@ void BPInit::resolve(){
 
 //construct resolution
 void BPInit::resolution(){
+	//if a complex-of-primitives matrix is already on disk from a prior
+	//completed run, don't rebuild it: this step's only lasting output is
+	//`cpx` (the `res`/`maps`/`gens` files it reads and `mapses` it fills
+	//in are not read by anything downstream -- make_algNov()/make_Boc()
+	//each reload the complex fresh from `cpx` themselves via their own
+	//Complex.load_matrix() calls), so an existing `cpx` means this whole,
+	//expensive step can be skipped entirely
+	std::ifstream cpx_check(director + "cpx", std::ios::in | std::ios::binary);
+	if(cpx_check.is_open() && cpx_check.peek() != std::ifstream::traits_type::eof())
+		return;
+	cpx_check.close();
+
 	//construct the resolution
 	std::fstream outfile("maps.txt", std::ios::out);
 	BP_oper.resolution(director + "maps", director + "gens", director + "res" , resolution_length, comod, &inj, &qut, &indj, NULL);
-	
+
 	//set the matrices
 	mapses.resize(resolution_length + 2);
 	std::function <matrix<Z3>*(int)> mst = [this](int i){
