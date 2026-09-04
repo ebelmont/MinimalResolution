@@ -66,11 +66,23 @@ void BPInit::resolve(){
 
 //construct resolution
 void BPInit::resolution(){
+	//Complex.Maps must hold one allocated matrix<Z3> per resolution degree
+	//before make_algNov()'s Complex.load_matrix() call, whether or not the
+	//expensive rebuild below runs: load_matrix() only fills in already-
+	//existing Maps[i] objects, it doesn't construct them. Cheap (no disk
+	//I/O), so just always do it up front.
+	mapses.resize(resolution_length + 2);
+	std::function <matrix<Z3>*(int)> mst = [this](int i){
+		return &mapses[i]; };
+	Complex.Maps.resize(resolution_length + 1);
+	for(int i=0; i<=resolution_length; ++i)
+		Complex.Maps[i] = mst(i);
+
 	//if a complex-of-primitives matrix is already on disk from a prior
-	//completed run, don't rebuild it: this step's only lasting output is
-	//`cpx` (the `res`/`maps`/`gens` files it reads and `mapses` it fills
-	//in are not read by anything downstream -- make_algNov()/make_Boc()
-	//each reload the complex fresh from `cpx` themselves via their own
+	//completed run, don't rebuild it: this step's only other lasting
+	//output is `cpx` (the `res`/`maps`/`gens` files it reads are not read
+	//by anything downstream -- make_algNov()/make_Boc() each reload the
+	//complex fresh from `cpx` themselves via their own
 	//Complex.load_matrix() calls), so an existing `cpx` means this whole,
 	//expensive step can be skipped entirely
 	std::ifstream cpx_check(director + "cpx", std::ios::in | std::ios::binary);
@@ -82,10 +94,6 @@ void BPInit::resolution(){
 	std::fstream outfile("maps.txt", std::ios::out);
 	BP_oper.resolution(director + "maps", director + "gens", director + "res" , resolution_length, comod, &inj, &qut, &indj, NULL);
 
-	//set the matrices
-	mapses.resize(resolution_length + 2);
-	std::function <matrix<Z3>*(int)> mst = [this](int i){
-		return &mapses[i]; };
 	//construct the complex of primitives
 	Complex.load(resolution_length,director + "gens",director + "res",&inj,&indj,mst);
 	Complex.save_matrix(director + "cpx");
