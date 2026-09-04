@@ -119,38 +119,50 @@ public:
 		return Modop->ringOper->minus(Modop->ringOper->multiply(c_unit, Modop->ringOper->inverse(m_unit)));
 	}
 
-	//simplify a cycle by subtraction boundaries using the data in the table
+	//simplify a cycle by subtraction boundaries using the data in the table.
+	//Iterative, not recursive: this used to call itself once per leading
+	//term canceled, but several locals here (led_name, it, scalar, nc, nt)
+	//have non-trivial destructors that must run after the "recursive" call
+	//returns, so the compiler can't tail-call-optimize it even at -O2 --
+	//each step was a real stack frame. A long enough simplification chain
+	//(observed 8000+ steps at degree 380) overflows the stack and
+	//segfaults partway through, at whatever function happens to touch the
+	//now-unmapped stack memory next (seen both inside table construction
+	//and, confusingly, inside malloc()) -- not a data race, despite the
+	//parallel code nearby. See NOTES.md.
 	cycle_type simplify(typename SS_entry<cycle_name, ring>::value_type& cyc, typename SS_entry<cycle_name, ring>::value_type& htpy, int pric, int depth=0){
-		//if cycle is zero, then it is a boundary
-		if(Modop->isZero(cyc)) return Boundary;
+		while(true){
+			//if cycle is zero, then it is a boundary
+			if(Modop->isZero(cyc)) return Boundary;
 
-		//compute the leading term
-		unsigned led = leading_term(cyc);
-		cycle_name led_name = naming(cyc.dataArray[led].coeficient, cyc.dataArray[led].ind);
+			//compute the leading term
+			unsigned led = leading_term(cyc);
+			cycle_name led_name = naming(cyc.dataArray[led].coeficient, cyc.dataArray[led].ind);
 
-		//if the filtration exceeds the required pricision, then regard it as a boundary
-		if(filtration(led_name)>pric)
-			return Boundary;
+			//if the filtration exceeds the required pricision, then regard it as a boundary
+			if(filtration(led_name)>pric)
+				return Boundary;
 
-		//if not trivial, try to find it in the table
-		auto it = cycle_index.find(led_name);
-		if(it==cycle_index.end()) return NonFound;
+			//if not trivial, try to find it in the table
+			auto it = cycle_index.find(led_name);
+			if(it==cycle_index.end()) return NonFound;
 
-		//if the searched entry is not tagged, then it is a nontrivial cycle
-		auto pas = it->second;
-		if(this->at(pas).tag.second==Invalid) return Untagged;
+			//if the searched entry is not tagged, then it is a nontrivial cycle
+			auto pas = it->second;
+			if(this->at(pas).tag.second==Invalid) return Untagged;
 
-		//then we subtract the tagged entry from the cycle, scaled to exactly
-		//cancel the leading term (see cancel_scalar)
-		auto scalar = cancel_scalar(cyc.dataArray[led].ind, cyc.dataArray[led].coeficient, this->at(pas).full_cycle);
-		auto nc = Modop->scalor_mult(scalar, this->at(pas).full_cycle);
-		auto nt = Modop->scalor_mult(scalar, this->at(pas).full_tag);
+			//then we subtract the tagged entry from the cycle, scaled to exactly
+			//cancel the leading term (see cancel_scalar)
+			auto scalar = cancel_scalar(cyc.dataArray[led].ind, cyc.dataArray[led].coeficient, this->at(pas).full_cycle);
+			auto nc = Modop->scalor_mult(scalar, this->at(pas).full_cycle);
+			auto nt = Modop->scalor_mult(scalar, this->at(pas).full_tag);
 
-		cyc = Modop->add(std::move(cyc),std::move(nc));
-		htpy = Modop->add(std::move(htpy),std::move(nt));
+			cyc = Modop->add(std::move(cyc),std::move(nc));
+			htpy = Modop->add(std::move(htpy),std::move(nt));
 
-		//then simplify the subtracted cycle
-		return simplify(cyc,htpy,pric,depth+1);
+			//then simplify the subtracted cycle
+			++depth;
+		}
 	}
         
 	//clear the table
