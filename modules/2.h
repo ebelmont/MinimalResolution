@@ -105,11 +105,94 @@ public:
 	//add to a dense vector
 	void add2Dense(R c, std::vector<R> &y, RingOp<R> *ringop){
 		if(size()==0) return;
+		//mirrors scalor_mult's own early-out (modules/3.h): when the scalar
+		//is zero, every one of this row's terms would multiply out to zero
+		//and then no-op-add back into `y` -- but without this check, that
+		//"no-op" still executes a real ringop->add(y[ind], zero) per term,
+		//and add()'s zero-branch returns its non-zero argument BY VALUE
+		//from a const-ref, forcing a full copy-construction of whatever
+		//(possibly multi-term) ring element already sits at y[ind] -- for
+		//every term, on every call, useful or not. Measured directly (see
+		//NOTES.md's gaussian_workvisits entry): the vast majority of calls
+		//have c==0 (rows with no actual interaction with this pivot), so
+		//skipping the whole loop here removes that vast majority of the
+		//accumulate phase's cost in one O(1) check, same as the old
+		//take_away/scalor_mult path already did.
+		if(ringop->isZero(c)) return;
 		if(dataArray[size()-1].ind >= y.size())
 			std::cerr << "aout:" << dataArray[size()-1].ind << "/" << y.size() << std::flush;
+		//NOTE: tried `std::move`-ing both arguments here to select `add`'s
+		//destructive overload instead of the copying one (hypothesis: avoid
+		//a needless copy-construction on every call) -- measured a small
+		//net REGRESSION at degree 270 (see NOTES.md), not the expected win.
+		//Root cause understood, not just abandoned: the per-*term* payload
+		//at this level (a `term<exponent,Z3>` inside a BP polynomial) is a
+		//trivial POD, so copy vs. move of a term is free either way; the
+		//real remaining cost is `add()`'s own `result.dataArray.reserve(...)`
+		//-- ONE fresh heap allocation per call for the *whole merged
+		//vector's backing storage*, paid identically by both overloads,
+		//not something overload choice touches. Actually eliminating it
+		//would mean reusing a scratch buffer *inside* `add()` itself
+		//(shared, generic code used everywhere in the codebase -- exactly
+		//the "higher risk, touches shared code" fix flagged as a last
+		//resort) -- not attempted this session, left for a future one that
+		//wants to take that risk deliberately.
 		for(unsigned i=0; i<size(); ++i){
 			R nf = ringop->multiply(c, dataArray[i].coeficient);
 			y[(unsigned) dataArray[i].ind] = ringop->add(y[(unsigned) dataArray[i].ind], nf);
+		}
+	}
+
+	//like add2Dense, but for a nonzero scalar also appends every touched
+	//column index (this row's own dataArray indices) into `touched` --
+	//same single pass, no second scan. Lets a caller build a per-*row*
+	//touched-column set sized to the actual useful work done on that row
+	//(sum of the densities of only the pivots that had a nonzero
+	//coefficient against it), instead of a whole block's shared union
+	//that every row would otherwise pay for regardless of how much of it
+	//actually applied to that particular row (see matrices_mem/4.h's
+	//gaussian(), the per-row trailing loop). Zero-scalar calls still
+	//short-circuit exactly as in add2Dense -- they touch nothing and add
+	//nothing to `touched`.
+	void add2DenseTracked(R c, std::vector<R> &y, RingOp<R> *ringop, std::vector<index> &touched){
+		if(size()==0) return;
+		if(ringop->isZero(c)) return;
+		for(unsigned i=0; i<size(); ++i){
+			R nf = ringop->multiply(c, dataArray[i].coeficient);
+			y[(unsigned) dataArray[i].ind] = ringop->add(y[(unsigned) dataArray[i].ind], nf);
+			touched.push_back(dataArray[i].ind);
+		}
+	}
+
+	//change back from a dense vector into this, like deDense, but (a) moves
+	//each nonzero entry's payload out of `y` instead of copying it, and (b)
+	//resets exactly the entries it takes back to a default-constructed
+	//(zero) R, combining deDense's job with the reset a caller reusing `y`
+	//as a scratch buffer for the next vector would otherwise need as a
+	//separate pass. Merges two already-sorted candidate lists of indices
+	//that could be nonzero (rather than requiring the caller to pre-merge
+	//them, or scanning the whole buffer) -- needed because `y`'s rank can
+	//be much larger than either list (a real case in practice --
+	//del_and_gaussian's column space can be several times the row count,
+	//see `matrices_mem/4.h`'s `gaussian()`). Correct with duplicates within
+	//or across the two lists: the first occurrence of an index that's
+	//still nonzero extracts it and zeroes `y` there, so a later duplicate
+	//sees zero and is skipped. Result terms come out in sorted order
+	//(required: `a` and `b` must each be sorted on input).
+	void deDenseFromSortedUnion(std::vector<R> &y, RingOp<R> *ringop, std::vector<index> const &a, std::vector<index> const &b){
+		clear();
+		size_t i = 0, j = 0;
+		while(i < a.size() || j < b.size()){
+			index idx;
+			if(i < a.size() && (j >= b.size() || a[i] <= b[j])) idx = a[i];
+			else idx = b[j];
+			if(i < a.size() && a[i] == idx) ++i;
+			if(j < b.size() && b[j] == idx) ++j;
+			if(!ringop->isZero(y[idx])){
+				term newTerm(idx, std::move(y[idx]));
+				push(std::move(newTerm));
+				y[idx] = R();
+			}
 		}
 	}
 };
