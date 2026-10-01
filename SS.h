@@ -119,6 +119,54 @@ public:
 		return Modop->ringOper->minus(Modop->ringOper->multiply(c_unit, Modop->ringOper->inverse(m_unit)));
 	}
 
+	//The residue variant of cancel_scalar, used by name_of_cycle().
+	//
+	//naming() records only a coefficient's VALUATION (as a v0-power) and
+	//discards its unit, so the named basis is the associated graded of the
+	//algebraic Novikov filtration and a named term's coefficient lives in
+	//F_p, not in the full ring. Cancelling the whole leading coefficient
+	//(cancel_scalar) is correct linear algebra over Z/p^k but wrong for
+	//that basis: it removes the unit's entire value instead of its residue
+	//mod p, so the F_p coefficient is lost and the remainder -- which
+	//belongs to higher v0-powers and should resurface as its own named
+	//term -- gets cancelled away with it.
+	//
+	//Subtracting r*matched, where r is the ratio's residue mod p, instead
+	//leaves a strictly higher valuation, exactly as repeated unscaled
+	//subtraction used to do implicitly before cancel_scalar was introduced
+	//(the multiplicity that encoded the coefficient in the output files was
+	//an emergent property of that loop, never a documented one).
+	//
+	//Returns {scalar to add, r}: the caller adds scalar*matched and records
+	//the leading name r times, r being the term's F_p coefficient.
+	std::pair<ring, unsigned> cancel_residue(matrix_index ind, const ring &coef, typename SS_entry<cycle_name, ring>::value_type &matched){
+		auto matched_coef = Modop->component(ind, matched);
+		unsigned val = Modop->ringOper->valuation(coef);
+		auto c_unit = Modop->ringOper->divide(coef, val);
+		auto m_unit = Modop->ringOper->divide(matched_coef, val);
+		if(!Modop->ringOper->invertible(m_unit)){
+			std::cerr << "cancel_residue: valuation mismatch -- ind=" << ind
+				<< " coef=" << Modop->ringOper->output(coef)
+				<< " (val=" << val << ")"
+				<< " matched_coef=" << Modop->ringOper->output(matched_coef)
+				<< " (val=" << Modop->ringOper->valuation(matched_coef) << ")"
+				<< "\n" << std::flush;
+		}
+		auto ratio = Modop->ringOper->multiply(c_unit, Modop->ringOper->inverse(m_unit));
+		//find r with valuation(ratio - r) >= 1, i.e. r == ratio mod p. The
+		//bound is a guard, not a real limit: r < p always.
+		for(unsigned r=1; r<64; ++r){
+			auto probe = Modop->ringOper->unit((int)r);
+			auto diff = Modop->ringOper->add(ratio, Modop->ringOper->minus(probe));
+			if(Modop->ringOper->isZero(diff) || Modop->ringOper->valuation(diff) >= 1)
+				return std::make_pair(Modop->ringOper->minus(probe), r);
+		}
+		std::cerr << "cancel_residue: no residue r<64 with valuation(ratio-r)>=1 "
+			"-- ratio=" << Modop->ringOper->output(ratio) << " is not a unit of a "
+			"small-residue-field ring, which this naming scheme assumes\n" << std::flush;
+		std::abort();
+	}
+
 	//simplify a cycle by subtraction boundaries using the data in the table.
 	//Iterative, not recursive: this used to call itself once per leading
 	//term canceled, but several locals here (led_name, it, scalar, nc, nt)
@@ -444,23 +492,31 @@ public:
 					else{
 						if(filtration(next_table->at(ot->second).cycle)<pric && check_cycle)
 							std::cerr << "invalid table!";
-						//subtract the full tag, scaled to cancel the leading term exactly (see cancel_scalar)
-						auto scalar = next_table->cancel_scalar(v.dataArray[led].ind, v.dataArray[led].coeficient, next_table->at(ot->second).full_tag);
-						v = Modop->add(v, Modop->scalor_mult(scalar, next_table->at(ot->second).full_tag));
-						//add the information of the tag
-						tgs.push_back(leading_name);
+						//subtract r copies of the full tag, r being the
+						//leading coefficient's residue mod p -- NOT the whole
+						//coefficient, see cancel_residue
+						auto cr = next_table->cancel_residue(v.dataArray[led].ind, v.dataArray[led].coeficient, next_table->at(ot->second).full_tag);
+						v = Modop->add(v, Modop->scalor_mult(cr.first, next_table->at(ot->second).full_tag));
+						//record the tag once per unit of its F_p coefficient
+						for(unsigned i=0;i<cr.second;++i)
+							tgs.push_back(leading_name);
 					}
 				}
 			}
 			else {
-				//when find it in the cycle list, modify the vector, scaled to cancel the leading term exactly (see cancel_scalar)
-				auto scalar = cancel_scalar(v.dataArray[led].ind, v.dataArray[led].coeficient, this->at(it->second).full_cycle);
-				v = Modop->add(v, Modop->scalor_mult(scalar, this->at(it->second).full_cycle));
-				//if it is untagged, mark as cycle, otherwise mark as boundary
-				if(!tagged(this->at(it->second))) 
-					cycs.push_back(leading_name);
-				else 
-					bdrs.push_back(leading_name);
+				//when found in the cycle list, subtract r copies, r being the
+				//leading coefficient's residue mod p -- NOT the whole
+				//coefficient, see cancel_residue
+				auto cr = cancel_residue(v.dataArray[led].ind, v.dataArray[led].coeficient, this->at(it->second).full_cycle);
+				v = Modop->add(v, Modop->scalor_mult(cr.first, this->at(it->second).full_cycle));
+				//if it is untagged, mark as cycle, otherwise mark as boundary,
+				//once per unit of its F_p coefficient
+				for(unsigned i=0;i<cr.second;++i){
+					if(!tagged(this->at(it->second)))
+						cycs.push_back(leading_name);
+					else
+						bdrs.push_back(leading_name);
+				}
 			}
 		}
 		return std::make_tuple(tgs,bdrs,cycs);
