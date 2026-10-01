@@ -409,13 +409,38 @@ public:
 			
 			if(it == cycle_index.end()){
 				//when the leading term is not a cycle, try it with the next table
-				if(next_table == NULL)
-					std::cerr << "invalid table!:end of table";
+				if(next_table == NULL){
+					//nothing left to consult and the leading term isn't a
+					//cycle here -- this used to just print and fall through,
+					//leaving `v` unchanged, so the enclosing while(!isZero(v))
+					//loop re-hit the exact same leading term forever: an
+					//infinite loop whose only visible symptom was unbounded
+					//"invalid table!:..." spam to stderr. Not a transient/
+					//retryable condition -- the table this search depends on
+					//is genuinely missing this candidate -- so abort loudly
+					//instead of spinning.
+					std::cerr << "name_of_cycle: leading term gen_ind=" << leading_name.second
+						<< " (filtration=" << filtration(leading_name) << ", pric="
+						<< pric << ") is not a cycle and there is no next table "
+						"to check as a tag -- the table this search depends on "
+						"is incomplete for this candidate.\n" << std::flush;
+					std::abort();
+				}
 				else{
 					//try to find the leading term as a tag
 					auto ot = next_table->tag_index.find(leading_name);
-					if(ot == next_table->tag_index.end())
-						std::cerr << "invalid table!: no such tag";
+					if(ot == next_table->tag_index.end()){
+						//same non-terminating fall-through as the NULL-table
+						//branch above, just one table further out -- see that
+						//branch's comment.
+						std::cerr << "name_of_cycle: leading term gen_ind=" << leading_name.second
+							<< " (filtration=" << filtration(leading_name) << ", pric="
+							<< pric << ") is not a cycle here and not a tag in "
+							"the next table either -- the table this search "
+							"depends on is incomplete for this candidate.\n"
+							<< std::flush;
+						std::abort();
+					}
 					else{
 						if(filtration(next_table->at(ot->second).cycle)<pric && check_cycle)
 							std::cerr << "invalid table!";
