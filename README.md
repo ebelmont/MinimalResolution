@@ -25,6 +25,23 @@ is the correct answer for this target.
 The second argument L to `mr_BP` caps only the ANSS filtration s, so the
 output is complete for s ≤ L − 1 in every stem up to the maximum degree.
 
+**Interpreting the output.** The raw `<deg>_BP*.txt` tables name classes by
+leading terms in the algebraic Novikov and Bockstein bases, which is hard to
+read directly. `scripts/convert_e5.py` turns them into a rank table
+(`E5_rank.csv`) and alpha<sub>1</sub> and beta-family product tables
+(`E5_*_products.csv`), with classes named `stem_s_index`. At p = 3 the ANSS
+E<sub>2</sub> page equals E<sub>5</sub>, which is where the names come from.
+
+    python3 scripts/convert_e5.py DIR [OUT_DIR] --ext-mod-3-40
+
+`--ext-mod-3-40` restricts to the first copy, the image of Ext(BP<sub>*</sub>)
+in Ext(BP<sub>*</sub>/3<sup>40</sup>), so the result can be compared with
+Ext(BP<sub>*</sub>) data. `--full-ext` keeps the unprojected output. One of
+the two flags is required; with neither, the script exits without writing
+anything. Output CSVs go directly into OUT_DIR (default: DIR). Beta product
+tables are normalised so that beta<sub>n</sub> · 1 is the class named for
+beta<sub>n</sub>.
+
 ******************************************************************************************************
 
 The algorithm is explained in the pdf file MinimalResolution.pdf
