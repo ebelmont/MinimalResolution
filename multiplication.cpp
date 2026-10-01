@@ -225,8 +225,18 @@ multiplication_table<cycle_name> multiplication::three_extension(SS_table<cycle_
 	for(auto &tm : cur_table){
 		//skip invalid entries
 		if(!cur_table.valid(tm.cycle)) continue;
-		//skip the tagged entries
-		if(cur_table.tagged(tm)) continue;
+		//Used to also skip tagged (differential-target) entries here. For
+		//algNov_table that's harmless (only permanent-cycle names are ever
+		//looked up downstream, since deg_table/BPAANSS_table.txt only lists
+		//permanent cycles), but for Boc_table it silently left every
+		//differential target with no "multiply by 3" entry in
+		//BPBocSS_a0.txt at all -- delta() needs exactly that (the target of
+		//a Bockstein differential, y in `y <- x | dr`, is itself frequently
+		//v0-divisible and needs dividing before B2A can translate it).
+		//Confirmed by build+run test (degree 20 repro): removing this skip
+		//adds only new a0 entries -- every entry present before is
+		//byte-identical after, both for algNov_table's own a0.txt and for
+		//Boc_table's. See NOTES.md.
 		//compute the multiplication of the cycle by 3
 		auto v = cur_table.Modop->scalor_mult(three, tm.full_cycle);
 		//compute the name of the result

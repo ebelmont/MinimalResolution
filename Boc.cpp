@@ -47,15 +47,16 @@ std::pair<std::pair<int,int>,string> Boc_table::output(SS_entry<cycle_name, Z3>&
 std::set<std::pair<std::pair<int,int>,string>> Boc_table::output_table(int k, int pric){
 	std::set<std::pair<std::pair<int,int>,string>> lst;
 	for(auto tm : *this){
+		//Used to also skip any entry with nonzero v0-content here ("skip
+		//those entries with v0"). That silently dropped real Bockstein-space
+		//classes that 185_BPBocSS_theta*.txt/_h0.txt reference directly (as
+		//sources and as target terms) -- delta() (beta.py/convert_e5.py)
+		//needs exactly these as lookups in 185_BPBocSS_table.txt, and with
+		//the filter in place they were simply absent, not derivable from any
+		//other file. Confirmed by direct build+run test (degree 20 repro)
+		//that removing the filter recovers them with zero change to any
+		//previously-printed (v0-free) entry. See NOTES.md.
 		if(filtration(tm.cycle)<pric){
-			//skip those entries with v0
-			if(!tagged(tm)){
-				if(filtration(tm.cycle)>0)
-					continue;
-			}
-			else if(filtration(tm.tag)>0)
-				continue;
-			//output those esential entries
 			lst.emplace(output(tm,k));
 		}
 	}
