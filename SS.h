@@ -99,19 +99,27 @@ public:
 	ring cancel_scalar(matrix_index ind, const ring &coef, typename SS_entry<cycle_name, ring>::value_type &matched){
 		auto matched_coef = Modop->component(ind, matched);
 		unsigned val = Modop->ringOper->valuation(coef);
-		//val>=40 means coef's true valuation exceeds what Z/3^40 (Z3.cpp's
-		//MAX3=3^40) can represent -- it should be structurally impossible
-		//to reach this once every pric passed into this table search is
-		//clamped to Z3_Op::MAX_VALUATION (BP_init.cpp), since the caller's
-		//filtration(led_name)>pric check (this->simplify(), just below)
-		//stops the search before a candidate this deep is ever named. If
-		//this ever fires, some pric wasn't clamped and the search is about
-		//to silently manufacture a bogus generator -- see NOTES.md "the
-		//v0>=40 bug" / "2026-09-10: correction".
-		if(val > Z3_Op::MAX_VALUATION)
+		//val>=40 means coef's true v0-valuation exceeds what Z/3^40
+		//(Z3.cpp's MAX3=3^40) can represent -- dividing out p^val below
+		//(divide()) would silently return 0 instead of the correct value
+		//(Z3.cpp: power_p(n>=40)==0), and the search would go on to
+		//manufacture a bogus "surviving" generator instead of correctly
+		//cancelling (the original "v0>=40 bug", NOTES.md). pric is a bound
+		//on total algebraic-Novikov filtration (v0- and v1,v2,...-power
+		//combined) and is deliberately NOT clamped to MAX_VALUATION (that
+		//wrongly truncated genuine high-v1-power towers with zero v0
+		//content -- see NOTES.md "pric conflated total filtration with v0
+		//precision"), so this really is the only place true v0-precision
+		//overflow can be caught, and it must hard-stop, not just warn: a
+		//printed table with a v0>=40 entry is silently wrong, not partially
+		//useful.
+		if(val > Z3_Op::MAX_VALUATION){
 			std::cerr << "cancel_scalar: valuation " << val << " exceeds Z3's "
 				"precision ceiling (Z3_Op::MAX_VALUATION=" << Z3_Op::MAX_VALUATION
-				<< ") -- some pric wasn't clamped, see NOTES.md\n" << std::flush;
+				<< ") -- this run genuinely needs more v0 precision than Z3 has, "
+				"see NOTES.md\n" << std::flush;
+			std::abort();
+		}
 		auto c_unit = Modop->ringOper->divide(coef, val);
 		auto m_unit = Modop->ringOper->divide(matched_coef, val);
 		//the shared-valuation guarantee above is only a documented invariant,
@@ -156,6 +164,14 @@ public:
 	std::pair<ring, unsigned> cancel_residue(matrix_index ind, const ring &coef, typename SS_entry<cycle_name, ring>::value_type &matched){
 		auto matched_coef = Modop->component(ind, matched);
 		unsigned val = Modop->ringOper->valuation(coef);
+		//same precision ceiling as cancel_scalar -- see its comment
+		if(val > Z3_Op::MAX_VALUATION){
+			std::cerr << "cancel_residue: valuation " << val << " exceeds Z3's "
+				"precision ceiling (Z3_Op::MAX_VALUATION=" << Z3_Op::MAX_VALUATION
+				<< ") -- this run genuinely needs more v0 precision than Z3 has, "
+				"see NOTES.md\n" << std::flush;
+			std::abort();
+		}
 		auto c_unit = Modop->ringOper->divide(coef, val);
 		auto m_unit = Modop->ringOper->divide(matched_coef, val);
 		if(!Modop->ringOper->invertible(m_unit)){
@@ -266,10 +282,17 @@ public:
 	}
 	
 	//output the table, k indicates the homological degree
+	//pric is inclusive here (a cycle at filtration exactly pric is still
+	//within the search's own valid range -- cycle_pot() generates
+	//candidates for filtration in [0,pric] via `j+l<=pric`, and simplify()
+	//only auto-discards as a boundary once filtration *exceeds* pric
+	//(`>pric`, just above). A strict `<pric` here silently dropped a
+	//genuinely-found surviving cycle at filtration==pric from the printed
+	//table -- see NOTES.md "off-by-one in output()'s pric cutoff".
 	virtual std::set<std::pair<std::pair<int,int>,string>> output(int k, int pric){
 		std::set<std::pair<std::pair<int,int>,string>> lst;
 		for(auto tm : *this){
-			if((tm.tag.second==Invalid || diff_length(tm)!=0) && filtration(tm.cycle)<pric)
+			if((tm.tag.second==Invalid || diff_length(tm)!=0) && filtration(tm.cycle)<=pric)
 				lst.emplace(output(tm,k));
 		}
 		return lst;
@@ -463,8 +486,11 @@ public:
 			//find the leading term
 			unsigned led = leading_term(v);
 			cycle_name leading_name = naming(v.dataArray[led].coeficient, v.dataArray[led].ind);
-			//if arrive at the desired pricision then return
-			if(filtration(leading_name)>=pric) break;
+			//if arrive at the desired pricision then return. Strict >pric
+			//(not >=), matching cycle_pot/simplify's inclusive convention
+			//(valid filtration range is [0,pric]) -- see output()'s comment
+			//above and NOTES.md "off-by-one in output()'s pric cutoff".
+			if(filtration(leading_name)>pric) break;
 			
 			//find the entry for the leading term,
 			auto it = cycle_index.find(leading_name);

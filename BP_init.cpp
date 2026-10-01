@@ -130,10 +130,15 @@ void BPInit::load_gens(string gens_data){
 void BPInit::make_algNov(){
 	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
 
-	//the v0-power search/cancellation depth (pric) must be capped at what
-	//Z3 (Z/3^40) can actually distinguish from zero, not resolution_length
-	//-- see Z3_Op::MAX_VALUATION and NOTES.md "2026-09-10: correction".
-	int pric = std::min(resolution_length, (int)Z3_Op::MAX_VALUATION);
+	//pric bounds total algebraic-Novikov filtration search depth (v0- AND
+	//v1,v2,...-power combined) -- unrelated to Z3's own v0-only precision
+	//ceiling, so it must NOT be clamped to Z3_Op::MAX_VALUATION (that
+	//wrongly truncated genuine high-v1-power towers with zero v0 content;
+	//see NOTES.md "pric conflated total filtration with v0 precision").
+	//The actual v0-precision guard lives in cancel_scalar (SS.h), which
+	//checks the real v0 valuation directly and hard-aborts if it would
+	//exceed Z3_Op::MAX_VALUATION.
+	int pric = resolution_length;
 
 	AANtables.table_of_complex(Complex,pric,director + "AANback");
 	AANtables.save(director + "AANSS_table_binary");
@@ -150,7 +155,7 @@ void BPInit::make_Boc(){
 	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
 
 	//see make_algNov's comment on pric vs resolution_length
-	int pric = std::min(resolution_length, (int)Z3_Op::MAX_VALUATION);
+	int pric = resolution_length;
 
 	Btables.table_of_complex(Complex,pric);
 	Btables.save(director + "BocSS_table_binary");
@@ -178,11 +183,9 @@ void BPInit::mult_table(BPBP const &mul, int deg, string filename){
 	//make the multiplication table on BPBP
 	multp.make_eta_R_multiplier(mul, &inj, deg);
 	//compute the table for the multiplication on algebraic Novikov spectral sequence.
-	//pric here is NOT fixed (fixedpric defaults false), so mult_extension
-	//computes cpric=pric-i per resolution step -- must clamp the same way
-	//as make_algNov/make_Boc, or it re-exposes the v0>=40 bug (the Bockstein
-	//call just below already passes a small fixed pric=1 and is unaffected).
-	int pric = std::min(resolution_length, (int)Z3_Op::MAX_VALUATION);
+	//see make_algNov's comment on pric vs resolution_length -- not the
+	//Z3 precision ceiling, which cancel_scalar guards independently.
+	int pric = resolution_length;
 	auto multable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, AANtables, &indj, &mm, pric);
 	//output the table
 	std::fstream file(director + "AANSS_" + filename, std::ios::out);
