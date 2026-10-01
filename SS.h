@@ -345,6 +345,14 @@ public:
 				for(auto it = pot.rbegin(); it != pot.rend(); it++){
 					//get the canditate of the cycle
 					auto vs = get_tag(*it);
+					//a candidate whose tag vector is genuinely zero (e.g. a
+					//manufactured v0^j-multiple candidate with j beyond the
+					//ring's precision, so its coefficient reduced to 0) is
+					//the zero module element -- not a cycle, not a boundary,
+					//not any class at all. Recording it (as either branch
+					//below would) manufactures a fake surviving generator
+					//labeled with the raw, unbounded candidate name.
+					if(Modop->isZero(vs)) continue;
 					//get the boundary of the canditate
 					auto bs = M->maps_to(vs);
 

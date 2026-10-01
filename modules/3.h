@@ -68,8 +68,15 @@ public:
 	//load the vector
 	virtual vectors<index,R> load(std::iostream& reader);
 			
-	//construct a vector with a single entry
+	//construct a vector with a single entry. A zero coefficient produces
+	//the true (empty) zero vector rather than a structurally-nonempty
+	//vector holding a zero value -- otherwise isZero() (which only checks
+	//dataArray.empty(), not each entry's value) wrongly reports such a
+	//vector as nonzero. Mirrors the same check already in scalor_mult()
+	//above.
 	virtual vectors<index,R> singleton(index e, const R &r){
+		if(ringOper->isZero(r))
+			return zero();
 		vectors<index,R> result;
 		result.push(typename vectors<index,R>::term(e,r));
 		return result;
