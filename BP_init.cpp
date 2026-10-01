@@ -1,5 +1,6 @@
 //BP_init.cpp
 #include"BP_init.h"
+#include<limits>
 #include<algorithm>
 
 //initialize a generic comodule
@@ -126,6 +127,17 @@ void BPInit::load_gens(string gens_data){
 	}
 }
 
+//No cap on the algebraic Novikov filtration f (total power of v0,v1,v2,...
+//in a class's leading monomial): every class with s < resolution_length and
+//t <= max_degree is searched and printed. The cap used to be
+//resolution_length - s, i.e. on s+f rather than on s, which silently dropped
+//classes with t and s in range but large f (e.g. v1^40[1-0] at
+//(stem,s)=(163,1) with resolution_length 40). t already bounds the
+//v1,v2,... part and Z3's precision (Z3_Op::MAX_VALUATION) bounds the v0 part.
+//The filtration-limit parameters themselves stay because the Bockstein
+//product tables use them for real (limit 0, in mult_table/mult_theta).
+static const int NO_FILTRATION_LIMIT = std::numeric_limits<int>::max();
+
 //make algebraic Novikov table
 void BPInit::make_algNov(){
 	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
@@ -138,16 +150,16 @@ void BPInit::make_algNov(){
 	//The actual v0-precision guard lives in cancel_scalar (SS.h), which
 	//checks the real v0 valuation directly and hard-aborts if it would
 	//exceed Z3_Op::MAX_VALUATION.
-	int pric = resolution_length;
+	int pric = NO_FILTRATION_LIMIT;
 
 	AANtables.table_of_complex(Complex,pric,director + "AANback");
 	AANtables.save(director + "AANSS_table_binary");
 	std::fstream atb(director + "AANSS_table.txt", std::ios::out);
-	atb << AANtables.output_tables();
+	atb << AANtables.output_tables(pric);
 
 	auto et2 = multp.three_extension(resolution_length,Complex,AANtables,pric);
 	std::fstream a0f(director + "AANSS_a0.txt", std::ios::out);
-	a0f << multp.output_multiplication_table(et2,0,resolution_length-1);
+	a0f << multp.output_multiplication_table(et2,0,pric);
 }
 
 //make Bockstein table
@@ -155,20 +167,20 @@ void BPInit::make_Boc(){
 	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
 
 	//see make_algNov's comment on pric vs resolution_length
-	int pric = resolution_length;
+	int pric = NO_FILTRATION_LIMIT;
 
 	Btables.table_of_complex(Complex,pric);
 	Btables.save(director + "BocSS_table_binary");
 	std::fstream btb(director + "BocSS_table.txt", std::ios::out);
-	btb << Btables.output_tables();
+	btb << Btables.output_tables(pric);
 
 	auto ba = Btables.Bname2Anames(resolution_length, AANtables, pric);
 	std::fstream b2a(director + "B2A_table.txt", std::ios::out);
-	b2a << multp.output_multiplication_table(ba,0,resolution_length-1);
+	b2a << multp.output_multiplication_table(ba,0,pric);
 
 	auto et2 = multp.three_extension(resolution_length,Complex,Btables,pric);
 	std::fstream a0f(director + "BocSS_a0.txt", std::ios::out);
-	a0f << multp.output_multiplication_table1(et2,0,resolution_length-1);
+	a0f << multp.output_multiplication_table1(et2,0,pric);
 }
 
 //make the algebraic Novikov multiplication table by a given element in BPBP
@@ -185,18 +197,18 @@ void BPInit::mult_table(BPBP const &mul, int deg, string filename){
 	//compute the table for the multiplication on algebraic Novikov spectral sequence.
 	//see make_algNov's comment on pric vs resolution_length -- not the
 	//Z3 precision ceiling, which cancel_scalar guards independently.
-	int pric = resolution_length;
+	int pric = NO_FILTRATION_LIMIT;
 	auto multable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, AANtables, &indj, &mm, pric);
 	//output the table
 	std::fstream file(director + "AANSS_" + filename, std::ios::out);
-	file << multp.output_multiplication_table(multable, 1, resolution_length-2);
+	file << multp.output_multiplication_table(multable, 1, pric);
 	//compute the table for the multiplication on Bockstein spectral sequence.
 	//Limit 0 (inclusive, like every pric): name products through v0-power 0
 	//only, i.e. the action on the Bockstein E_1 = Ext(BP_*/3).
 	auto Bmultable = multp.mult_extension1(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 0, true);
 	//output the table
 	std::fstream fileB(director + "BocSS_" + filename, std::ios::out);
-	fileB << multp.output_multiplication_table(Bmultable, 1, resolution_length-2);
+	fileB << multp.output_multiplication_table(Bmultable, 1, NO_FILTRATION_LIMIT);
 }
 
 //make multiplication table for top theta on the Moore spectrum
@@ -226,7 +238,7 @@ void BPInit::mult_theta(int resolution_length){
 		auto Bmultable = multp.mult_extension(&inj, max_degree-deg[i-2], resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 0, true);
 		//output the table
 		std::fstream fileB(director + "BocSS_theta" + std::to_string(i) + ".txt", std::ios::out);
-		fileB << multp.output_multiplication_table(Bmultable, 1, resolution_length+1); // EB: the last argument here is 1 + the last homological degree where theta products are recorded in the output files ...theta2.txt, etc.
+		fileB << multp.output_multiplication_table(Bmultable, 1, NO_FILTRATION_LIMIT); // EB: the last argument here is 1 + the last homological degree where theta products are recorded in the output files ...theta2.txt, etc. [It is actually a filtration cutoff on the multiplied class; see NO_FILTRATION_LIMIT.]
 	}
 }
 

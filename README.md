@@ -22,6 +22,9 @@ in Ext(BP<sub>*</sub>/3<sup>40</sup>), once as its image and once as a
 of Ext(BP<sub>*</sub>), with v<sub>0</sub>-towers of height up to 40, and that
 is the correct answer for this target.
 
+The second argument L to `mr_BP` caps only the ANSS filtration s, so the
+output is complete for s ≤ L − 1 in every stem up to the maximum degree.
+
 ******************************************************************************************************
 
 The algorithm is explained in the pdf file MinimalResolution.pdf

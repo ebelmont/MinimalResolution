@@ -139,7 +139,9 @@ std::set<cycle_name> algNov_table::cycle_pot(int pric, const std::vector<unsigne
 		auto s = naming(Z3Oper->unit(1), i, *Ptag);
 		//compute the filtration
 		int l = filtration(s);
-		for(int j=0; j+l<=pric; ++j){
+		//j is the v0-power: never past Z3's precision (a v0^j multiple with
+		//j > MAX_VALUATION is exactly zero and would just be skipped later)
+		for(int j=0; j+l<=pric && j<=(int)Z3_Op::MAX_VALUATION; ++j){
 			//construct ((l+j, j, v1^e1, ...), gen_ind)
 			s.first[0] = j+l;
 			s.first[1] = j;
@@ -321,34 +323,19 @@ void  algNov_tables::table_of_complex(BPComplex& Comp, int pric, string back_up_
 	//construct tables
 	for(unsigned i=start; i<Comp.size(); ++i){
 		std::cout << "\n" << "table:" << i << "\n" << std::flush;
-		//this table's own search budget: `pric-i` reused the pre-fix
-		//meaning of `pric` (== resolution_length, so pric-i was really
-		//"resolution steps remaining"), but callers now pass the
-		//Z3_Op::MAX_VALUATION-clamped ring-precision ceiling as `pric`
-		//instead (see NOTES.md "2026-09-10: correction") -- decrementing
-		//*that* by i re-shrinks an already-clamped ring bound by
-		//homological degree, which is a different, unrelated quantity, and
-		//wrongly excises real surviving generators once i approaches pric
-		//(see NOTES.md's `three_extension`/`pric-i` entry). Comp.size()
-		//is this table_of_complex's resolution_length (Complex.load_matrix
-		//is called with resolution_length, giving Comp this many entries),
-		//so min(Comp.size()-i, pric) reproduces the old pric-i exactly
-		//when pric was still unclamped (pric==Comp.size()), and otherwise
-		//correctly stays at the ring ceiling instead of shrinking with i.
-		int table_pric = std::min((int)Comp.size()-(int)i, pric);
+		//no filtration cap at any homological degree (see BP_init.cpp's
+		//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.
+		int table_pric = pric;
 
 		//pre-warm the power_p cache serially, before make_table's parallel
 		//region: Z3Oper is one object shared by every algNov_table/
 		//Boc_table, and its power_p_cache (Z3.h) is a plain std::vector,
 		//grown in place by push_back -- safe to call concurrently only
 		//once every index it will ever be asked for during this table's
-		//build is already present, since a v0-exponent or valuation used
-		//by naming()/make_vec()/cancel_scalar() can never exceed this
-		//table's own pric (the algorithm's existing filtration-vs-pric
-		//invariant, not a new one introduced by parallelism). Once warmed
-		//to pric, power_p(n<=pric) is a pure read of an already-sized
-		//vector, safe for concurrent callers.
-		algNov_table::Z3Oper->power_p(table_pric);
+		//build is already present. power_p answers n > MAX_VALUATION with 0
+		//without touching the cache, so warming to MAX_VALUATION makes every
+		//later call a pure read, safe for concurrent callers.
+		algNov_table::Z3Oper->power_p(std::min(table_pric, (int)Z3_Op::MAX_VALUATION));
 		tables[i]->make_table(table_pric,Comp.Maps[i],*tables[i-1]);
 
 		//checkpoint tables[i-1] (now finalized) and tables[i] (current)
@@ -384,11 +371,11 @@ void  algNov_tables::table_of_complex(BPComplex& Comp, int pric, string back_up_
 }
 
 //out put the algebraic Novikov table
-string algNov_tables::output_tables(){
+string algNov_tables::output_tables(int pric){
 	string res;
 	std::set<std::pair<std::pair<int,int>,string>> lst;
 	for(unsigned i=0; i<tables.size(); ++i){
-		auto jst = tables[i]->output_table(i,tables.size()-i-1);
+		auto jst = tables[i]->output_table(i,pric);
 		for(auto sm: jst)
 			lst.insert(sm);
 	}

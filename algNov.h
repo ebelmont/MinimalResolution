@@ -103,7 +103,7 @@ public:
 	//already present on disk.
 	void table_of_complex(BPComplex&,int pric, string back_up_prefix="");
 	//output the table
-	string output_tables();
+	string output_tables(int pric);
 	//IO operations
 	void save(std::iostream&);
 	void load(std::iostream&);

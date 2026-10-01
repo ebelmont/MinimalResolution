@@ -126,12 +126,9 @@ std::vector<multiplication_table<cycle_name>> multiplication::mult_extension(mat
 		mm->clear();
 		multily_matrix(max_deg, multiplier, mp, &generators[i-1], &Cm.Prims[i], mm);
 		//compute the multiplication table for the current term in the resolution.
-		//pric-i re-shrinks an already ring-precision-clamped pric by
-		//homological degree i -- see NOTES.md's `three_extension`/`pric-i`
-		//entry and algNov.cpp::table_of_complex's matching fix; min(...)
-		//reproduces the old pric-i exactly when pric was still unclamped
-		//(pric==resolution_length).
-		int cpric = fixedpric ? pric : std::min(resolution_length-i, pric);
+		//no filtration cap at any homological degree (see BP_init.cpp's
+		//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.
+		int cpric = pric;
 		multiplication_table<cycle_name> new_table = mult_extension<cycle_name,Z3>(mm, *(Tb.tables)[i-1], *(Tb.tables)[i], *(Tb.tables)[i+1], cpric);
 		result.push_back(new_table);
 	}
@@ -152,9 +149,9 @@ std::vector<multiplication_table<cycle_name>> multiplication::mult_extension1(ma
 		mm->clear();
 		multily_matrix(max_deg, multiplier, mp, &generators[i-1], &Cm.Prims[i], mm);
 		//compute the multiplication table for the current term in the resolution.
-		//see mult_extension's identical fix, just above, for why min(...)
-		//replaces the old pric-i.
-		int cpric = fixedpric ? pric : std::min(resolution_length-i, pric);
+		//no filtration cap at any homological degree (see BP_init.cpp's
+		//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.
+		int cpric = pric;
 		multiplication_table<cycle_name> new_table = mult_extension1<cycle_name,Z3>(mm, *(Tb.tables)[i-1], *(Tb.tables)[i], *(Tb.tables)[i+1], cpric);
 		result.push_back(new_table);
 	}
@@ -183,7 +180,7 @@ string multiplication::output_multiplication_table(std::vector<multiplication_ta
 	algNov_table Tb;
 	string res;
 	for(unsigned i=0;i<MTs.size();++i)
-		res+= output_multiplication_table(MTs[i],i,shift, pric--,Tb);
+		res+= output_multiplication_table(MTs[i],i,shift, pric,Tb);
 	return res;
 }
 
@@ -211,7 +208,7 @@ string multiplication::output_multiplication_table1(std::vector<multiplication_t
 	algNov_table Tb;
 	string res;
 	for(unsigned i=0;i<MTs.size();++i)
-		res+= output_multiplication_table1(MTs[i],i,shift, pric--,Tb);
+		res+= output_multiplication_table1(MTs[i],i,shift, pric,Tb);
 	return res;
 }
 
@@ -252,11 +249,9 @@ std::vector<multiplication_table<cycle_name>> multiplication::three_extension(in
 	//make the tables for each term in the resolution	
 	for(int i=0;i<resolution_length;++i){
 		//compute the multiplication table for the current term in the resolution.
-		//see algNov.cpp::table_of_complex's identical fix for why min(...)
-		//replaces the old pric-i (pric is now the ring-precision ceiling,
-		//not resolution_length, so decrementing it by i re-shrinks an
-		//already-clamped bound by an unrelated quantity).
-		multiplication_table<cycle_name> new_table = three_extension(*(Tb.tables)[i], std::min(resolution_length-i, pric));
+		//no filtration cap at any homological degree (see BP_init.cpp's
+		//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.
+		multiplication_table<cycle_name> new_table = three_extension(*(Tb.tables)[i], pric);
 		result.push_back(new_table);
 	}
 	return result;

@@ -90,12 +90,10 @@ multiplication_table<cycle_name> Boc_table::Bname2Aname(algNov_table &Atable, in
 //transform Bockstein names into Algebraic Novikov names
 std::vector<multiplication_table<cycle_name>> Boc_tables::Bname2Anames(int resolution_length, algNov_tables& AT, int pric){
 	std::vector<multiplication_table<cycle_name>> result;
-	//see algNov.cpp::table_of_complex's identical fix for why min(...)
-	//replaces the old pric-i (pric is now the ring-precision ceiling, not
-	//resolution_length, so decrementing it by i re-shrinks an
-	//already-clamped bound by an unrelated quantity).
+	//no filtration cap at any homological degree (see BP_init.cpp's
+	//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.
 	for(int i=0; i<resolution_length; ++i){
-		result.push_back(Btables[i]->Bname2Aname(*(AT.tables[i]), std::min(resolution_length-i, pric)));
+		result.push_back(Btables[i]->Bname2Aname(*(AT.tables[i]), pric));
 	}
 	return result;   
 }

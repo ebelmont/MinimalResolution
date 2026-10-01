@@ -150,6 +150,11 @@ Z3 Z3_Op::power_p(int n){
 		std::cerr << "not integral!";
 		return 0;
 	}
+	//p^n == 0 in Z/3^40 for every n > MAX_VALUATION: answer directly rather
+	//than growing the cache, so the cache never needs more than
+	//MAX_VALUATION+1 entries however large a caller's filtration limit is
+	if(n > (int)MAX_VALUATION)
+		return zero();
 	if(power_p_cache.empty())
 		power_p_cache.push_back(unit(1)); //index 0 = p^0
 	//use multiply() (which reduces mod MAX3), not the raw uint64_t operator*

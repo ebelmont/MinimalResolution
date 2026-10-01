@@ -208,7 +208,7 @@ public:
 	//now-unmapped stack memory next (seen both inside table construction
 	//and, confusingly, inside malloc()) -- not a data race, despite the
 	//parallel code nearby. See NOTES.md.
-	cycle_type simplify(typename SS_entry<cycle_name, ring>::value_type& cyc, typename SS_entry<cycle_name, ring>::value_type& htpy, int pric, int depth=0){
+	cycle_type simplify(typename SS_entry<cycle_name, ring>::value_type& cyc, typename SS_entry<cycle_name, ring>::value_type& htpy, int depth=0){
 		while(true){
 			//if cycle is zero, then it is a boundary
 			if(Modop->isZero(cyc)) return Boundary;
@@ -217,8 +217,12 @@ public:
 			unsigned led = leading_term(cyc);
 			cycle_name led_name = naming(cyc.dataArray[led].coeficient, cyc.dataArray[led].ind);
 
-			//if the filtration exceeds the required pricision, then regard it as a boundary
-			if(filtration(led_name)>pric)
+			//an exact-zero leading coefficient means the whole vector is zero:
+			//leading_term picks the smallest filtration, and a zero entry's
+			//filtration is Z3_Op::valuation's sentinel for 0, above any real
+			//entry. (isZero(cyc) above only checks for an empty vector, not for
+			//one whose entries all cancelled to 0.)
+			if(Modop->ringOper->isZero(cyc.dataArray[led].coeficient))
 				return Boundary;
 
 			//if not trivial, try to find it in the table
@@ -284,8 +288,7 @@ public:
 	//output the table, k indicates the homological degree
 	//pric is inclusive here (a cycle at filtration exactly pric is still
 	//within the search's own valid range -- cycle_pot() generates
-	//candidates for filtration in [0,pric] via `j+l<=pric`, and simplify()
-	//only auto-discards as a boundary once filtration *exceeds* pric
+	//candidates for filtration in [0,pric] via `j+l<=pric`
 	//(`>pric`, just above). A strict `<pric` here silently dropped a
 	//genuinely-found surviving cycle at filtration==pric from the printed
 	//table -- see NOTES.md "off-by-one in output()'s pric cutoff".
@@ -443,7 +446,7 @@ public:
 
 					//try to add lower terms to make it a cycle -- searched
 					//against this bucket's own (small) table, not the shared one
-					auto BT = temp->simplify(bs,vs,pric);
+					auto BT = temp->simplify(bs,vs);
 
 					//make the new entry
 					SS_entry<cycle_name, ring> neE;
@@ -485,6 +488,8 @@ public:
 		while(!Modop->isZero(v)){
 			//find the leading term
 			unsigned led = leading_term(v);
+			//all entries cancelled to 0 (see simplify): nothing left to name
+			if(Modop->ringOper->isZero(v.dataArray[led].coeficient)) break;
 			cycle_name leading_name = naming(v.dataArray[led].coeficient, v.dataArray[led].ind);
 			//if arrive at the desired pricision then return. Strict >pric
 			//(not >=), matching cycle_pot/simplify's inclusive convention
