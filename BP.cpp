@@ -15,6 +15,8 @@ ModuleOp<exponent,Z3>(Z3_op), PolynomialOp_Para<Z3>(Z3_op), BPBP_opers(this), BP
 	algebroidModuleOper = &BPBPMod_opers;
     
 	Z3_oper = Z3_op;
+	//the classical case unless set_height says otherwise
+	height = 0;
 	etaL_table = etaL_mat;
 	delta_table = delta_mat;
 	R2L_table = R2L_mat;
@@ -26,11 +28,118 @@ BPBP_Op::BPBP_Op(BP_Op *BP_op) : ModuleOp<exponent,BP>(BP_op), PolynomialOp_Para
 //constrctor
 BPBPBP_Op::BPBPBP_Op(BPBP_Op *BPBP_op) : ModuleOp<exponent,BPBP>(BPBP_op), PolynomialOp_Para<BPBP>(BPBP_op){}
 
+//set the height
+void BP_Op::set_height(int n){
+	if(n < 0){
+		std::cerr << "BP_Op::set_height: negative height " << n << ", using 0\n" << std::flush;
+		n = 0;
+	}
+	height = n;
+}
+
+//true if the v-monomial e involves one of v_1,...,v_{height-1}
+bool BP_Op::killed_v_monomial(exponent e){
+	for(int i=1; i<height; ++i)
+		if(xnVal(e,i) != 0) return true;
+	return false;
+}
+
+//reduce a genuine BP_* element mod I_height
+BP BP_Op::reduce_v_mod_I(const BP &x){
+	if(height == 0) return x;
+	BP result;
+	for(auto &tm : x.dataArray){
+		//monomials involving v_1,...,v_{height-1} lie in I_height
+		if(killed_v_monomial(tm.ind)) continue;
+		//and so do coefficients divisible by p, once the coefficient ring is F_p
+		Z3 c = Z3_oper->normalize(tm.coeficient);
+		if(Z3_oper->isZero(c)) continue;
+		result.push({tm.ind, c});
+	}
+	return result;
+}
+
+//reduce a polynomial in the t_i: the t_i survive, only the coefficients move
+BP BP_Op::reduce_t_mod_I(const BP &x){
+	if(height == 0) return x;
+	BP result;
+	for(auto &tm : x.dataArray){
+		Z3 c = Z3_oper->normalize(tm.coeficient);
+		if(Z3_oper->isZero(c)) continue;
+		result.push({tm.ind, c});
+	}
+	return result;
+}
+
+//reduce a BPBP written in the right-unit presentation: outer = v, inner = t
+BPBP BP_Op::reduce_right_mod_I(const BPBP &x){
+	if(height == 0) return x;
+	BPBP result;
+	for(auto &tm : x.dataArray){
+		if(killed_v_monomial(tm.ind)) continue;
+		BP c = reduce_t_mod_I(tm.coeficient);
+		if(c.size() == 0) continue;
+		result.push({tm.ind, c});
+	}
+	return result;
+}
+
+//reduce a BPBP written in the left-unit presentation: outer = t, inner = v
+BPBP BP_Op::reduce_left_mod_I(const BPBP &x){
+	if(height == 0) return x;
+	BPBP result;
+	for(auto &tm : x.dataArray){
+		//the outer slot is a t-monomial and never dies
+		BP c = reduce_v_mod_I(tm.coeficient);
+		if(c.size() == 0) continue;
+		result.push({tm.ind, c});
+	}
+	return result;
+}
+
+//Load a structure table, reducing each row mod I_height as it is read.
+//
+//The rows of these tables are indexed by mon_index position (row i is the
+//value on mon_array[i]) and carry raw-exponent-indexed values; matrix_index
+//and exponent are the same 32-bit type, which is why a row of a matrix<BP>
+//is literally a BPBP. matrix::construct walks the rows in order and only
+//calls clear()/set_rank()/insert() on the TARGET, so reading the source
+//stream sequentially from inside row_rule is safe, and it works for the
+//file-backed matrix_file backend, whose update_all is unimplemented.
+//
+//row_kills says whether row i itself dies: for the tables indexed by
+//v-monomials a row whose monomial involves v_1,...,v_{height-1} is the value
+//on something that is 0 in BP_*/I_height. Those rows are never consulted once
+//every input is reduced, but zeroing them keeps the invariant "everything in
+//this table lies in Gamma(height)" literally true.
+template<typename R>
+static void load_reduced(matrix<R> *table, std::iostream &reader, int rk,
+                          ModuleOp<matrix_index,R> *modoper,
+                          std::function<vectors<matrix_index,R>(const vectors<matrix_index,R>&)> reduce,
+                          std::function<bool(int)> row_kills){
+	std::function<vectors<matrix_index,R>(int)> row_rule = [&](int i){
+		auto row = modoper->load(reader);
+		if(row_kills(i)) return modoper->zero();
+		return reduce(row);
+	};
+	table->construct(rk, row_rule);
+}
+
 //load etaL table
 void BP_Op::load_etaL(string filename){  
 	std::cout << "loading etaL table from " << filename << "...\n" << std::flush;
 	std::fstream reader(filename, std::ios::in | std::ios::binary);
-	etaL_table->load(reader, mon_index.number_of_all_mons()); 
+	if(height == 0)
+		etaL_table->load(reader, mon_index.number_of_all_mons()); 
+	else{
+		//values are in the right-unit presentation; rows are indexed by v-monomials
+		std::function<vectors<matrix_index,BP>(const vectors<matrix_index,BP>&)> reduce =
+		    [this](const BPBP &x){ return reduce_right_mod_I(x); };
+		std::function<bool(int)> row_kills = [this](int i){
+			return killed_v_monomial(mon_index.mon_array[i]); };
+		load_reduced<BP>(etaL_table, reader, mon_index.number_of_all_mons(),
+		                  &BPMod_opers, reduce, row_kills);
+	}
 	std::cout << "etaL data loaded\n" << std::flush;
 }
 
@@ -38,7 +147,17 @@ void BP_Op::load_etaL(string filename){
 void BP_Op::load_R2L(string filename){   
 	std::cout << "loading R2L table...\n" << std::flush;
 	std::fstream reader(filename, std::ios::in | std::ios::binary);
-	R2L_table->load(reader, mon_index.number_of_all_mons());
+	if(height == 0)
+		R2L_table->load(reader, mon_index.number_of_all_mons());
+	else{
+		//values are in the left-unit presentation; rows are indexed by v-monomials
+		std::function<vectors<matrix_index,BP>(const vectors<matrix_index,BP>&)> reduce =
+		    [this](const BPBP &x){ return reduce_left_mod_I(x); };
+		std::function<bool(int)> row_kills = [this](int i){
+			return killed_v_monomial(mon_index.mon_array[i]); };
+		load_reduced<BP>(R2L_table, reader, mon_index.number_of_all_mons(),
+		                  &BPMod_opers, reduce, row_kills);
+	}
 	std::cout << "R2L data loaded\n" << std::flush;
 }
 
@@ -46,7 +165,25 @@ void BP_Op::load_R2L(string filename){
 void BP_Op::load_delta(string filename){    
 	std::cout << "loading delta table...\n" << std::flush;
 	std::fstream reader(filename, std::ios::in | std::ios::binary);
-	delta_table->load(reader, mon_index.number_of_all_mons());
+	if(height == 0)
+		delta_table->load(reader, mon_index.number_of_all_mons());
+	else{
+		//a row is a sum of (t-monomial index, BPBP in the right-unit
+		//presentation) pairs; rows are indexed by t-monomials, so no row dies
+		std::function<vectors<matrix_index,BPBP>(const vectors<matrix_index,BPBP>&)> reduce =
+		    [this](const vectors<matrix_index,BPBP> &x){
+			vectors<matrix_index,BPBP> result;
+			for(auto &tm : x.dataArray){
+				BPBP c = reduce_right_mod_I(tm.coeficient);
+				if(BPBP_opers.isZero(c)) continue;
+				result.push({tm.ind, c});
+			}
+			return result;
+		};
+		std::function<bool(int)> row_kills = [](int){ return false; };
+		load_reduced<BPBP>(delta_table, reader, mon_index.number_of_all_mons(),
+		                    &BPBPMod_opers, reduce, row_kills);
+	}
 	std::cout << "delta data loaded\n" << std::flush;
 }
 
@@ -237,11 +374,29 @@ BP BP_Op::v1(){
 	return v1;
 }
 	
+//the element t_1, built directly from the exponent encoding rather than from
+//the structure tables. Outer exponent 0 (no v's), inner exponent the first
+//t-slot -- see the warning at the top of comodules.cpp about which slot is
+//which. This is bitwise equal to h0() at height 0.
+BPBP BP_Op::t1(){
+	BP inner = monomial(singleVar(1,1), Z3_oper->unit(1));
+	return BPBP_opers.monomial(0, inner);
+}
+
 //return the element h0 = (etaR(v1) - etaL(v1))/p
 BPBP BP_Op::h0(){
 	if(mon_index.max_degree<=1){
 		std::cerr << "out of range for h0";
 		return BPBP_opers.zero();
+	}
+	//In characteristic p the defining formula computes 0/p: eta_L(v_1) and
+	//eta_R(v_1) differ by p*t_1, so their difference vanishes before
+	//divide_power_p ever sees it, and dividing by p is not an operation
+	//BP_*/I_n has. The answer is t_1 either way, so build it directly.
+	if(height > 0){
+		BPBP h0 = t1();
+		std::cout << "h0=" << BPBP_opers.output(h0) << "\n";
+		return h0;
 	}
 	auto dv1 = BPBP_opers.add(BPBP_opers.minus(etaL(v1())), etaR(v1()));
 	BPBP h0 = divide_power_p(dv1,1);

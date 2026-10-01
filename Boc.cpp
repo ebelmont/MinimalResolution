@@ -1,7 +1,20 @@
 //Boc.cpp
 #include"Boc.h"
 
-int Boc_table::v_valuation(Z3 r, exponent){
+//The Bockstein filtration is by divisibility by the bottom generator of the
+//base ring's maximal invariant ideal: that is v_0 = p over BP_*, and v_n over
+//BP_*/I_n, where p is 0 and filtering by it would be vacuous.
+//
+//Filtering by the v_n-exponent makes this the v_n-BOCKSTEIN spectral
+//sequence, relating Ext(BP_*/I_n) to Ext(BP_*/I_{n+1}) -- the direct analogue
+//of what the v_0-Bockstein does for the sphere. The rest of the machinery
+//carries over unchanged: naming() still records the v-exponents in slots
+//2.., cycle_pot() (inherited) enumerates the monomial basis, which at height
+//n>0 already contains the powers of v_n, and output_table() still suppresses
+//the entries that are divisible by the filtering generator.
+int Boc_table::v_valuation(Z3 r, exponent e){
+	if(BPoper->height > 0)
+		return xnVal(e, BPoper->height);
 	return Z3Oper->valuation(r);
 }
 

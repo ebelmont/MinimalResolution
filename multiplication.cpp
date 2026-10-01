@@ -241,6 +241,48 @@ std::vector<multiplication_table<cycle_name>> multiplication::three_extension(in
 	return result;
 }
 
+//computing the table for multiplication by v_n on one algebraic Novikov table
+multiplication_table<cycle_name> multiplication::vn_extension(algNov_table &cur_table, int n, int pric){
+	multiplication_table<cycle_name> res;
+	//the monomial basis of the primitives this table is named against
+	primitive_data &P = *cur_table.Pcyc;
+	//the exponent of v_n; adding exponents multiplies monomials, which is the
+	//same encoding trick PolyOp::mon_multiply uses
+	exponent vn = vars(n);
+	
+	for(auto &tm : cur_table){
+		//skip invalid entries
+		if(!cur_table.valid(tm.cycle)) continue;
+		//skip the tagged entries
+		if(cur_table.tagged(tm)) continue;
+		
+		//multiply the cycle by v_n, term by term
+		SS_entry<cycle_name, Z3>::value_type v;
+		for(auto &term : tm.full_cycle.dataArray){
+			prim_entry target = {P[term.ind].gen_pos, P[term.ind].coeficient + vn};
+			auto it = P.prim_index.find(target);
+			//a target that leaves the computed degree range was never
+			//enumerated as a primitive; drop it. Entries within |v_n| of the
+			//top of the range are therefore only correct up to this truncation
+			if(it == P.prim_index.end()) continue;
+			v = cur_table.Modop->add(v, cur_table.Modop->singleton(it->second, term.coeficient));
+		}
+		
+		//compute the name of the result
+		multiplication_table_entry<cycle_name> nm = {tm.cycle, cur_table.name_of_cycle(v,pric)};
+		res.push_back(nm);
+	}
+	return res;
+}
+
+//make the v_n-multiplication table from the algebraic Novikov table of a complex
+std::vector<multiplication_table<cycle_name>> multiplication::vn_extension(int resolution_length, BPComplex& Cm, algNov_tables Tb, int n, int pric){
+	std::vector<multiplication_table<cycle_name>> result;
+	for(int i=0;i<resolution_length;++i)
+		result.push_back(vn_extension(*(Tb.tables)[i], n, pric-i));
+	return result;
+}
+
 //constructor
 multiplication::multiplication(BP_Op* BP_oper){
 	BPoper = BP_oper; }

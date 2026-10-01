@@ -1,0 +1,408 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Code Walkthrough: From Math Objects to C++ Classes — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">CODE_WALKTHROUGH</span></div>
+  <div class="actions">
+    <a class="src-link" href="CODE_WALKTHROUGH.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="code-walkthrough-from-math-objects-to-c-classes">Code Walkthrough: From Math Objects to C++ Classes<a class="heading-anchor" href="#code-walkthrough-from-math-objects-to-c-classes">#</a></h1>
+<p>This document is for readers who know <em>what</em> a comodule, a resolution, or a
+Hopf algebroid is mathematically (see <a href="ARCHITECTURE.html"><code>ARCHITECTURE.md</code></a>
+§1–2), but aren&#39;t fluent in reading C++, and want to know concretely: <strong>which
+class is the comodule, which member variable holds the coaction, and which
+line of code actually runs the resolution?</strong></p>
+<p>Everything here is a slower, more explicit version of material that&#39;s also
+in <a href="FRAMEWORK.html"><code>FRAMEWORK.md</code></a>, <a href="pipelines/BP.html"><code>pipelines/BP.md</code></a>, and
+<a href="pipelines/STEENROD.html"><code>pipelines/STEENROD.md</code></a> — those documents assume
+you can read C++ fluently; this one doesn&#39;t. Every code snippet below is
+quoted directly from the repository (with a file:line citation) and then
+explained piece by piece.</p>
+<h2 id="0-a-60-second-primer-on-the-c-used-here">0. A 60-second primer on the C++ used here<a class="heading-anchor" href="#0-a-60-second-primer-on-the-c-used-here">#</a></h2>
+<p>You&#39;ll see five constructs repeatedly. Here&#39;s what each one means, so the
+rest of this document doesn&#39;t have to stop and explain them every time.</p>
+<ul>
+<li><strong>Templates — &quot;fill-in-the-blank&quot; classes.</strong> A line like
+<code>template&lt;typename algebroid, typename degree_type&gt; class comodule_generic { ... }</code> declares a class that isn&#39;t finished yet — it has two blanks,
+named <code>algebroid</code> and <code>degree_type</code>. Nothing gets built until some other
+code &quot;fills in the blanks&quot; by writing e.g. <code>comodule_generic&lt;BPBP, int&gt;</code>.
+That fills <code>algebroid = BPBP</code> and <code>degree_type = int</code>, and the result is a
+genuine, concrete, usable class — as concrete as if you&#39;d written a
+separate class by hand for exactly that combination. The whole point of
+this codebase&#39;s design is that the <em>math</em> (a comodule, a resolution
+algorithm) is written once as a fill-in-the-blank template, and then
+reused by filling in different rings/algebroids for the Steenrod, BP, and
+motivic pipelines.</li>
+<li><strong>Pointers (<code>T*</code>) — &quot;the address of a <code>T</code>&quot;, not a <code>T</code> itself.</strong> A member
+like <code>matrix&lt;algebroid&gt; *coaction_matrix</code> doesn&#39;t directly contain a
+matrix; it holds a reference to one that lives somewhere else. This is
+what lets the same class work whether that matrix is stored in memory or
+streamed from a file on disk — the pointer doesn&#39;t care, only the code on
+the other end of it does.</li>
+<li><strong>Inheritance and <code>virtual</code> — &quot;is a kind of,&quot; with some blanks the child
+must fill in.</strong> <code>class comodule_generic : virtual public CoModule&lt;...&gt;</code>
+means &quot;a <code>comodule_generic</code> is a kind of <code>CoModule</code>.&quot; When a base class
+writes <code>virtual int rank() const = 0;</code> (note the <code>= 0</code>), it&#39;s declaring a
+<em>contract</em>: &quot;every concrete comodule type must provide its own <code>rank()</code>
+function,&quot; without saying yet how any particular one computes it.</li>
+<li><strong><code>typedef</code> — a nickname.</strong> <code>typedef comodule_generic&lt;P,int&gt; SteenrodCoMod_generic;</code> just gives a short name to a long, filled-in
+template type, purely for readability. <code>SteenrodCoMod_generic</code> and
+<code>comodule_generic&lt;P,int&gt;</code> are exactly the same type.</li>
+<li><strong>Lambdas (<code>[this](int i){ return ...; }</code>) — a small, throwaway function
+defined inline</strong>, right where it&#39;s used, instead of being given its own
+name elsewhere. <code>[this]</code> means &quot;this little function is allowed to use
+the surrounding object&#39;s own data.&quot;</li>
+</ul>
+<h2 id="1-how-a-comodule-is-represented">1. How a comodule is represented<a class="heading-anchor" href="#1-how-a-comodule-is-represented">#</a></h2>
+<p>Three classes matter here, all declared in <code>hopf_algebroid/2.h</code>. They form a
+small hierarchy: one is a <em>contract</em> (interface), and two are different,
+interchangeable ways of <em>fulfilling</em> that contract.</p>
+<h3 id="11-the-contract-comodulealgebroid-degree_type">1.1 The contract: <code>CoModule&lt;algebroid, degree_type&gt;</code><a class="heading-anchor" href="#11-the-contract-comodulealgebroid-degree_type">#</a></h3>
+<pre><code>template&lt;typename algebroid, typename degree_type&gt;
+class CoModule{
+public:
+    virtual int rank() const=0;
+    virtual vectors&lt;matrix_index, algebroid&gt; coaction(int i) const=0;
+    virtual degree_type degree(int i) const=0;
+};</code></pre>
+<p>(<code>hopf_algebroid/2.h:1-13</code>)</p>
+<p>Read this as: &quot;a comodule (over some algebroid, graded by some
+<code>degree_type</code>) is anything that can answer three questions:
+<code>rank()</code> — how many generators does it have (as a module over the base
+ring)?
+<code>coaction(i)</code> — what is the coaction on the <code>i</code>-th generator, expressed as a
+sparse vector of algebroid elements?
+<code>degree(i)</code> — what internal degree is the <code>i</code>-th generator in?
+The <code>=0</code> on each means <code>CoModule</code> itself doesn&#39;t know how to compute any of
+these — it&#39;s a promise that some other class will.&quot;</p>
+<h3 id="12-the-concrete-matrix-backed-comodule-comodule_genericalgebroid-degree_type">1.2 The concrete, matrix-backed comodule: <code>comodule_generic&lt;algebroid, degree_type&gt;</code><a class="heading-anchor" href="#12-the-concrete-matrix-backed-comodule-comodule_genericalgebroid-degree_type">#</a></h3>
+<p>This is the class you guessed at: &quot;some class with a coaction matrix.&quot; Here
+it is in full:</p>
+<pre><code>template&lt;typename algebroid, typename degree_type&gt;
+class comodule_generic : virtual public CoModule&lt;algebroid, degree_type&gt;{
+public:
+    matrix&lt;algebroid&gt; *coaction_matrix;
+    modules&lt;degree_type&gt; base_module;
+
+    comodule_generic(matrix&lt;algebroid&gt; *coactor) { coaction_matrix = coactor; }
+
+    int rank() const{
+        return base_module.rank; }
+
+    vectors&lt;matrix_index, algebroid&gt; coaction(int i) const{
+        return coaction_matrix-&gt;find(i); }
+
+    degree_type degree(int i) const{
+        return base_module.degree[i]; }
+};</code></pre>
+<p>(<code>hopf_algebroid/2.h:15-37</code>)</p>
+<p>Reading the template line first: <code>comodule_generic&lt;algebroid, degree_type&gt;</code>
+has two blanks. <code>algebroid</code> is filled in with whatever ring the coaction
+lands in — for the BP pipeline that&#39;s <code>BPBP</code> (i.e. <code>BP_*BP</code>), for the
+classical Steenrod pipeline it&#39;s <code>P</code> (i.e. <code>BP_*BP/I</code>). <code>degree_type</code> is
+filled in with whatever type is used to record a generator&#39;s grading — in
+every pipeline documented here that&#39;s just a plain <code>int</code> (a single integer
+degree), except the motivic pipeline, which uses a small <code>MotDegree</code> class
+(bidegree <code>(t, weight)</code>) instead.</p>
+<p>Now the members, concretely:</p>
+<ul>
+<li><strong><code>base_module.rank</code></strong> — a plain integer: how many generators this
+comodule has. <code>rank()</code> just returns it.</li>
+<li><strong><code>base_module.degree</code></strong> — an array with one entry per generator, giving
+each generator&#39;s degree. <code>degree(i)</code> just looks up entry <code>i</code>.</li>
+<li><strong><code>coaction_matrix</code></strong> — a <em>pointer</em> to a <code>matrix&lt;algebroid&gt;</code> (a matrix
+whose entries are elements of the algebroid ring). Row <code>i</code> of this matrix
+<em>is</em> the coaction on generator <code>i</code>, written out as a sparse linear
+combination — <code>coaction(i)</code> is literally <code>coaction_matrix-&gt;find(i)</code>, &quot;go
+fetch row <code>i</code>.&quot; So: <strong>the coaction map, as data, is nothing more than a
+matrix, one row per generator.</strong> Because it&#39;s a pointer rather than an
+owned object, the matrix backing a <code>comodule_generic</code> can be an in-memory
+matrix (fast, but limited by RAM) or a disk-file-backed matrix (slower,
+but scales to computations too large to fit in memory) — the
+<code>comodule_generic</code> code above doesn&#39;t change either way; only which
+concrete matrix class gets pointed to changes. This is exactly the
+difference between the classical Steenrod pipeline (in-memory,
+<code>matrix_mem&lt;P&gt;</code>) and the BP pipeline (disk-backed, <code>matrix_file&lt;BPBP&gt;</code>) —
+see the table in §2 below.</li>
+</ul>
+<p>This is the class that represents &quot;the comodule currently being resolved,&quot;
+at every stage of every pipeline&#39;s resolution loop.</p>
+<h3 id="13-the-concrete-formula-backed-comodule-cofree_comodulealgebroid-degree_type">1.3 The concrete, formula-backed comodule: <code>cofree_comodule&lt;algebroid, degree_type&gt;</code><a class="heading-anchor" href="#13-the-concrete-formula-backed-comodule-cofree_comodulealgebroid-degree_type">#</a></h3>
+<p>The <em>other</em> place comodules show up is as the resolution&#39;s own terms — the
+<code>F_0, F_1, F_2, ...</code> in a resolution <code>M → F_0 → F_1 → ...</code>. These are always
+<strong>cofree</strong> (a direct sum of copies of the algebroid itself, with degree
+shifts — see <code>ARCHITECTURE.md</code> §2 point 1 for the mathematical definition).
+Storing an explicit coaction matrix for one of these would be wasteful,
+since a cofree comodule&#39;s coaction is <em>always</em> just the algebroid&#39;s own
+comultiplication, shifted around — so <code>cofree_comodule</code> computes it on
+demand instead of storing it:</p>
+<pre><code>cofree_comodule&lt;algebroid,degree_type&gt;::cofree_coaction;      // a shared function
+cofree_comodule&lt;algebroid,degree_type&gt;::modOpers;             // shared module operations
+cofree_comodule&lt;algebroid,degree_type&gt;::cofree_degree;        // a shared degree function</code></pre>
+<p>(static members, <code>hopf_algebroid/12.h:29-33</code>)</p>
+<p>The word <strong><code>static</code></strong> here means: these three aren&#39;t three different values
+per <code>cofree_comodule</code> object — they&#39;re <strong>one shared value for every
+<code>cofree_comodule</code> in the whole program</strong> (of a given <code>&lt;algebroid, degree_type&gt;</code> combination), like a single shared blackboard rather than each
+object having its own notebook. They get written onto that blackboard once,
+via:</p>
+<pre><code>template&lt;typename ring, typename algebroid&gt;
+template&lt;typename degree_type&gt;
+void Hopf_Algebroid&lt;ring,algebroid&gt;::init_cofree_data(std::function&lt;degree_type(matrix_index)&gt; cofree_degree){
+    cofree_comodule&lt;algebroid,degree_type&gt;::cofree_coaction = [this] (matrix_index n){
+        return delta(n); };
+    cofree_comodule&lt;algebroid,degree_type&gt;::modOpers = algebroidModuleOper;
+    cofree_comodule&lt;algebroid,degree_type&gt;::cofree_degree = cofree_degree;
+}</code></pre>
+<p>(<code>hopf_algebroid/12.h:14-25</code>)</p>
+<p>In plain English: &quot;the shared coaction formula for any cofree comodule is
+<em>literally the algebroid&#39;s own comultiplication</em>, <code>delta</code>.&quot; So a
+<code>cofree_comodule</code>&#39;s <code>coaction(i)</code> (<code>hopf_algebroid/11.h:62-68</code>) doesn&#39;t read
+a matrix at all — it works out which cofree summand index <code>i</code> falls into,
+then calls this shared <code>delta</code>-based formula and shifts the result into the
+right place. This is <em>why</em> the framework can build resolution terms that
+are, in principle, enormous (a big direct sum of copies of the whole
+algebroid) without ever materializing that whole thing as a matrix.</p>
+<h2 id="2-the-hopf-algebroid-itself-hopf_algebroidring-algebroid">2. The Hopf algebroid itself: <code>Hopf_Algebroid&lt;ring, algebroid&gt;</code><a class="heading-anchor" href="#2-the-hopf-algebroid-itself-hopf_algebroidring-algebroid">#</a></h2>
+<p>Same fill-in-the-blank idea, one level up. <code>Hopf_Algebroid&lt;ring, algebroid&gt;</code>
+(<code>hopf_algebroid/4.h</code>) has two blanks: <code>ring</code> (the base ring <code>A</code>) and
+<code>algebroid</code> (the bigger ring <code>Γ</code>), and it&#39;s what actually declares
+<code>etaL</code>, <code>etaR</code>, <code>delta</code>, and the whole resolution algorithm (<code>embed2cofree</code>,
+<code>resolvor</code>, <code>pre_resolution_tab</code>, ... — see <code>FRAMEWORK.md</code> §5). Each concrete
+pipeline fills in the blanks differently:</p>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Pipeline</th>
+<th>Concrete class</th>
+<th><code>ring</code> (=<code>A</code>)</th>
+<th><code>algebroid</code> (=<code>Γ</code>)</th>
+<th>Comodule type used (§1.2)</th>
+<th>Coaction matrix backend</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>BP (<code>mr_BP</code>)</td>
+<td><code>class BP_Op : Hopf_Algebroid&lt;BP, BPBP&gt;</code> (<code>BP.h:33</code>)</td>
+<td><code>BP</code> = <code>polynomial&lt;Z3&gt;</code> (i.e. <code>BP_*</code>)</td>
+<td><code>BPBP</code> = <code>polynomial&lt;BP&gt;</code> (i.e. <code>BP_*BP</code>)</td>
+<td><code>BPCoMod_generic</code> = <code>comodule_generic&lt;BPBP,int&gt;</code> (<code>BP.h:122</code>)</td>
+<td><code>matrix_file&lt;BPBP&gt;</code> — disk-backed (<code>BP_init.h:11-12</code>)</td>
+</tr>
+<tr>
+<td>Classical Steenrod (<code>mr_st</code>)</td>
+<td><code>class Steenrod_Op : Hopf_Algebroid&lt;Fp, P&gt;</code> (<code>steenrod.h:38</code>)</td>
+<td><code>Fp</code> (i.e. <code>F_3</code>)</td>
+<td><code>P</code> = <code>polynomial&lt;Fp&gt;</code> (i.e. <code>BP_*BP/I</code>)</td>
+<td><code>SteenrodCoMod_generic</code> = <code>comodule_generic&lt;P,int&gt;</code> (<code>steenrod.h:102</code>)</td>
+<td><code>matrix_mem&lt;P&gt;</code> — in memory (<code>steenrod_init.h:7-8</code>)</td>
+</tr>
+</tbody>
+</table></div>
+<p>Concretely, this is why <code>docs/pipelines/BP.md</code> and <code>docs/pipelines/ STEENROD.md</code> describe two structurally near-identical driver classes
+(<code>BPInit</code>/<code>SteenrodInit</code>, <code>BPComodInit</code>/<code>ComodInit</code>) — they&#39;re the <em>same</em>
+generic pattern (one <code>Hopf_Algebroid</code> instantiation + one matrix-backed
+comodule + a resolution loop), filled in with different rings and a
+different storage backend for the comodule&#39;s matrix.</p>
+<h2 id="3-the-trivial-comodule-set_to_trivial">3. The trivial comodule: <code>set_to_trivial</code><a class="heading-anchor" href="#3-the-trivial-comodule-set_to_trivial">#</a></h2>
+<p>Every pipeline needs a starting point: resolve the <em>trivial</em> comodule (rank
+1, one generator, everything else derived from that). This is one shared
+generic function, not something re-implemented per pipeline:</p>
+<pre><code>template&lt;typename ring, typename algebroid&gt;
+template&lt;typename degree_type&gt;
+void Hopf_Algebroid&lt;ring,algebroid&gt;::set_to_trivial(comodule_generic&lt;algebroid,degree_type&gt; &amp;X, degree_type deg) {
+    X.base_module.rank = 1;
+    X.base_module.degree.resize(1);
+    X.base_module.degree[0] = deg;
+
+    std::function&lt;vectors&lt;matrix_index,algebroid&gt;(int)&gt; rw = [this] (int i){
+        return algebroidModuleOper-&gt;singleton(0,algebroidRingOper-&gt;unit(1)); };
+    X.coaction_matrix-&gt;construct(1,rw);
+}</code></pre>
+<p>(<code>hopf_algebroid/12.h:1-12</code>)</p>
+<p>Line by line, in plain English:</p>
+<ol>
+<li><code>X.base_module.rank = 1;</code> — this comodule has exactly one generator.</li>
+<li><code>X.base_module.degree[0] = deg;</code> — that one generator sits in whatever
+degree the caller asked for (every pipeline documented here passes
+<code>deg = 0</code>).</li>
+<li>The <code>rw</code> lambda is the &quot;recipe for computing row <code>i</code> of the coaction
+matrix&quot; (only <code>i=0</code> will ever be asked for, since there&#39;s one
+generator). Its recipe: <code>algebroidRingOper-&gt;unit(1)</code> is the algebroid&#39;s
+own multiplicative identity element (its &quot;1&quot;); <code>singleton(0, ...)</code> builds
+a one-term sparse vector saying &quot;this coefficient, at position 0.&quot; So
+the coaction on the single generator is &quot;1 times itself&quot; — the trivial
+comodule&#39;s coaction is as simple as it can possibly be, and doesn&#39;t
+depend on which concrete algebroid <code>Γ</code> you&#39;ve plugged in.</li>
+<li><code>X.coaction_matrix-&gt;construct(1, rw)</code> — build the (one-row) coaction
+matrix using that recipe, and store it via the pointer described in §1.2.</li>
+</ol>
+<p>Every pipeline&#39;s initialization code calls this <em>exact</em> function, right
+before starting its resolution loop:</p>
+<ul>
+<li><code>steenrod_init.cpp:32</code> — <code>steenrod_oper.set_to_trivial(comod, 0);</code></li>
+<li><code>BP_init.cpp:23</code> — <code>BP_oper.set_to_trivial(comod, 0);</code></li>
+<li><code>mot_main.cpp:33</code> and <code>mot_combine.cpp:29</code> — <code>MOP.set_to_trivial(comod, zo);</code></li>
+<li><code>ex_steenrod_init.cpp:34</code> — <code>steenrod_oper.set_to_trivial(comod, 0);</code></li>
+</ul>
+<p>There is no other &quot;trivial comodule&quot; logic anywhere in the codebase — it&#39;s
+this one routine, reused everywhere.</p>
+<h2 id="4-where-the-bpi-and-bp-resolutions-actually-run">4. Where the BP/I and BP resolutions actually run<a class="heading-anchor" href="#4-where-the-bpi-and-bp-resolutions-actually-run">#</a></h2>
+<p>This traces the exact call path from each executable&#39;s <code>main()</code> down to the
+line where the resolution loop executes.</p>
+<h3 id="40-the-shape-of-the-whole-computation-reduce-mod-i-resolve-lift">4.0 The shape of the whole computation: reduce mod <code>I</code>, resolve, lift<a class="heading-anchor" href="#40-the-shape-of-the-whole-computation-reduce-mod-i-resolve-lift">#</a></h3>
+<p>Before tracing the two executables individually, it&#39;s worth being explicit
+about something that&#39;s easy to miss: <strong>the sphere&#39;s E2-page computation
+already follows the general &quot;reduce mod <code>I</code>, then resolve, then lift&quot;
+pattern</strong> described in <code>docs/GENERAL_COMODULES.md</code> — it isn&#39;t a special,
+simpler architecture that a general comodule later had to be fit into. The
+three phases, and exactly where each one lives in the two executables:</p>
+<ol>
+<li><strong>Reduce <code>M = BP_*</code> mod <code>I = (p, v_1, v_2, ...)</code>.</strong> <code>BP_*</code> is a
+<code>BP_*BP</code>-comodule in the simplest possible way: it&#39;s the <em>unit</em> comodule
+— one generator, coaction &quot;1 times itself&quot; (<code>x ↦ 1 ⊗ x</code>). Reducing that
+mod <code>I</code> changes the ring the &quot;1&quot; lives in (from <code>BP_*BP</code> to <code>P</code>) but not
+the <em>formula</em> — it&#39;s still &quot;1 times itself.&quot; That&#39;s exactly what
+<code>set_to_trivial</code> (§3 above) builds directly, for either ring:
+<code>steenrod_oper.set_to_trivial(comod, 0)</code> (<code>steenrod_init.cpp:32</code>) <em>is</em>
+the mod-<code>I</code> reduction of <code>BP_*</code>, computed by hand rather than derived
+from some other object, because for this one specific <code>M</code> the reduction
+has a one-line answer. (<code>BP_oper.set_to_trivial(comod, 0)</code> at
+<code>BP_init.cpp:23</code>, by contrast, builds <code>BP_*</code> itself — the un-reduced
+object — using the exact same generic function, just instantiated with
+<code>algebroid = BPBP</code> instead of <code>algebroid = P</code>.)</li>
+<li><strong>Resolve that reduction over <code>P</code> (a field, so this works correctly).</strong>
+This is §4.1 below, in full: <code>mr_st</code>&#39;s entire job.</li>
+<li><strong>Lift the result to a genuine <code>BP_*BP</code>-comodule resolution of <code>BP_*</code>.</strong>
+This is §4.2 below: <code>mr_BP</code> loads <code>mr_st</code>&#39;s output as a model and lifts
+it via <code>pre_resolution_modeled</code>.</li>
+</ol>
+<p>So when <code>docs/GENERAL_COMODULES.md</code> computes the reduction of a general <code>M</code>
+with a new function (<code>reduce_BP_mod_I</code>/<code>reduce_BPBP_mod_I</code>/
+<code>reduce_row_mod_I</code> in <code>BP_mod_I.cpp</code>), it isn&#39;t introducing a new step —
+it&#39;s replacing the one-line hardcoded answer <code>set_to_trivial</code> gives for
+<code>M = BP_*</code> with a real computation, because a general <code>M</code>&#39;s reduction isn&#39;t
+simple enough to write down by hand. Every other piece — <code>pre_resolution_tab</code>
+over <code>P</code>, <code>pre_resolution_modeled</code>&#39;s lift via <code>BP_Op::lift</code> — is the exact
+same code, called exactly the same way, for the sphere or for any other <code>M</code>.</p>
+<h3 id="41-the-bpi-resolution-mr_st">4.1 The BP/I resolution (<code>mr_st</code>)<a class="heading-anchor" href="#41-the-bpi-resolution-mr_st">#</a></h3>
+<pre><code>// stmain.cpp:11-15
+SteenrodInit st(3, maxdeg, length, filename + "steenrod_coaction.data");
+st.resolve(filename);</code></pre>
+<p><code>SteenrodInit</code>&#39;s constructor (<code>steenrod_init.cpp:5-39</code>) does the setup:
+builds the coproduct table, then at line 32 calls <code>set_to_trivial</code> (§3
+above) to initialize <code>comod</code> — a <code>ComodInit</code> (<code>steenrod_init.h:7-12</code>), which
+is a <code>SteenrodCoMod_generic</code> (§1.2/§2) backed by its own in-memory
+<code>matrix_mem&lt;P&gt; coaction_matrix</code>.</p>
+<p><code>st.resolve(filename)</code> (<code>steenrod_init.cpp:46-48</code>) is one line:</p>
+<pre><code>steenrod_oper.pre_resolution_tab(comod, director + "maps", director + "gens",
+                                  resolution_length, resolutionTables, gens,
+                                  &amp;inj, &amp;indj, &amp;qut, &amp;new_map, director + "BPtables");</code></pre>
+<p><code>pre_resolution_tab</code> (declared <code>hopf_algebroid/4.h:51</code>, defined
+<code>hopf_algebroid/5.h:51-96</code>) is the actual resolution loop: it calls
+<code>resolvor</code> (one embed-and-quotient step, <code>FRAMEWORK.md</code> §5) repeatedly,
+overwriting <code>comod</code> each time with the next comodule in the resolution, and
+writing the maps/generators/curtis-tables to disk as it goes. <strong>This loop is
+where <code>Ext_P(F_3, F_3)</code> actually gets computed</strong>, one resolution step at a
+time.</p>
+<h3 id="42-the-bp-resolution-mr_bp">4.2 The BP resolution (<code>mr_BP</code>)<a class="heading-anchor" href="#42-the-bp-resolution-mr_bp">#</a></h3>
+<pre><code>// BPmain.cpp:18-27
+BPInit BPoper(max_degree, resolution_length, filename0+"etaL", filename0+"R2L", filename0+"delta", filename);
+BPoper.load_gens(filename0 + "gens_data");   // the mr_st output — see ARCHITECTURE.md §5
+BPoper.resolve();</code></pre>
+<p><code>BPInit</code>&#39;s constructor (<code>BP_init.cpp:9-40</code>) mirrors <code>SteenrodInit</code>&#39;s: it
+calls <code>BP_oper.set_to_trivial(comod, 0)</code> at line 23 to initialize <code>comod</code> —
+a <code>BPComodInit</code> (<code>BP_init.h:11-16</code>), a <code>BPCoMod_generic</code> (§1.2/§2) backed by
+a <em>disk-file</em> <code>matrix_file&lt;BPBP&gt; coaction_matrix</code> this time, because a full
+BP resolution can be far too large to keep in memory.</p>
+<p><code>BPoper.resolve()</code> (<code>BP_init.cpp:43-54</code>) is:</p>
+<pre><code>BP_oper.pre_resolution_modeled(comod, director+"maps", director+"gens",
+                                resolution_length, director+"tables", &amp;ctable, gens,
+                                tfm, &amp;inj, &amp;qut, &amp;indj, &amp;new_map, director+"back");</code></pre>
+<p>This is <strong>the one line where the actual BP resolution is computed</strong> —
+<code>pre_resolution_modeled</code> (declared <code>hopf_algebroid/4.h:83</code>, defined
+<code>hopf_algebroid/6.h:41-...</code>) is the &quot;lift a known model resolution&quot; variant
+of <code>pre_resolution_tab</code> (<code>ARCHITECTURE.md</code> §5). Two of its arguments are
+worth spelling out:</p>
+<ul>
+<li><strong><code>&amp;ctable</code></strong> — a pointer to the <em>already-computed</em> curtis table from
+<code>mr_st</code>&#39;s run (loaded from the <code>mr_st</code>-produced files); this is the
+&quot;model&quot; being lifted, playing the role <code>resolutionTables</code> played in
+§4.1&#39;s <code>pre_resolution_tab</code> call, except reused rather than recomputed.</li>
+<li><strong><code>tfm</code></strong> — a small lambda (<code>BP_init.cpp:47-48</code>) defined as
+<code>[this](const vectors&lt;matrix_index,Fp&gt;&amp; v){ return BP_oper.lift(v); }</code>:
+&quot;given a vector over <code>F_p</code> (the model&#39;s ring), lift it to a vector over
+<code>BP</code> (the ring being actually resolved).&quot; This is the concrete &quot;transport
+a resolution from one Hopf algebroid to another&quot; step —
+<code>pre_resolution_modeled</code>&#39;s generic <code>transformer</code> parameter
+(<code>hopf_algebroid/4.h:83</code>), filled in here with <code>BP_Op::lift</code>.</li>
+</ul>
+<h2 id="5-cheat-sheet">5. Cheat sheet<a class="heading-anchor" href="#5-cheat-sheet">#</a></h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Math concept</th>
+<th>C++ syntax</th>
+<th>Plain-English meaning</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>A comodule (abstractly)</td>
+<td><code>CoModule&lt;algebroid, degree_type&gt;</code></td>
+<td>&quot;Anything with a <code>rank()</code>, <code>coaction(i)</code>, <code>degree(i)</code>&quot; — a contract, no data</td>
+</tr>
+<tr>
+<td>A comodule with an explicit coaction</td>
+<td><code>comodule_generic&lt;algebroid, degree_type&gt;</code></td>
+<td><code>rank</code>/<code>degree</code> are a plain int + array; <code>coaction(i)</code> is &quot;row <code>i</code> of a matrix&quot;</td>
+</tr>
+<tr>
+<td>A cofree (relative-injective) comodule</td>
+<td><code>cofree_comodule&lt;algebroid, degree_type&gt;</code></td>
+<td>Coaction computed on demand from the algebroid&#39;s own comultiplication, never stored as a matrix</td>
+</tr>
+<tr>
+<td>The Hopf algebroid <code>(A, Γ)</code> itself, plus the resolution algorithm</td>
+<td><code>Hopf_Algebroid&lt;ring, algebroid&gt;</code></td>
+<td><code>ring</code>=<code>A</code>, <code>algebroid</code>=<code>Γ</code>; declares <code>etaL</code>/<code>etaR</code>/<code>delta</code> and implements <code>embed2cofree</code>/<code>resolvor</code>/<code>pre_resolution_tab</code> generically</td>
+</tr>
+<tr>
+<td>&quot;Fill in the blanks&quot; for BP</td>
+<td><code>BP_Op : Hopf_Algebroid&lt;BP, BPBP&gt;</code></td>
+<td><code>A = BP_* </code>, <code>Γ = BP_*BP</code></td>
+</tr>
+<tr>
+<td>&quot;Fill in the blanks&quot; for BP/I</td>
+<td><code>Steenrod_Op : Hopf_Algebroid&lt;Fp, P&gt;</code></td>
+<td><code>A = F_3</code>, <code>Γ = BP_*BP/I</code></td>
+</tr>
+<tr>
+<td>The trivial (rank-1) comodule</td>
+<td><code>Hopf_Algebroid::set_to_trivial(X, deg)</code></td>
+<td>One generator, coaction = &quot;1 times itself,&quot; reused by every pipeline</td>
+</tr>
+<tr>
+<td>Where a resolution loop actually runs</td>
+<td><code>pre_resolution_tab</code> (from scratch) / <code>pre_resolution_modeled</code> (lifted from a model)</td>
+<td>One function call in each pipeline&#39;s <code>Init::resolve()</code></td>
+</tr>
+</tbody>
+</table></div>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>

@@ -1,0 +1,415 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Motivic Pipeline (mr_mot / mot_comb / mot_mult / tauBoc) — MinimalResolution docs</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="../index.html">docs</a><span class="sep">/</span><span>pipelines</span><span class="sep">/</span><span class="current">MOTIVIC</span></div>
+  <div class="actions">
+    <a class="src-link" href="MOTIVIC.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="the-motivic-pipeline-mr_mot-mot_comb-mot_mult-tauboc">The Motivic Pipeline (<code>mr_mot</code> / <code>mot_comb</code> / <code>mot_mult</code> / <code>tauBoc</code>)<a class="heading-anchor" href="#the-motivic-pipeline-mr_mot-mot_comb-mot_mult-tauboc">#</a></h1>
+<p>Motivic layer of the codebase, built on the generic template framework
+described in <code>docs/FRAMEWORK.md</code> (<code>matrix&lt;ring&gt;</code>, <code>ModuleOp</code>,
+<code>comodule_generic</code>/<code>cofree_comodule</code>, <code>Hopf_Algebroid&lt;ring,algebroid&gt;</code>,
+<code>curtis_table</code>, <code>polynomial&lt;ring&gt;</code>). Covers: <code>mot_steenrod.h/.cpp</code>,
+<code>mot_main.cpp</code>, <code>mot_combine.cpp</code>, <code>mot_coactions.cpp</code>, <code>tao_bockstein.h/.cpp</code>,
+<code>taubocmain.cpp</code>, <code>tao_boc.cpp</code>, <code>mot_mult.cpp</code>.</p>
+<h2 id="1-purpose">1. Purpose<a class="heading-anchor" href="#1-purpose">#</a></h2>
+<ul>
+<li>The ring being resolved is the <strong>motivic dual Steenrod algebra</strong>
+<code>A_*^mot = F_p[tau][xi_1, xi_2, ...]</code> (<code>motSteenrod = polynomial&lt;tauPoly&gt;</code>,
+<code>mot_steenrod.h:43</code>), a polynomial ring on <code>xi_i</code> with coefficients not in
+<code>F_p</code> but in <code>F_p[tau]</code> — <code>tau</code> a formal variable of its own bidegree
+<code>(0, weight)</code> (topological degree 0, motivic weight tracked separately,
+<code>MotDegree</code> class, <code>mot_steenrod.h:58-73</code>). Every class is bigraded by
+<code>(deg, weight) = (t, w)</code>.</li>
+<li><code>tauOper</code> (<code>mot_steenrod.h:12-38</code>) implements arithmetic on (a sparse
+encoding of) monomials in <code>tau</code>: a <code>tauPoly</code> is just the exponent of <code>tau</code>
+packed into an <code>int16_t</code>, with a sentinel <code>internal_zero = 1&lt;&lt;15</code>
+(<code>mot_steenrod.h:14</code>) standing for the zero polynomial — i.e. this models
+<code>F_p[tau]</code> restricted to <em>monomials</em> <code>c·tau^k</code> (<code>c</code> implicitly absorbed:
+<code>add</code> of two nonzero same-valued terms returns <code>internal_zero</code>,
+<code>mot_steenrod.cpp:7-12</code>), not general polynomials. <strong>TODO(math):</strong> the
+comment &quot;if x and y are both nontrivial, ... then x=y in F3[tau]&quot;
+(<code>mot_steenrod.cpp:10</code>) suggests coefficients are only ever tracked
+mod 2 (so <code>x+x=0</code>), consistent with <code>unit(n)</code>&#39;s parity check
+(<code>mot_steenrod.cpp:31-34</code>) and <code>lift()</code>&#39;s <code>x%2!=0</code> test
+(<code>mot_steenrod.cpp:270-273</code>) — i.e. despite the <code>F3</code>/<code>F_p</code> naming
+throughout, the actual coefficient arithmetic implemented is mod <strong>2</strong>,
+not mod 3. <strong>Context from <code>MinimalResolution.pdf</code>:</strong> the paper&#39;s own §9
+source-code walkthrough documents only the direct <code>BP_*BP</code> pipeline&#39;s files
+(through <code>Qp.h</code>/<code>BPQ.h</code>/<code>Z2.h</code>) and never mentions <code>mot_steenrod.*</code> or any
+motivic construction — see <code>docs/ARCHITECTURE.md</code> §6 for why: this whole
+layer implements an independent cross-check via Gheorghe–Wang–Xu&#39;s theorem
+that the algebraic Novikov SS for the sphere is isomorphic to the motivic
+Adams SS for the cofiber of τ (paper&#39;s introduction, citing [2]), and per
+the p=2/p=3 split analysis it appears to be inherited unmodified from the
+original p=2 codebase rather than ported. This explains <em>why</em> it&#39;s
+plausible for the motivic layer to remain mod-2 while the direct BP
+pipeline runs at p=3, but doesn&#39;t confirm the specific claim from the code
+alone — that remains a <code>TODO(code)</code> to verify empirically.</li>
+<li><code>MotSteenrodOp</code> (<code>mot_steenrod.h:83-140</code>) is the <code>Hopf_Algebroid&lt;tauPoly, motSteenrod&gt;</code> structure on this ring: a cofree-comodule coaction table
+(<code>cofree_coaction</code>, loaded from disk, <code>generate_cofree_coaction</code>,
+<code>mot_steenrod.cpp:191-213</code>) built from a <strong>separately precomputed</strong>
+comultiplication table (see <code>mot_coactions.cpp</code>, §2). <code>mr_mot</code> then
+resolves the trivial comodule (§4) to compute (bigraded) <code>Ext</code> groups
+<code>Ext_{A_*^mot}^{s,(t,w)}(F_p, F_p)</code> — the <strong>E2 page of the motivic Adams
+spectral sequence</strong> for the motivic sphere. <strong>Resolved
+(<code>MinimalResolution.pdf</code>, introduction, citing Gheorghe–Wang–Xu [2]):</strong>
+&quot;the algebraic Novikov spectral sequence for the sphere is isomorphic to
+the motivic Adams spectral sequence for the cofiber of tau&quot; — so this
+<code>Ext</code> computation, followed by the τ-Bockstein spectral sequence below,
+is precisely the alternative route to the same target <code>mr_BP</code> computes
+directly (<code>docs/ARCHITECTURE.md</code> §6).</li>
+<li><code>tao_bockstein.{h,cpp}</code> / <code>taubocmain.cpp</code> (<code>tauBoc</code>) then treat the
+resulting minimal resolution as a <strong>complex over <code>F_p[tau]</code></strong>
+(<code>motComplex</code>, <code>tao_bockstein.h:19-26</code>) and run a <strong>tau-Bockstein spectral
+sequence</strong>: <code>tau_table</code>/<code>tau_table_entry</code> (<code>tao_bockstein.h:28-74</code>)
+implement an algorithm that, for each resolution differential (viewed as
+a matrix over <code>F_p[tau]</code>), finds a &quot;leading term&quot; by <code>tau</code>-adic valuation
+(<code>tau_table::leading_term</code>, <code>tao_bockstein.cpp:72-78</code>) and iteratively
+cancels cycles against boundaries divisible by increasing powers of
+<code>tau</code> (<code>make_pretable</code>, <code>tao_bockstein.cpp:81-145</code>) — the standard
+Bockstein-SS bookkeeping (tag/cycle pairs with a &quot;differential length&quot; =
+power of <code>tau</code>) applied to the <code>tau</code>-adic filtration relating the motivic
+and classical (tau-inverted / tau=0) Adams <code>E2</code> pages.
+<strong>Resolved:</strong> per [2] (see above), this τ-Bockstein spectral sequence&#39;s
+target is exactly the <strong>algebraic Novikov spectral sequence for the
+sphere</strong> — the same <code>algNov_table</code> object the BP pipeline computes
+directly (<code>docs/pipelines/BP.md</code> §3). The motivic resolution&#39;s E2 page is
+the &quot;cofiber of τ&quot; side of [2]&#39;s isomorphism; running the τ-Bockstein
+filtration on it recovers the classical (τ-independent) algebraic Novikov
+page as its target, mirroring how <code>Boc_table</code> recovers the classical
+Bockstein SS from the same primitive complex in the BP pipeline
+(<code>docs/pipelines/BP.md</code> §6).</li>
+<li><code>mot_mult.cpp</code> (<code>mot_mult</code>) additionally computes <strong>Massey-product-free
+multiplications</strong> by fixed classes <code>h_i = MOP.hi(i)</code> (<code>mot_steenrod.h:124</code>,
+constructed as the monomial <code>x_{2^i}</code> with coefficient <code>tau^{-2^{i-1}}</code>,
+<code>mot_steenrod.cpp:230-231</code>) on the <code>E2</code>/associated-graded page, using the
+tau-Bockstein cycle data to express products in terms of chosen cycle
+representatives (<code>multiplication_table</code>, <code>tao_bockstein.cpp:304-336</code>).</li>
+</ul>
+<h2 id="2-executables">2. Executables<a class="heading-anchor" href="#2-executables">#</a></h2>
+<p>All four share the <code>&lt;maxdeg&gt;_</code>-prefixed file-naming convention
+(<code>directory = argv[1] + &quot;_&quot;</code>, e.g. <code>mot_main.cpp:10-12</code>).</p>
+<h3 id="mr_mot-from-mot_maincpp"><code>mr_mot</code> (from <code>mot_main.cpp</code>)<a class="heading-anchor" href="#mr_mot-from-mot_maincpp">#</a></h3>
+<ul>
+<li>Build (<code>mot_compile:1</code>): <code>g++ -O2 -omr_mot Fp.cpp streams.cpp mot_main.cpp mot_steenrod.cpp exponents.cpp -fopenmp -Wall -Wfatal-errors -I./</code></li>
+<li>Usage: <code>./mr_mot &lt;maxdeg&gt; &lt;resolution_length&gt;</code> (<code>mot_main.cpp:8-9</code>).</li>
+<li><strong>Inputs</strong> (must already exist, all <code>&lt;maxdeg&gt;_</code>-prefixed):<ul>
+<li><code>ex2poly_index</code> — read by <code>MOP.init_mon_array</code> (<code>mot_main.cpp:22</code>); this
+is the monomial list, produced by <strong><code>e2p</code>/<code>ex2poly.cpp</code></strong> (Part B, see
+<code>EX_CTAU.md</code>) — i.e. the motivic monomial ordering is inherited from the
+ex-pipeline&#39;s monomial index, not generated independently
+(<code>ex2poly.cpp:39-44</code> writes exactly <code>&lt;maxdeg&gt;_ex2poly_index</code>).</li>
+<li><code>mot_deltas</code>, <code>poly_exponents</code> — read by
+<code>MOP.generate_cofree_coaction</code> (<code>mot_main.cpp:25</code>); produced by
+<strong><code>motTab</code>/<code>mot_coactions.cpp</code></strong> (see §2 below; not one of the 4
+assigned executables but a required upstream step run first, via
+<code>mottable_compile</code>).</li>
+<li><code>gens_data_ctau</code> — read by <code>MOP.load_gens</code> (<code>mot_main.cpp:54</code>);
+produced by <strong><code>mr_ex</code>/<code>ex_main.cpp</code></strong> (<code>ex_main.cpp:17</code>,
+<code>SteenrodInit::save_gens</code>) — the motivic resolution&#39;s choice of
+generators at each stage is <strong>modeled on</strong> the classical ex/ctau
+resolution&#39;s generators (see <code>EX_CTAU.md</code> for that pipeline). This is
+the key cross-pipeline dependency: <strong><code>mr_ex</code> must run before <code>mr_mot</code></strong>
+for the same <code>&lt;maxdeg&gt;</code>.</li>
+<li><code>extables</code> — read inside <code>pre_resolution_modeled</code> (<code>mot_main.cpp:57</code>,
+consumed via <code>hopf_algebroid/6.h:41,48,78</code>); produced by <code>mr_ex</code>&#39;s
+<code>SteenrodInit::resolve</code> → <code>pre_resolution_tab(..., director + &quot;extables&quot;)</code> (<code>ex_steenrod_init.cpp:57</code>). This is a <code>curtis_table&lt;Fp&gt;</code>
+(over the <em>ex/ctau</em> coefficient ring <code>Fp</code>, not <code>tauPoly</code>) — the
+<code>tfm</code>/<code>transformer</code> lambda (<code>mot_main.cpp:44-45</code>, <code>MOP.lift</code>) converts
+<code>Fp</code> vectors from this table into <code>tauPoly</code> vectors on the fly
+(<code>mot_steenrod.cpp:276-281</code>).</li>
+</ul>
+</li>
+<li><strong>Outputs</strong> (all <code>&lt;maxdeg&gt;_</code>-prefixed): <code>mot_maps</code> (injection/quotient
+matrices per step), <code>mot_gens</code> (generator data per step, combined by
+<code>gens_file_combiner</code>, <code>mot_main.cpp:60</code>), <code>mot_res</code> (composed resolution,
+<code>mot_main.cpp:64</code>), intermediate <code>motinj</code>/<code>motqut</code>/<code>motindj</code>/<code>motnewm</code>,
+and <code>back&lt;i&gt;</code> backup files (<code>pre_resolution_modeled</code>&#39;s
+<code>back_up_file_name</code>, <code>mot_main.cpp:57</code>). Also writes <code>maps.txt</code> (fixed
+name, cwd-relative, <code>mot_main.cpp:63</code>) and prints the monomial list to
+stdout (<code>MOP.output_monomials()</code>, <code>mot_main.cpp:23</code>).</li>
+<li>Control flow: construct <code>MotSteenrodOp</code> → load monomials → build cofree
+coaction from the <code>motTab</code> output → set comodule to trivial (<code>F_p[tau]</code>
+in degree <code>(0,0)</code>, <code>mot_main.cpp:32-33</code>) → load <code>ex</code>-modeled generators →
+<code>pre_resolution_modeled</code> (the actual resolution loop, modeled on the
+<code>mr_ex</code> curtis tables) → <code>gens_file_combiner</code> → <code>resolution()</code> (composes
+consecutive injection/quotient maps into the final differentials).</li>
+</ul>
+<h3 id="mot_comb-from-mot_combinecpp"><code>mot_comb</code> (from <code>mot_combine.cpp</code>)<a class="heading-anchor" href="#mot_comb-from-mot_combinecpp">#</a></h3>
+<ul>
+<li>Build (<code>mot_comb_compile:1</code>): <code>g++ -O2 -omot_comb Fp.cpp streams.cpp mot_combine.cpp mot_steenrod.cpp exponents.cpp -fopenmp -Wall -Wfatal-errors -I./</code></li>
+<li>Usage: <code>./mot_comb &lt;maxdeg&gt; &lt;resolution_length&gt;</code>
+(<code>mot_combine.cpp:8-9</code>) — same argument meaning as <code>mr_mot</code>.</li>
+<li>Purpose: <strong>re-run only the combining/output stage</strong> of <code>mr_mot</code> without
+re-resolving — it constructs <code>MotSteenrodOp</code> with <code>cofa=NULL</code>
+(<code>mot_combine.cpp:19</code>, no coaction matrix, so it cannot resolve, only
+reload), reloads the monomial list and the (already-computed) trivial
+comodule, then calls the same <code>gens_file_combiner</code> +
+<code>resolution()</code> pair as the tail of <code>mr_mot</code> (<code>mot_combine.cpp:35,39</code>
+vs. <code>mot_main.cpp:60,64</code>).</li>
+<li>Inputs: <code>ex2poly_index</code>, <code>mot_coac_d</code> (a <code>matrix_file&lt;motSteenrod&gt;</code> for the
+comodule, <code>mot_combine.cpp:25</code>), and the <strong>per-step</strong> <code>mot_gens&lt;i&gt;</code> /
+<code>mot_maps&lt;i&gt;</code> files left behind by a <code>mr_mot</code> run — i.e. this is meant to
+be run <strong>after a <code>mr_mot</code> run that produced per-step but not yet combined
+output</strong> (e.g. a run interrupted before its final combine/resolve step,
+or one where those two steps are deliberately split out).</li>
+<li>Outputs: <code>mot_gens</code> (combined), <code>mot_res</code>, <code>maps.txt</code> — identical output
+set/names to <code>mr_mot</code>&#39;s tail.</li>
+<li><strong>TODO(math)/TODO(code):</strong> no comment states why this split executable
+exists (e.g. to avoid recomputing the expensive resolution loop when only
+the combine/compose step needs re-running, or to combine partial output
+from a crashed/resumed <code>mr_mot</code> run) — inferred purely from the code
+overlap with <code>mot_main.cpp</code>&#39;s tail.</li>
+</ul>
+<h3 id="mottab-from-mot_coactionscpp-upstream-helper-not-one-of-the-4-named-executables-but-load-bearing"><code>motTab</code> (from <code>mot_coactions.cpp</code>) — upstream helper, not one of the 4 named executables but load-bearing<a class="heading-anchor" href="#mottab-from-mot_coactionscpp-upstream-helper-not-one-of-the-4-named-executables-but-load-bearing">#</a></h3>
+<ul>
+<li>Build (<code>mottable_compile:1</code>): <code>g++ -std=c++11 -O2 exponents.cpp mot_steenrod.cpp mot_coactions.cpp mon_index.cpp -omotTab -I./ -fopenmp -Wall -Wfatal-errors</code>. Note it links <code>mon_index.cpp</code>&#39;s <strong>classical</strong>
+<code>monomial_index</code> (built on <code>exponents.h</code>, no exterior part) — not
+<code>ex_index.cpp</code>&#39;s variant — since <code>mot_coactions.cpp:3</code> includes
+<code>mon_index.h</code> directly.</li>
+<li>Usage: <code>./motTab &lt;maxdeg&gt;</code>; writes <code>&lt;maxdeg&gt;_mot_deltas</code> (comultiplication
+table) and <code>&lt;maxdeg&gt;_poly_exponents</code> (monomial list in <code>motTab</code>&#39;s own
+ordering) (<code>mot_coactions.cpp:56-71</code>).</li>
+<li>Computes the <strong>motivic Milnor coproduct</strong>: for generator <code>x_n</code>,
+<code>Δ(x_n) = x_n⊗1 + 1⊗x_n + Σ_{i=1}^{n-1} τ^{-2^{i-1}}[x_i|x_{n-i}^{2^i}]</code>
+(<code>mot_coactions.cpp:20-27</code>), with the comment &quot;<code>xi_i = τ^{-1}τ_i^2</code>&quot; at
+line 23 — i.e. the motivic <code>xi_i</code> here is being expressed via a &quot;square
+root&quot; generator <code>τ_i</code> exactly as in the ex/ctau pipeline (see
+<code>EX_CTAU.md</code> §1), extended to a genuine coproduct formula over
+<code>F_p[tau]</code> using negative powers of <code>tau</code>. <strong>TODO(math):</strong> the formula&#39;s
+relationship to the classical/Milnor coproduct at <code>p=2</code> vs. the intended
+motivic coproduct of Voevodsky/Hoyois-Kelly-Østvær is not stated in the
+comments — it&#39;s presented as a direct, unexplained generalization.</li>
+<li>This produces the <code>mot_deltas</code>/<code>poly_exponents</code> files consumed by
+<code>mr_mot</code>&#39;s <code>generate_cofree_coaction</code> (<code>mot_main.cpp:25</code>) — <strong>must run
+before <code>mr_mot</code></strong>, alongside <code>mr_ex</code> (for <code>gens_data_ctau</code>/<code>extables</code>) and
+<code>e2p</code> (for <code>ex2poly_index</code>). So the full pipeline order is:
+<code>mr_ex</code> (and/or <code>e2p</code>) → <code>motTab</code> → <code>mr_mot</code> → (<code>mot_comb</code> if needed) →
+<code>mot_mult</code> / <code>tauBoc</code>.</li>
+</ul>
+<h3 id="mot_mult-from-mot_multcpp"><code>mot_mult</code> (from <code>mot_mult.cpp</code>)<a class="heading-anchor" href="#mot_mult-from-mot_multcpp">#</a></h3>
+<ul>
+<li>Build (<code>tau_mult_compile:1</code>): <code>g++ -std=c++11 -O2 mot_mult.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp -fopenmp -I./ -omot_mult</code></li>
+<li>Usage: <code>./mot_mult &lt;maxdeg&gt; &lt;resolution_length&gt;</code> (<code>mot_mult.cpp:9-10</code>).</li>
+<li>Inputs: <code>ex2poly_index</code>, <code>mot_gens</code>, <code>mot_res</code> — i.e. <strong>runs after
+<code>mr_mot</code>/<code>mot_comb</code></strong> have produced the combined resolution.</li>
+<li>Control flow (<code>mot_mult.cpp:24-47</code>): load the resolution as a
+<code>motComplex</code> (<code>Complex.load</code>) → <code>make_table</code> (build the tau-Bockstein
+tables, same as <code>tauBoc</code>, see below) → <code>make_cycle_tables</code> (extract
+cycle representatives per resolution degree) → for <code>i=0..3</code>, call
+<code>multiplication_table(MOP.hi(i), 2^i, ...)</code> (<code>mot_mult.cpp:44-47</code>) to
+compute multiplication-by-<code>h_i</code> maps on cycles, writing
+<code>h0.txt</code>..<code>h3.txt</code>.</li>
+<li>Outputs: <code>tau_bockstein.txt</code> (same as <code>tauBoc</code>, recomputed redundantly —
+<code>mot_mult</code> does not reuse a <code>tauBoc</code> run&#39;s output, it recomputes the
+tables itself), <code>new_generators</code> (cycle data dump,
+<code>mot_mult.cpp:36-41</code>), <code>h0.txt</code>..<code>h3.txt</code> (multiplication-by-<code>h_i</code>
+tables).</li>
+</ul>
+<h3 id="tauboc-from-taubocmaincpp"><code>tauBoc</code> (from <code>taubocmain.cpp</code>)<a class="heading-anchor" href="#tauboc-from-taubocmaincpp">#</a></h3>
+<ul>
+<li>Build (<code>tauboc_compile:1</code>): <code>g++ -std=c++11 -O2 taubocmain.cpp tao_bockstein.cpp mot_steenrod.cpp exponents.cpp -fopenmp -I./ -otauBoc</code></li>
+<li>Usage: <code>./tauBoc &lt;maxdeg&gt; &lt;resolution_length&gt;</code>
+(<code>taubocmain.cpp:7-8</code>) — same inputs as <code>mot_mult</code> (<code>ex2poly_index</code>,
+<code>mot_gens</code>, <code>mot_res</code>), also produced by <code>mr_mot</code>/<code>mot_comb</code>.</li>
+<li>Outputs: <code>mot_gen.txt</code> (human-readable generator degrees,
+<code>output_generators</code>, <code>taubocmain.cpp:23</code>), <code>mot_maps.txt</code> (human-readable
+differentials, <code>Complex.output</code>, <code>taubocmain.cpp:32</code>),
+<code>tau_bockstein.txt</code> (the Bockstein table, <code>taubocmain.cpp:38-39</code>).</li>
+<li>This is the <strong>read-only / reporting</strong> counterpart of <code>mot_mult</code>: it
+builds and dumps the tau-Bockstein tables and human-readable resolution
+data but does not compute any <code>h_i</code>-multiplications.</li>
+</ul>
+<h2 id="3-class-catalog">3. Class catalog<a class="heading-anchor" href="#3-class-catalog">#</a></h2>
+<div class="table-wrap"><table>
+<thead><tr>
+<th>Class</th>
+<th>File</th>
+<th>Template Params</th>
+<th>Base Classes</th>
+<th>Purpose</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>tauPoly</code></td>
+<td><code>mot_steenrod.h:10</code></td>
+<td><code>typedef int16_t</code></td>
+<td>—</td>
+<td>Encodes a single monomial <code>c·tau^k</code> in <code>F_p[tau]</code> as its <code>tau</code>-exponent; sentinel <code>internal_zero=1&lt;&lt;15</code> for <code>0</code> (<code>mot_steenrod.h:14</code>)</td>
+</tr>
+<tr>
+<td><code>tauOper</code></td>
+<td><code>mot_steenrod.h:12</code></td>
+<td>—</td>
+<td><code>virtual RingOp&lt;tauPoly&gt;</code></td>
+<td>Arithmetic on (monomials of) <code>F_p[tau]</code>; <code>add</code> of distinct-valuation or equal nonzero terms collapses per mod-2 rule (<code>mot_steenrod.cpp:7-12</code>, see §1 TODO); <code>tau_valuation</code>, <code>shift</code>, <code>power_tau</code> for Bockstein bookkeeping</td>
+</tr>
+<tr>
+<td><code>motSteenrod</code></td>
+<td><code>mot_steenrod.h:43</code></td>
+<td><code>typedef polynomial&lt;tauPoly&gt;</code></td>
+<td>—</td>
+<td>The motivic dual Steenrod algebra <code>F_p[tau][xi_1,xi_2,...]</code></td>
+</tr>
+<tr>
+<td><code>mStmSt</code></td>
+<td><code>mot_steenrod.h:45</code></td>
+<td><code>typedef polynomial&lt;motSteenrod&gt;</code></td>
+<td>—</td>
+<td><code>A_*^mot ⊗ A_*^mot</code>, used for the coproduct</td>
+</tr>
+<tr>
+<td><code>MotSteenrodRingOp</code></td>
+<td><code>mot_steenrod.h:48</code></td>
+<td>—</td>
+<td><code>virtual PolynomialOp&lt;tauPoly&gt;</code></td>
+<td>Ring/module ops on <code>motSteenrod</code>; wires <code>output_term</code> (<code>mot_steenrod.cpp:77-80</code>)</td>
+</tr>
+<tr>
+<td><code>MotDegree</code></td>
+<td><code>mot_steenrod.h:58</code></td>
+<td>—</td>
+<td>—</td>
+<td>Bigrading <code>(deg, weight)</code>; <code>varWeight(n) = xnDeg(n)/2</code> (<code>mot_steenrod.cpp:113</code>) — motivic weight of <code>xi_n</code> is half its topological degree</td>
+</tr>
+<tr>
+<td><code>FreeMotCoMod</code></td>
+<td><code>mot_steenrod.h:76</code></td>
+<td><code>typedef cofree_comodule&lt;motSteenrod,MotDegree&gt;</code></td>
+<td>—</td>
+<td>Cofree <code>A_*^mot</code>-comodule bigraded by <code>MotDegree</code></td>
+</tr>
+<tr>
+<td><code>MotSteenrodOp</code></td>
+<td><code>mot_steenrod.h:83</code></td>
+<td>—</td>
+<td><code>virtual Hopf_Algebroid&lt;tauPoly,motSteenrod&gt;</code></td>
+<td>The Hopf algebroid structure on <code>A_*^mot</code>; owns <code>cofree_coaction</code>, <code>mon_array</code>/<code>mon_index</code>, <code>etaL</code>/<code>etaR</code>, <code>delta</code>, <code>hi(i)</code>, <code>lift()</code> (F_p→F_p[tau] and vector lift), <code>algebroid2vector[St]</code>/<code>vector2algebroid</code></td>
+</tr>
+<tr>
+<td><code>motComplex</code></td>
+<td><code>tao_bockstein.h:19</code></td>
+<td>—</td>
+<td><code>complex&lt;MotDegree,tauPoly&gt;</code></td>
+<td>Loads a resolution&#39;s differentials as matrices over <code>tauPoly</code> from <code>mot_gens</code>/<code>mot_res</code> (<code>tao_bockstein.cpp:24-61</code>)</td>
+</tr>
+<tr>
+<td><code>cycle_name</code></td>
+<td><code>tao_bockstein.h:28</code></td>
+<td>—</td>
+<td>—</td>
+<td>Single private <code>int i</code>; unused elsewhere in the read files — likely a stub/leftover</td>
+</tr>
+<tr>
+<td><code>tau_table_entry</code></td>
+<td><code>tao_bockstein.h:33</code></td>
+<td>—</td>
+<td>—</td>
+<td>One row of the tau-Bockstein table: <code>tag</code>/<code>cycle</code> indices, full vectors, <code>diff_length</code> (power of <code>tau</code> of the differential)</td>
+</tr>
+<tr>
+<td><code>cycle_data</code></td>
+<td><code>tao_bockstein.h:49</code></td>
+<td><code>typedef std::map&lt;int,vectors&lt;matrix_index,tauPoly&gt;&gt;</code></td>
+<td>—</td>
+<td>Map from generator index to its chosen cycle representative</td>
+</tr>
+<tr>
+<td><code>tau_table</code></td>
+<td><code>tao_bockstein.h:52</code></td>
+<td>—</td>
+<td>—</td>
+<td>The Bockstein table at one resolution degree: <code>make_pretable</code> (core recursive cancellation algorithm, <code>tao_bockstein.cpp:81-145</code>), <code>get_cycles</code>/<code>get_tags</code>, <code>pot_maker</code></td>
+</tr>
+</tbody>
+</table></div>
+<h2 id="4-datacontrol-flow-per-executable">4. Data/control flow per executable<a class="heading-anchor" href="#4-datacontrol-flow-per-executable">#</a></h2>
+<ul>
+<li><strong><code>mr_mot</code></strong>: <code>MotSteenrodOp(coa, maxdeg)</code> → <code>init_mon_array</code> (from
+<code>ex2poly_index</code>) → <code>generate_cofree_coaction</code> (from <code>motTab</code>&#39;s
+<code>mot_deltas</code>/<code>poly_exponents</code>) → <code>set_to_trivial</code> (comodule = <code>F_p[tau]</code>
+at <code>(0,0)</code>) → <code>load_gens</code> (from <code>mr_ex</code>&#39;s <code>gens_data_ctau</code>) →
+<code>pre_resolution_modeled</code> (loop over resolution steps, each guided by the
+<code>mr_ex</code> curtis table <code>extables</code> via the <code>Fp→tauPoly</code> lift transformer) →
+<code>gens_file_combiner</code> → <code>resolution()</code> (compose maps, write <code>mot_res</code>).</li>
+<li><strong><code>mot_comb</code></strong>: identical tail to <code>mr_mot</code> (<code>gens_file_combiner</code> +
+<code>resolution()</code>) without the resolving step — reloads existing per-step
+<code>mot_gens&lt;i&gt;</code>/<code>mot_maps&lt;i&gt;</code> files.</li>
+<li><strong><code>motTab</code></strong>: <code>monomial_index(maxdeg)</code> (classical, non-exterior) →
+<code>init_mon_array</code> → <code>make_delta_table</code> (recursive motivic Milnor coproduct
+via <code>mon_index.substitution_table</code>) → write <code>mot_deltas</code> +
+<code>poly_exponents</code>.</li>
+<li><strong><code>mot_mult</code></strong>: load <code>motComplex</code> from <code>mot_gens</code>/<code>mot_res</code> →
+<code>make_table</code> (tau-Bockstein) → <code>make_cycle_tables</code> → for each <code>h_i</code>
+(<code>i=0..3</code>), <code>multiplication_table</code> (builds a multiplication-by-<code>h_i</code>
+matrix via <code>make_multiplication_table</code>, pushes each generator&#39;s cycle
+through it, re-expresses the result in the next degree&#39;s chosen cycles
+via <code>find_cycle</code>) → write <code>h&lt;i&gt;.txt</code>.</li>
+<li><strong><code>tauBoc</code></strong>: load <code>motComplex</code> → <code>output_generators</code> (<code>mot_gen.txt</code>) →
+<code>Complex.output</code> (<code>mot_maps.txt</code>) → <code>make_table</code> → <code>output_tables</code>
+(<code>tau_bockstein.txt</code>).</li>
+</ul>
+<h2 id="5-open-math-questions">5. Open math questions<a class="heading-anchor" href="#5-open-math-questions">#</a></h2>
+<p>Two questions previously listed here are now resolved by
+<code>MinimalResolution.pdf</code> — see §1: the τ-Bockstein SS&#39;s target is the
+algebraic Novikov SS for the sphere (via Gheorghe–Wang–Xu [2]&#39;s
+cofiber-of-τ isomorphism), and that same reference is <em>why</em> this whole
+pipeline exists as an independent cross-check of <code>mr_BP</code>. What remains
+open:</p>
+<ul>
+<li><strong>TODO(code):</strong> Whether <code>tauOper</code>&#39;s arithmetic (<code>mot_steenrod.cpp:7-12</code>),
+<code>unit(n)</code>&#39;s parity test, and <code>MotSteenrodOp::lift</code>&#39;s <code>x%2!=0</code> test
+operating mod 2 (despite the surrounding type being named <code>F3</code>,
+<code>mot_steenrod.h:7</code>) means this pipeline is <em>still actually computing at
+p=2</em> while claiming p=3 naming, or whether there&#39;s a mod-3-compatible
+reading of &quot;add of equal terms → 0&quot; that isn&#39;t literally mod-2 arithmetic.
+<code>docs/ARCHITECTURE.md</code> §6 gives the likely explanation (this is
+unported p=2 legacy code, consistent with the paper&#39;s own source docs
+never mentioning this file), but doesn&#39;t confirm the arithmetic claim
+itself — that would need running the code or a line-by-line audit beyond
+this pass.</li>
+<li><strong>TODO(math):</strong> What is the precise motivic coproduct formula
+<code>mot_coactions.cpp:20-27</code> computing, relative to a standard reference for
+the motivic dual Steenrod algebra (e.g. Voevodsky) — in particular the
+role of the negative powers of <code>tau</code> (<code>τ^{-2^{i-1}}</code>). <code>MinimalResolution.pdf</code>
+does not discuss the motivic dual Steenrod algebra&#39;s construction at all
+(only the classical <code>BP_*BP</code>/<code>P</code> case), so this remains unverified against
+a primary source.</li>
+<li><strong>TODO(math)/TODO(code):</strong> Why does <code>mot_comb</code> exist as a separate
+executable from <code>mr_mot</code>&#39;s tail rather than a flag/mode of <code>mr_mot</code> —
+purely a resumability/recomputation-avoidance tool, or something else?</li>
+<li><strong>TODO(math):</strong> The exact justification for &quot;modeling&quot; the motivic
+resolution&#39;s generator choices and cell structure on the ex/ctau
+pipeline&#39;s <code>F_2</code> resolution (<code>pre_resolution_modeled</code>, <code>extables</code>,
+<code>gens_data_ctau</code>) is now understood <em>mechanically</em> (it&#39;s the same
+§5-optimization pattern as <code>mr_st → mr_BP</code>, <code>docs/ARCHITECTURE.md</code> §5),
+but the specific mathematical fact that licenses it here — presumably that
+<code>A_*^mot</code> reduces to (a square-root cover of) the classical mod-2 dual
+Steenrod algebra when <code>tau</code> is inverted/forgotten, so the same minimal
+generating set works — is, like the coproduct formula above, not
+something <code>MinimalResolution.pdf</code> discusses; it remains this document&#39;s
+own inference.</li>
+</ul>
+
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="../index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="../assets/page.js"></script>
+</body>
+</html>

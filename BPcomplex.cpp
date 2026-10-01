@@ -42,10 +42,18 @@ void primitive_data::add(prim_entry itm, int shift, int deg){
 }
 
 //make the primitive data using the list of monimials
+//
+//This is the one place that enumerates a basis of the BASE RING (the cofree
+//basis, indexed by t-monomials, is unchanged by the height). At height n the
+//base ring is BP_*/I_n = F_p[v_n, v_{n+1}, ...], so monomials involving
+//v_1,...,v_{n-1} are not basis elements and must be skipped. At height 0
+//killed_v_monomial is identically false and nothing changes.
 primitive_data primitive_data::make_primitives(int deg, int pos, int shift, monomial_index* mon_ind){
 	primitive_data result;
 	for(auto e: mon_ind->mon_array){
+		//mon_array is sorted by degree, so this really is a break
 		if (total_deg(e) + deg > mon_ind->max_degree) break;
+		if (BPoper->killed_v_monomial(e)) continue;
 		result.add({(matrix_index)pos,e},shift,total_deg(e) + deg );
 	}
 	return result;

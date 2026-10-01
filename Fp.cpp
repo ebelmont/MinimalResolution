@@ -59,10 +59,17 @@ Fp Fp_Op::load(std::iostream& reader){
 bool Fp_Op::invertible(const Fp& x){ 
 	return !isZero(x); }
 
-//inverse of an invertible element, only for p=2 and 3
+//inverse of a nonzero element, via Fermat's little theorem: x^(p-2) = x^{-1} mod p
+//(agrees with the old p=2/p=3 special cases: x^0=1 and x^1=x respectively)
 Fp Fp_Op::inverse(const Fp& x){
-	if(prime==2 || prime==3) return x;
-	std::cerr << "not implemented!";
-	return 0;
+	int result = 1;
+	int base = x % prime;
+	int exp = prime - 2;
+	while(exp > 0){
+		if(exp & 1) result = (result * base) % prime;
+		base = (base * base) % prime;
+		exp >>= 1;
+	}
+	return (Fp) result;
 }
 

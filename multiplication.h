@@ -49,6 +49,16 @@ public:
 	
 	std::vector<multiplication_table<cycle_name>> three_extension(int resolution_length, BPComplex& Cm, algNov_tables Tb, int pric);
 	
+	//Computing the table for multiplication by v_n, the height-n analogue of
+	//three_extension: over BP_*/I_n the element p is 0, so multiplication by
+	//it is uninteresting, and the bottom generator of the maximal invariant
+	//ideal is v_n instead. Unlike multiplication by p this is not a scalar
+	//multiplication on the primitives but a re-indexing v^e[g] -> v^{e+v_n}[g],
+	//so it needs the primitive data and cannot reuse three_extension.
+	multiplication_table<cycle_name> vn_extension(algNov_table &cur_table, int n, int pric);
+	
+	std::vector<multiplication_table<cycle_name>> vn_extension(int resolution_length, BPComplex& Cm, algNov_tables Tb, int n, int pric);
+	
 	//compute the multiplacation by three table in the whole algebraic Novikov table
 	std::vector<multiplication_table<cycle_name>> three_extension(algNov_tables, BPComplex&, int pric);
 	

@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="987" height="267" viewBox="0 0 987 267" font-family="Georgia,serif">
+<rect width="100%" height="100%" fill="#ffffff"/>
+<g stroke="#e6e6e6" stroke-width="0.8">
+<line x1="67.6" y1="34.0" x2="67.6" y2="221.2"/>
+<line x1="130.0" y1="34.0" x2="130.0" y2="221.2"/>
+<line x1="192.4" y1="34.0" x2="192.4" y2="221.2"/>
+<line x1="254.8" y1="34.0" x2="254.8" y2="221.2"/>
+<line x1="317.2" y1="34.0" x2="317.2" y2="221.2"/>
+<line x1="379.6" y1="34.0" x2="379.6" y2="221.2"/>
+<line x1="442.0" y1="34.0" x2="442.0" y2="221.2"/>
+<line x1="504.4" y1="34.0" x2="504.4" y2="221.2"/>
+<line x1="566.8" y1="34.0" x2="566.8" y2="221.2"/>
+<line x1="629.2" y1="34.0" x2="629.2" y2="221.2"/>
+<line x1="691.6" y1="34.0" x2="691.6" y2="221.2"/>
+<line x1="754.0" y1="34.0" x2="754.0" y2="221.2"/>
+<line x1="816.4" y1="34.0" x2="816.4" y2="221.2"/>
+<line x1="878.8" y1="34.0" x2="878.8" y2="221.2"/>
+<line x1="941.2" y1="34.0" x2="941.2" y2="221.2"/>
+<line x1="52.0" y1="205.6" x2="956.8" y2="205.6"/>
+<line x1="52.0" y1="143.2" x2="956.8" y2="143.2"/>
+<line x1="52.0" y1="80.8" x2="956.8" y2="80.8"/>
+</g>
+<g font-size="10" fill="#666666">
+<text x="67.6" y="236.2" text-anchor="middle">0</text>
+<text x="130.0" y="236.2" text-anchor="middle">2</text>
+<text x="192.4" y="236.2" text-anchor="middle">4</text>
+<text x="254.8" y="236.2" text-anchor="middle">6</text>
+<text x="317.2" y="236.2" text-anchor="middle">8</text>
+<text x="379.6" y="236.2" text-anchor="middle">10</text>
+<text x="442.0" y="236.2" text-anchor="middle">12</text>
+<text x="504.4" y="236.2" text-anchor="middle">14</text>
+<text x="566.8" y="236.2" text-anchor="middle">16</text>
+<text x="629.2" y="236.2" text-anchor="middle">18</text>
+<text x="691.6" y="236.2" text-anchor="middle">20</text>
+<text x="754.0" y="236.2" text-anchor="middle">22</text>
+<text x="816.4" y="236.2" text-anchor="middle">24</text>
+<text x="878.8" y="236.2" text-anchor="middle">26</text>
+<text x="941.2" y="236.2" text-anchor="middle">28</text>
+<text x="43.0" y="209.1" text-anchor="end">0</text>
+<text x="43.0" y="146.7" text-anchor="end">2</text>
+<text x="43.0" y="84.3" text-anchor="end">4</text>
+</g>
+<line x1="52.0" y1="221.2" x2="956.8" y2="221.2" stroke="#9a9a9a" stroke-width="1"/>
+<line x1="52.0" y1="34.0" x2="52.0" y2="221.2" stroke="#9a9a9a" stroke-width="1"/>
+<line x1="691.6" y1="205.6" x2="785.2" y2="174.4" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="566.8" y1="205.6" x2="660.4" y2="174.4" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="442.0" y1="205.6" x2="535.6" y2="174.4" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="317.2" y1="205.6" x2="416.1" y2="174.4" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="192.4" y1="205.6" x2="286.0" y2="174.4" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="67.6" y1="205.6" x2="161.2" y2="174.4" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="405.5" y1="174.4" x2="504.4" y2="143.2" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="379.6" y1="143.2" x2="473.2" y2="112.0" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="722.8" y1="112.0" x2="816.4" y2="80.8" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="691.6" y1="80.8" x2="785.2" y2="49.6" stroke="#e8d9c5" stroke-width="1.5"/>
+<line x1="847.6" y1="49.6" x2="941.2" y2="143.2" stroke="#9a9a9a" stroke-width="0.8" stroke-dasharray="4,4" opacity="0.55"/>
+<text x="937.2" y="138.2" font-size="8" text-anchor="end" fill="#666666" opacity="0.8">t = 30 (degree bound)</text>
+<g><title>[0-0]  Z/3  (stem 0, s=0)</title><circle cx="67.6" cy="205.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>[1-0]  Z/3  (stem 3, s=1)</title><circle cx="161.2" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁[0-0]  Z/3  (stem 4, s=0)</title><circle cx="192.4" cy="205.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁[1-0]  Z/3  (stem 7, s=1)</title><circle cx="286.0" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁²[0-0]  Z/3  (stem 8, s=0)</title><circle cx="317.2" cy="205.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>[2-0]  Z/3  (stem 10, s=2)</title><circle cx="379.6" cy="143.2" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>[1-1]  Z/3  (stem 11, s=1)</title><circle cx="405.5" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁²[1-0]  Z/3  (stem 11, s=1)</title><circle cx="416.1" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁³[0-0]  Z/3  (stem 12, s=0)</title><circle cx="442.0" cy="205.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>[3-0]  Z/3  (stem 13, s=3)</title><circle cx="473.2" cy="112.0" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁[2-0]  Z/3  (stem 14, s=2)</title><circle cx="504.4" cy="143.2" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁³[1-0]  Z/3  (stem 15, s=1)</title><circle cx="535.6" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁⁴[0-0]  Z/3  (stem 16, s=0)</title><circle cx="566.8" cy="205.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁⁴[1-0]  Z/3  (stem 19, s=1)</title><circle cx="660.4" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁⁵[0-0]  Z/3  (stem 20, s=0)</title><circle cx="691.6" cy="205.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>[4-0]  Z/3  (stem 20, s=4)</title><circle cx="691.6" cy="80.8" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>[3-1]  Z/3  (stem 21, s=3)</title><circle cx="722.8" cy="112.0" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁⁵[1-0]  Z/3  (stem 23, s=1)</title><circle cx="785.2" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>[5-0]  Z/3  (stem 23, s=5)</title><circle cx="785.2" cy="49.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁⁶[0-0]  Z/3  (stem 24, s=0)</title><circle cx="816.4" cy="205.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁[4-0]  Z/3  (stem 24, s=4)</title><circle cx="816.4" cy="80.8" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>[2-2]  Z/3  (stem 26, s=2)</title><circle cx="878.8" cy="143.2" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₂[1-1]  Z/3  (stem 27, s=1)</title><circle cx="904.7" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁⁶[1-0]  Z/3  (stem 27, s=1)</title><circle cx="915.3" cy="174.4" r="2.34" fill="#808080" stroke="none"/></g>
+<g><title>v₁⁷[0-0]  Z/3  (stem 28, s=0)</title><circle cx="941.2" cy="205.6" r="2.34" fill="#808080" stroke="none"/></g>
+<g font-size="5.5" fill="#444444" font-family="monospace">
+<text x="67.6" y="214.4" text-anchor="middle">[0-0]</text>
+<text x="161.2" y="183.2" text-anchor="middle">[1-0]</text>
+<text x="192.4" y="214.4" text-anchor="middle">v₁[0-0]</text>
+<text x="286.0" y="183.2" text-anchor="middle">v₁[1-0]</text>
+<text x="317.2" y="214.4" text-anchor="middle">v₁²[0-0]</text>
+<text x="379.6" y="152.0" text-anchor="middle">[2-0]</text>
+<text x="405.5" y="183.2" text-anchor="middle">[1-1]</text>
+<text x="416.1" y="189.2" text-anchor="middle">v₁²[1-0]</text>
+<text x="442.0" y="214.4" text-anchor="middle">v₁³[0-0]</text>
+<text x="473.2" y="120.8" text-anchor="middle">[3-0]</text>
+<text x="504.4" y="152.0" text-anchor="middle">v₁[2-0]</text>
+<text x="535.6" y="183.2" text-anchor="middle">v₁³[1-0]</text>
+<text x="566.8" y="214.4" text-anchor="middle">v₁⁴[0-0]</text>
+<text x="660.4" y="183.2" text-anchor="middle">v₁⁴[1-0]</text>
+<text x="691.6" y="89.6" text-anchor="middle">[4-0]</text>
+<text x="691.6" y="214.4" text-anchor="middle">v₁⁵[0-0]</text>
+<text x="722.8" y="120.8" text-anchor="middle">[3-1]</text>
+<text x="785.2" y="58.4" text-anchor="middle">[5-0]</text>
+<text x="785.2" y="183.2" text-anchor="middle">v₁⁵[1-0]</text>
+<text x="816.4" y="89.6" text-anchor="middle">v₁[4-0]</text>
+<text x="816.4" y="214.4" text-anchor="middle">v₁⁶[0-0]</text>
+<text x="878.8" y="152.0" text-anchor="middle">[2-2]</text>
+<text x="904.7" y="183.2" text-anchor="middle">v₂[1-1]</text>
+<text x="915.3" y="189.2" text-anchor="middle">v₁⁶[1-0]</text>
+<text x="941.2" y="214.4" text-anchor="middle">v₁⁷[0-0]</text>
+</g>
+<text x="52.0" y="22.0" font-size="14" fill="#222">Adams-Novikov E2, p=3 of mod_p   (halfT=30, 25 summands)</text>
+<g><circle cx="54.6" cy="258.2" r="2.6" fill="#808080" stroke="none"/><text x="60.2" y="261.2" font-size="8" fill="#666666">ℤ/3  (the base ring is an F_3-algebra, so every summand is ℤ/3)</text></g>
+<text x="956.8" y="259.2" font-size="10" text-anchor="end" fill="#666666">stem  t-s</text>
+</svg>

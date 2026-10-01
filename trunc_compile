@@ -1,0 +1,1 @@
+g++ -g exponents.cpp Fp.cpp trunc_hopf.cpp trunc_init.cpp mr_trunc.cpp -std=c++11  -I./ -Wall -Wfatal-errors -O0 -fopenmp -omr_trunc

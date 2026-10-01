@@ -1,6 +1,7 @@
 //BP_init.h
 #pragma once
 #include"BP.h"
+#include<memory>
 #include"matrices_mem.h"
 #include"matrices_stream.h"
 #include"algNov.h"
@@ -27,8 +28,18 @@ public:
 	//the director for the data
 	string director;
 	
-	//the operations on Z3
-	Z3_Op Z3_oper;
+	//The height n of the invariant ideal I_n = (p, v_1, ..., v_{n-1}) the
+	//whole computation runs modulo; 0 is the classical case (base ring
+	//BP_*), which is what mr_BP uses and what every pre-existing caller
+	//gets. See BP_Op::height for what n>0 means.
+	int height;
+	
+	//The operations on Z3. Owned through a pointer because the base ring's
+	//arithmetic depends on the height: characteristic 0 (Z3_Op) at height 0,
+	//characteristic p (Z3_mod_p_Op) above it. Z3_oper is the reference
+	//everything else uses, exactly as the plain member did before.
+	std::unique_ptr<Z3_Op> Z3_oper_store;
+	Z3_Op &Z3_oper;
 	//the operations on BP
 	BP_Op BP_oper;
 	//operations on F3-modules
@@ -73,8 +84,14 @@ public:
 	//load the data for generators
 	void load_gens(string gens_data);
 	
-	//the constructor
-	BPInit(int max_deg, int resolution_length, string etaL_data, string delta_data, string R2L_data, string dirname);
+	//Write a self-describing record of this run beside its tables, so that
+	//downstream tools do not have to guess which ring it was done over.
+	//Called from the constructor, so every run has one.
+	void save_run_info();
+	
+	//the constructor. hgt defaults to 0, so every existing caller keeps the
+	//classical BP_* computation unchanged.
+	BPInit(int max_deg, int resolution_length, string etaL_data, string delta_data, string R2L_data, string dirname, int hgt = 0);
 	
 	//do resolutions
 	void resolve();

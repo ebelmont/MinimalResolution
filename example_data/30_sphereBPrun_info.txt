@@ -1,0 +1,5 @@
+# what this run computed. Written by BPInit; read by anss_chart.py.
+height 0
+characteristic 0
+max_degree 30
+resolution_length 8

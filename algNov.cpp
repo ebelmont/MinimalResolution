@@ -80,12 +80,21 @@ cycle_name algNov_table::invalid(){
 //construct the cycle pot. pot has additional leading number for sorting reasons...
 std::set<cycle_name> algNov_table::cycle_pot(int pric){
 	std::set<cycle_name> res;
+	
+	//The pot is { v_0^j * b : b a monomial basis element of the primitives }.
+	//v_0 = p is a direction of its own only when the base ring has
+	//characteristic 0. At height n > 0 the base ring is BP_*/I_n, where p is
+	//0: make_vec builds the coefficient as power_p(j), so every j > 0 would
+	//contribute the ZERO vector and fill the table with garbage entries. The
+	//monomial basis that Ptag enumerates is already all of it there.
+	int max_j = BPoper->height > 0 ? 0 : pric;
+	
 	for(unsigned i=0; i<Ptag->size(); ++i){
 		//construct ((l,0,v1^e1,...),gen_ind)
 		auto s = naming(Z3Oper->unit(1), i, *Ptag);
 		//compute the filtration
 		int l = filtration(s);
-		for(int j=0; j+l<=pric; ++j){
+		for(int j=0; j<=max_j && j+l<=pric; ++j){
 			//construct ((l+j, j, v1^e1, ...), gen_ind)
 			s.first[0] = j+l;
 			s.first[1] = j;

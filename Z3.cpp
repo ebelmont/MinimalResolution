@@ -150,3 +150,77 @@ Z3 Z3_Op::divide(const Z3& x, int n){
 Z3 Z3_Op::lift(F3 x){
     return x;
 }
+
+//the canonical representative of an element of Z_(p): nothing to do beyond
+//the truncation the representation already implies
+Z3 Z3_Op::normalize(const Z3& x){ return x % MAX3; }
+
+//=====================================================================
+//Z3_mod_p_Op -- the same 64-bit representation, the arithmetic of F_p
+//
+//Every method below both reduces its result and tolerates an unreduced
+//argument, so that a value read straight out of a BPtab table (an honest
+//Z_(p) integer) behaves correctly the first time it is touched.
+//=====================================================================
+
+//addition
+Z3 Z3_mod_p_Op::add(const Z3& a, const Z3& b){
+	return (a % prime() + b % prime()) % prime(); }
+
+//addition
+Z3 Z3_mod_p_Op::add(Z3&& a, Z3&& b){
+	return (a % prime() + b % prime()) % prime(); }
+
+//multiplication
+Z3 Z3_mod_p_Op::multiply(const Z3& x, const Z3& y){
+	return ((x % prime()) * (y % prime())) % prime(); }
+
+//the unit map from the integers. Note unit(p) is 0 here, which is what makes
+//the inherited power_p(n) vanish for n>0 and makes multiplication by p on
+//the primitive complex the zero map -- both correct in characteristic p.
+Z3 Z3_mod_p_Op::unit(int x){
+	int r = x % prime();
+	if(r < 0) r += prime();
+	return (Z3)r;
+}
+
+//check if it is zero
+bool Z3_mod_p_Op::isZero(const Z3& x){ return (x % prime()) == 0; }
+
+//negation
+Z3 Z3_mod_p_Op::minus(const Z3& x){ return (prime() - x % prime()) % prime(); }
+
+//in a field every nonzero element is invertible
+bool Z3_mod_p_Op::invertible(const Z3& x){ return (x % prime()) != 0; }
+
+//the inverse in F_p, by brute force over the p-1 nonzero residues (p is 3
+//here, so this is 1 is its own inverse and 2*2 = 4 = 1)
+Z3 Z3_mod_p_Op::inverse(const Z3& x){
+	Z3 r = x % prime();
+	if(r != 0)
+		for(Z3 i = 1; i < (Z3)prime(); ++i)
+			if(multiply(r, i) == 1) return i;
+
+	std::cout << "tried to invert non-invertible element " << x
+	          << " in F_" << prime() << "\n" << std::flush;
+	throw "";
+}
+
+//output using the residue
+string Z3_mod_p_Op::output(Z3 x){ return Z3_Op::output(x % prime()); }
+
+//write 8 bytes, reduced
+void Z3_mod_p_Op::save(const Z3& x, std::iostream& writer){
+	Z3 v = x % prime();
+	writer.write((char*)&v, 8);
+}
+
+//read 8 bytes and reduce
+Z3 Z3_mod_p_Op::load(std::iostream& reader){
+	Z3 result;
+	reader.read((char*)&result, 8);
+	return result % prime();
+}
+
+//the canonical representative: the residue mod p
+Z3 Z3_mod_p_Op::normalize(const Z3& x){ return x % prime(); }

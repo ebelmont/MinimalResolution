@@ -1,0 +1,262 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deducing the E2 page of S/α₁ from the sphere&#x27;s — MinimalResolution docs</title>
+<link rel="stylesheet" href="./assets/style.css">
+</head>
+<body>
+<div class="topbar">
+  <div class="crumbs"><a href="./index.html">docs</a><span class="sep">/</span><span class="current">SES_CHECK</span></div>
+  <div class="actions">
+    <a class="src-link" href="SES_CHECK.md">.md source</a>
+    <button class="theme-toggle" data-theme-toggle type="button">● dark</button>
+  </div>
+</div>
+<div class="page-shell">
+  <article>
+<h1 id="deducing-the-e2-page-of-sα₁-from-the-spheres">Deducing the E2 page of S/α₁ from the sphere's<a class="heading-anchor" href="#deducing-the-e2-page-of-sα₁-from-the-spheres">#</a></h1>
+<p>There is no published Adams–Novikov E₂ chart for <code>S/α₁</code> at p=3 to check
+<code>mr_BP_comod</code>'s output against. There doesn't need to be: the cofiber
+sequence determines it from the sphere's page, which <em>is</em> known (and which
+this repo computes). This page derives the answer, explains where the
+non-trivial comodule structure goes, and describes <code>ses_check.py</code>, which
+carries the comparison out automatically.</p>
+<h2 id="1-the-short-exact-sequence">1. The short exact sequence<a class="heading-anchor" href="#1-the-short-exact-sequence">#</a></h2>
+<p><code>α₁ ∈ π₃(S)₍₃₎</code> is the first alpha-family element, <code>2p-3 = 3</code> at p=3, and
+<code>S/α₁ = cofib(S³ --α₁--&gt; S⁰) = S⁰ ∪_{α₁} e⁴</code>. Since <code>BP_*</code> is concentrated in
+even degrees, <code>BP₃ = 0</code>, so <code>(α₁)_* = 0</code> on BP-homology and the cofiber long
+exact sequence collapses to</p>
+<pre><code>0 --&gt; BP_*  --&gt;  BP_*(S/α₁)  --&gt;  Σ⁴ BP_*  --&gt; 0.            (†)
+</code></pre>
+<p><strong>The shift is 4, not 3.</strong> The subquotient is the reduced BP-homology of the
+<em>top cell</em>, which sits in dimension <code>3 + 1 = 4</code> — <code>S³</code> is the source of the
+attaching map, not a cell of the complex. This is worth pinning down because
+the parity argument depends on it: <code>Σ⁴BP_*</code> is again concentrated in even
+degrees, consistent with <code>BP_*(S/α₁)</code> being free on generators in degrees 0
+and 4 (<code>comodules.cpp</code> <code>build_S_alpha1</code> sets <code>degree = {0, 4}</code>). A <code>Σ³</code>
+would have put the top cell in odd degrees and broken the parity that makes
+(†) exact in the first place.</p>
+<h2 id="2-two-different-splittings-and-why-only-one-of-them-is-true">2. Two different splittings, and why only one of them is true<a class="heading-anchor" href="#2-two-different-splittings-and-why-only-one-of-them-is-true">#</a></h2>
+<p>This is the crux of the question this page exists to answer.</p>
+<p>(†) <strong>is split over <code>BP_*</code></strong>: both <code>BP_*</code> and <code>Σ⁴BP_*</code> are free, so choosing
+a <code>BP_*</code>-basis <code>x₀, x₄</code> splits it as a sequence of <code>BP_*</code>-modules.</p>
+<p>(†) <strong>is not split over <code>BP_*BP</code></strong>: a comodule splitting would make
+<code>BP_*(S/α₁) ≅ BP_* ⊕ Σ⁴BP_*</code> <em>with the trivial coaction on both summands</em>,
+i.e. BP-homology could not tell <code>S/α₁</code> from <code>S⁰ ∨ S⁴</code>. The coaction</p>
+<pre><code>ψ(x₀) = 1 ⊗ x₀
+ψ(x₄) = 1 ⊗ x₄  +  t₁ ⊗ x₀
+</code></pre>
+<p>is exactly the record of that failure: <code>x₀</code> spans a sub-comodule, but no
+<code>BP_*</code>-complement of it is a sub-comodule, because <code>x₄</code>'s coaction has that
+off-diagonal <code>t₁</code>.</p>
+<p>Both facts are used, and they are used for different things:</p>
+<ul>
+<li>the <code>BP_*</code>-splitting is what makes (†) stay exact after applying the cobar construction — the cobar complex of <code>M</code> is <code>BP_*BP^{⊗•} ⊗_{BP_*} M</code>, so degreewise <code>BP_*</code>-splitness gives a short exact sequence of cochain complexes, hence a long exact sequence on <code>Ext</code>;</li>
+<li>the failure of the <em>comodule</em> splitting is what makes that long exact sequence non-degenerate — it is precisely the connecting homomorphism.</li>
+</ul>
+<p>So the answer to "how does the non-trivial comodule structure get accounted
+for?" is: <strong>entirely through the connecting map δ, and through nothing else.</strong>
+Everything else in the long exact sequence sees only the sphere.</p>
+<h2 id="3-the-connecting-map-is-multiplication-by-α₁">3. The connecting map is multiplication by α₁<a class="heading-anchor" href="#3-the-connecting-map-is-multiplication-by-α₁">#</a></h2>
+<p>For any short exact sequence of comodules</p>
+<pre><code>0 --&gt; A --&gt; M --&gt; B --&gt; 0
+</code></pre>
+<p>which is split over <code>BP_*</code>, the class of the extension lives in
+<code>Ext¹_{BP_*BP}(B, A)</code>, and the connecting homomorphism in the long exact
+sequence for <code>Ext_{BP_*BP}(BP_*, −)</code> is Yoneda product with that class. Here</p>
+<pre><code>Ext¹_{BP_*BP}(Σ⁴BP_*, BP_*) = Ext^{1,4}_{BP_*BP}(BP_*, BP_*) = Z/3,
+</code></pre>
+<p>generated by <code>h₀ = [t₁] = α₁</code>. The extension class of (†) is a generator —
+that is what "the extension is non-split" means, and non-splitness holds
+because <code>α₁ ≠ 0</code>. Concretely, with the <code>BP_*</code>-splitting <code>M = BP_*x₀ ⊕ BP_*x₄</code>
+fixed, the extension class is represented by the cobar 1-cochain measuring
+how far the splitting is from being a comodule map,</p>
+<pre><code>x₄  ↦  ψ(x₄) − 1⊗x₄  =  t₁ ⊗ x₀,
+</code></pre>
+<p>i.e. by the cocycle <code>[t₁]</code> — literally the off-diagonal entry of the coaction
+matrix. (Topologically, the same statement is the geometric boundary theorem:
+the connecting map for the cofiber sequence of <code>f</code> is multiplication by the
+class detecting <code>f</code>.) Note the answer is forced up to a unit: in internal
+degree 4 the reduced part of <code>BP_*BP</code> over <code>BP_*</code> is spanned by <code>t₁</code> alone,
+so replacing <code>t₁</code> by <code>2t₁</code> just rescales <code>x₄</code>.</p>
+<p>The long exact sequence therefore reads, writing <code>E = Ext_{BP_*BP}(BP_*,BP_*)</code>
+for the sphere's page,</p>
+<pre><code>... --&gt; E^{s,t} --&gt; Ext^{s,t}(BP_*(S/α₁)) --&gt; E^{s,t-4} --α₁--&gt; E^{s+1,t} --&gt; ...
+</code></pre>
+<p>and breaks into short exact sequences</p>
+<pre><code>0 --&gt; coker(α₁ : E^{s-1,t-4} → E^{s,t})
+  --&gt; Ext^{s,t}(BP_*(S/α₁))
+  --&gt; ker(α₁ : E^{s,t-4} → E^{s+1,t})  --&gt; 0.                (‡)
+</code></pre>
+<h2 id="4-in-chart-coordinates">4. In chart coordinates<a class="heading-anchor" href="#4-in-chart-coordinates">#</a></h2>
+<p>Charts here are drawn at <code>(stem, filtration) = (t−s, s)</code>, so:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>bidegree shift</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>multiplication by <code>α₁</code></td>
+<td><code>(stem +3, s +1)</code></td>
+</tr>
+<tr>
+<td>top-cell classes (<code>Ext^{s,t}(Σ⁴BP_*) = Ext^{s,t-4}(BP_*)</code>)</td>
+<td><code>(stem +4, s +0)</code></td>
+</tr>
+</tbody>
+</table>
+<p>and (‡) becomes the recipe:</p>
+<blockquote>
+<p>**Take the sphere's chart together with its α₁-multiplication lines. Delete every class that is hit by an α₁-line (bottom cell = coker). Then add, four stems to the right and at the same height, a copy of every class that does <em>not</em> support an α₁-line (top cell = ker).**</p>
+</blockquote>
+<p>Two sanity checks fall straight out of this:</p>
+<ul>
+<li><code>α₁</code> itself is hit by an <code>α₁</code>-line from the unit, so it dies — coning off a class kills it.</li>
+<li>Nothing new appears in stem 4 at filtration 0 for free: <code>ker(α₁ : E^{0,0} → E^{1,4})</code> is <code>3·Z₍₃₎ ⊂ Z₍₃₎</code>, not all of <code>Z₍₃₎</code>, because <code>α₁·1 = α₁ ≠ 0</code>. The top-cell class only exists after multiplying by 3 — which is the statement that <code>α₁</code> has order 3, read off the chart.</li>
+</ul>
+<h2 id="5-what-the-code-prints-and-why-lengths-are-the-right-thing-to-compare">5. What the code prints, and why lengths are the right thing to compare<a class="heading-anchor" href="#5-what-the-code-prints-and-why-lengths-are-the-right-thing-to-compare">#</a></h2>
+<p>The tables <code>mr_BP</code>/<code>mr_BP_comod</code> write list an F₃-basis of the algebraic
+Novikov E∞ page, i.e. of <code>gr Ext_{BP_*BP}</code> — <code>v0</code>-towers included,
+differential-killed classes excluded. The number of surviving classes in a
+bidegree is therefore the <strong>F₃-length</strong> of <code>Ext</code> there:</p>
+<ul>
+<li>12 classes in <code>(0,0)</code> = <code>Z₍₃₎</code> seen through 12 steps of its 3-adic filtration (the count is cut off by the resolution length, not intrinsic);</li>
+<li>the 2 classes in stem 11, filtration 1 = the <code>Z/9</code> generated by <code>α_{3/2}</code> (<code>v0^1[1-1]</code>, <code>v0^2[1-1]</code>; the <code>a0</code> table links them).</li>
+</ul>
+<p>Length is additive along a short exact sequence, so (‡) predicts</p>
+<pre><code>ℓ(S/α₁)(n,s) = [ ℓ_S(n,s) − rk(α₁ into (n,s)) ]
+             + [ ℓ_S(n−4,s) − rk(α₁ out of (n−4,s)) ]
+</code></pre>
+<p>with every term readable from a sphere run: the class tables give the
+lengths, and <code>&lt;prefix&gt;AANSS_h0.txt</code> gives the α₁-multiplication whose ranks
+appear here.</p>
+<h2 id="6-ses_checkpy">6. <code>ses_check.py</code><a class="heading-anchor" href="#6-ses_checkpy">#</a></h2>
+<pre><code class="language-sh">./BPtab 35
+./mr_BP_comod 35 12 sphere
+./mr_BP_comod 35 12 alpha_1
+./ses_check.py 35 -c alpha_1
+</code></pre>
+<p>Nothing is recomputed — like <code>anss_chart.py</code> it reads only the text tables
+the runs already wrote, and it shares that script's parser. Exit status is 1
+if any bidegree disagrees, so it works as a regression test.</p>
+<p>Output at <code>halfT=35</code>, resolution length 12 (columns: the two summands of (‡),
+then prediction vs. observation):</p>
+<pre><code>alpha_1 vs sphere, halfT=35, t &lt;= 32, top cell in dimension 4
+connecting map = multiplication by alpha_1 = h0, of bidegree (stem +3, filtration +1)
+
+ stem   s |    S  rk_in  coker |    S rk_out    ker |   pred  obs  status
+----------------------------------------------------------------------------
+    0   0 |   12      0     12 |    0      0      0 |     12   12  ok
+    3   1 |    1      1      0 |    0      0      0 |      0    0  ok
+    4   0 |    0      0      0 |   12      1     11 |     11   11  ok
+    7   1 |    1      0      1 |    1      0      1 |      2    2  ok
+   10   2 |    1      0      1 |    0      0      0 |      1    1  ok
+   11   1 |    2      0      2 |    1      0      1 |      3    3  ok
+   13   3 |    1      1      0 |    0      0      0 |      0    0  ok
+   14   2 |    0      0      0 |    1      1      0 |      0    0  ok
+   15   1 |    1      0      1 |    2      0      2 |      3    3  ok
+   17   3 |    0      0      0 |    1      0      1 |      1    1  ok
+   19   1 |    1      0      1 |    1      0      1 |      2    2  ok
+   20   4 |    1      0      1 |    0      0      0 |      1    1  ok
+   23   1 |    2      0      2 |    1      0      1 |      3    3  ok
+   23   5 |    1      1      0 |    0      0      0 |      0    0  ok
+   24   4 |    0      0      0 |    1      1      0 |      0    0  ok
+   26   2 |    1      0      1 |    0      0      0 |      1    1  ok
+   27   1 |    1      0      1 |    2      0      2 |      3    3  ok
+   27   5 |    0      0      0 |    1      0      1 |      1    1  ok
+   29   3 |    1      1      0 |    0      0      0 |      0    0  ok
+   30   2 |    0      0      0 |    1      1      0 |      0    0  ok
+   31   1 |    1      0      1 |    1      0      1 |      2    2  ok
+
+21 bidegree(s) agree (21 of them with the prediction pinned down exactly), 0 mismatch(es).
+</code></pre>
+<p>Every bidegree in range agrees, and every prediction is sharp (no interval —
+see below). Reading a few lines:</p>
+<ul>
+<li>stems 3, 13, 23, 29 — <code>α₁</code>, <code>α₁β₁</code>, <code>α₁β₁²</code>, <code>α₁β₂</code> (the targets of the sphere's four <code>h0</code> lines in range): predicted <strong>0</strong>, observed 0. Coning off <code>α₁</code> kills every class it hits.</li>
+<li>stem 4: 11, not 12 — the order-3 statement of §4.</li>
+<li>stems 14, 24, 30: predicted 0 because the sphere classes four stems down — <code>β₁</code> at (10,2), <code>β₁²</code> at (20,4), <code>β₂</code> at (26,2) — each <em>support</em> an α₁-line, so they contribute nothing to the kernel and the top cell adds nothing.</li>
+<li>stem 7, 11, 15, 19, 23, 27, 31: bottom-cell survivor plus one top-cell class each.</li>
+</ul>
+<h3 id="ranks-are-bracketed-not-guessed">Ranks are bracketed, not guessed<a class="heading-anchor" href="#ranks-are-bracketed-not-guessed">#</a></h3>
+<p>The multiplication tables are pruned by homological degree
+(<code>multiplication.cpp:169</code>), so some classes have no line. Rather than assume
+their products vanish, each rank is reported as an interval <code>lo-hi</code>:</p>
+<pre><code>lo = rank of the columns the table does state
+hi = min(lo + #unstated columns, #source classes, #target classes)
+</code></pre>
+<p>A bidegree agrees when the observation lies in the predicted interval, and
+the check is sharp when <code>lo = hi</code> — which it is everywhere above, because the
+target bidegrees are small or empty.</p>
+<h3 id="the-control-cases">The control cases<a class="heading-anchor" href="#the-control-cases">#</a></h3>
+<p><code>--attaching none</code> treats the extension as split (δ = 0), which is the right
+prediction for <code>triv_01 = S ∨ S¹</code>:</p>
+<pre><code class="language-sh">./mr_BP_comod 35 12 triv_01
+./ses_check.py 35 -c triv_01 --attaching none      # 28 bidegrees, 0 mismatches
+</code></pre>
+<p>The same flag is also the negative control for <code>S/α₁</code>: pretending its
+extension is split,</p>
+<pre><code class="language-sh">./ses_check.py 35 -c alpha_1 --attaching none --top-cell 4
+</code></pre>
+<p>produces <strong>8 mismatches</strong> — at stems 3, 4, 13, 14, 23, 24, 29, 30, i.e. at
+every bidegree where the α₁-multiplication was doing work. So the check has
+teeth: it is not a computation that would have come out right regardless of
+the coaction.</p>
+<p>The same 8 bidegrees fail from the other direction if the <em>comodule</em> is the
+wrong one rather than the prediction. Adding a scratch builder with <code>rank =
+2</code>, <code>degree = {0, 4}</code> and the identity coaction — <code>S⁰ ∨ S⁴</code>, differing from
+<code>alpha_1</code> only by the off-diagonal <code>t₁</code> — and running the check against the
+<code>S/α₁</code> prediction gives</p>
+<pre><code>13 bidegree(s) agree, 8 mismatch(es).
+  MISMATCH at (stem 3, s=1): predicted 0, observed 1
+  MISMATCH at (stem 4, s=0): predicted 11, observed 12
+  ... (stems 13, 14, 23, 24, 29, 30)
+</code></pre>
+<p>so the check is sensitive to exactly the entry that carries the topology.
+(A <em>malformed</em> coaction is a different matter: putting <code>η_R(v₁)</code> in that slot
+— the exponent-slot mistake <code>comodules.cpp</code>'s header warns about — made
+<code>mr_BP_comod</code> abort in <code>Z3.cpp:112</code>, "tried to invert non-invertible element
+3", rather than produce a wrong page. That is one data point, not a
+guarantee: nothing checks the comodule axioms, and this check cannot see them
+either.)</p>
+<h2 id="7-what-this-does-and-does-not-establish">7. What this does and does not establish<a class="heading-anchor" href="#7-what-this-does-and-does-not-establish">#</a></h2>
+<p>It establishes that <code>mr_BP_comod</code>'s <code>alpha_1</code> output has, in every bidegree
+in range, exactly the F₃-length that the cofiber sequence forces given the
+sphere's page and its α₁-multiplication — including the killed classes and
+the shifted top-cell classes, which no plumbing bug would reproduce by
+accident.</p>
+<p>It does not establish:</p>
+<ul>
+<li><strong>that the coaction satisfies the comodule axioms.</strong> Nothing in this pipeline checks coassociativity or counitality (see <code>GENERAL_COMODULES.md</code>); this check would also pass for any comodule with the same <code>Ext</code>.</li>
+<li><strong>hidden extensions or the module structure.</strong> Only lengths are compared. Two different <code>Z/3 ⊕ Z/3</code> vs <code>Z/9</code> answers in one bidegree are indistinguishable here — although the <code>a0</code> tables of the two runs can be compared by hand where that matters.</li>
+<li><strong>anything above the degree bound.</strong> The default cut is the largest internal degree <code>t</code> occurring in the sphere run (32 for <code>halfT=35</code>); above it, classes are missing because of truncation rather than topology (<code>CHARTS.md</code> §6).</li>
+<li><strong>products that jump algebraic Novikov filtration.</strong> The multiplication tables print only the leading term (<code>multiplication.cpp:170-172</code> outputs <code>multiplied_names.second</code> and drops <code>.first</code>), so an α₁-product hidden in higher filtration would understate a rank and overstate the prediction. No such discrepancy shows up in range.</li>
+</ul>
+<h2 id="8-using-this-for-another-complex">8. Using this for another complex<a class="heading-anchor" href="#8-using-this-for-another-complex">#</a></h2>
+<p>The same script handles any two-cell complex <code>C_f = cofib(f : S^d → S⁰)</code>
+whose attaching map is detected by a class with a multiplication table:
+pass <code>--top-cell d+1</code>, and add the multiplication table for the detecting
+class. Currently only <code>h0 = α₁</code> is tabulated (<code>BPInit::mult_table</code>,
+<code>BP_init.cpp:180-187</code>); <code>α₂</code> would need a <code>mult_table(&lt;class&gt;, &lt;degree&gt;,
+"alpha2.txt")</code> call and one more branch here, exactly as <code>CHARTS.md</code> §3
+describes for the chart.</p>
+<p>For a complex with more cells the same principle applies with a longer
+filtration: filter <code>BP_*(C)</code> by skeleta, and the associated spectral sequence
+has <code>E₁</code> a sum of shifted copies of the sphere's <code>Ext</code> with <code>d₁</code> given by the
+attaching-map classes. The two-cell case above is that spectral sequence with
+one differential, written out as a long exact sequence.</p>
+  <footer class="page-footer">
+    <span>MinimalResolution documentation</span>
+    <a href="./index.html">&larr; Back to dashboard</a>
+  </footer>
+  </article>
+  <nav id="toc" aria-label="Table of contents"></nav>
+</div>
+<script src="./assets/page.js"></script>
+</body>
+</html>

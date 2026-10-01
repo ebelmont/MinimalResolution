@@ -1,0 +1,36 @@
+# Compiled executables, one per compile script (see docs/BUILD_AND_RUN.md).
+# These have never been tracked; building the repo should not leave the working
+# tree looking dirty.
+/BPtab
+/e2p
+/kos
+/motTab
+/mot_comb
+/mot_mult
+/mr_BP
+/mr_BP_comod
+/mr_ex
+/mr_mot
+/mr_st
+/mr_trunc
+/tauBoc
+/Qptest
+/ex_test
+
+# Output of a run: structure tables, resolutions, spectral-sequence tables and
+# charts are all written into the working directory, prefixed by the max degree
+# (e.g. 30_etaL, 30_mod_pBPAANSS_table.txt, 30_anss_E2.svg).
+[0-9]*_*
+*.svg
+
+# ...except the chart examples that are deliberately committed: they are run
+# output, so they match both patterns above, and without this a newly added
+# one would be invisible to `git add` (existing ones stay tracked regardless).
+!example_data/**
+
+# Scratch left by the compile scripts and by the Python helpers
+out1
+err1
+maps.txt
+__pycache__/
+*.pyc
