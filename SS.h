@@ -530,7 +530,7 @@ public:
 						std::abort();
 					}
 					else{
-						if(filtration(next_table->at(ot->second).cycle)<pric && check_cycle)
+						if(filtration(next_table->at(ot->second).cycle)<=pric && check_cycle)
 							std::cerr << "invalid table!";
 						//subtract r copies of the full tag, r being the
 						//leading coefficient's residue mod p -- NOT the whole

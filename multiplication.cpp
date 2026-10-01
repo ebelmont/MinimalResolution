@@ -59,7 +59,7 @@ multiplication_table<cycle_name> multiplication::mult_extension(matrix<ring> *mu
 		//skip untagged entries
 		if(!next_table.tagged(tm)) continue;
 		//skip tags with non-trivial boundaries
-		if(next_table.filtration(tm.cycle)<pric) continue;
+		if(next_table.filtration(tm.cycle)<=pric) continue;
 		auto v = mult_matrix->maps_to(tm.full_tag);
 		//construct new entry
 		auto cycls = next_table.name_of_cycle(v,&third_table,pric);
@@ -83,7 +83,7 @@ multiplication_table<cycle_name> multiplication::mult_extension1(matrix<ring> *m
 		//skip the tagged entries
 		if(cur_table.tagged(tm)) continue;
 		//skip
-		if(cur_table.filtration(tm.cycle)>=pric) continue;
+		if(cur_table.filtration(tm.cycle)>pric) continue;
 		//get the image of the full cycle under multiplication
 		auto v = mult_matrix->maps_to(tm.full_cycle);
 		//construct the new entry
@@ -102,7 +102,7 @@ multiplication_table<cycle_name> multiplication::mult_extension1(matrix<ring> *m
 		if(!next_table.tagged(tm)) continue;
 		//skip
 		std::cout << cur_table.filtration(tm.tag);
-		if(cur_table.filtration(tm.tag)>=pric) continue;
+		if(cur_table.filtration(tm.tag)>pric) continue;
 		auto v = mult_matrix->maps_to(tm.full_tag);
 		//construct new entry
 		auto cycls = next_table.name_of_cycle(v,&third_table,pric,false);

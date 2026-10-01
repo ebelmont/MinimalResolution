@@ -55,7 +55,11 @@ std::set<std::pair<std::pair<int,int>,string>> Boc_table::output_table(int k, in
 		//the filter in place they were simply absent, not derivable from any
 		//other file. Confirmed by direct build+run test (degree 20 repro)
 		//that removing the filter recovers them with zero change to any
-		//previously-printed (v0-free) entry. See NOTES.md.
+		//previously-printed (v0-free) entry. See NOTES.md. Now that the theta
+		//tables are named through v0^0 only (mult_theta), delta() no longer
+		//needs these rows, but convert_e5.py's first-copy/second-copy
+		//classification does: second-copy classes are v0-divisible survivors
+		//(v0^{40-k} x), and with the filter back it finds none of them.
 		if(filtration(tm.cycle)<pric){
 			lst.emplace(output(tm,k));
 		}

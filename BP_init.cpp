@@ -190,8 +190,10 @@ void BPInit::mult_table(BPBP const &mul, int deg, string filename){
 	//output the table
 	std::fstream file(director + "AANSS_" + filename, std::ios::out);
 	file << multp.output_multiplication_table(multable, 1, resolution_length-2);
-	//compute the table for the multiplication on Bockstein spectral sequence
-	auto Bmultable = multp.mult_extension1(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 1, true);
+	//compute the table for the multiplication on Bockstein spectral sequence.
+	//Limit 0 (inclusive, like every pric): name products through v0-power 0
+	//only, i.e. the action on the Bockstein E_1 = Ext(BP_*/3).
+	auto Bmultable = multp.mult_extension1(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 0, true);
 	//output the table
 	std::fstream fileB(director + "BocSS_" + filename, std::ios::out);
 	fileB << multp.output_multiplication_table(Bmultable, 1, resolution_length-2);
@@ -216,8 +218,12 @@ void BPInit::mult_theta(int resolution_length){
 	for(int i=2; i<=7; ++i){
 		//make the multiplication table on BPBP
 		multp.make_eta_R_multiplier(theta[i], &inj, deg[i-2]);
-		//compute the table for the multiplication on Bockstein spectral sequence
-		auto Bmultable = multp.mult_extension(&inj, max_degree-deg[i-2], resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 1, true);
+		//compute the table for the multiplication on Bockstein spectral sequence.
+		//Limit 0 (inclusive): keep only the v0^0 terms of theta*x. beta*x =
+		//delta(theta*x) depends only on those -- a v0^k term (k>=1) differs
+		//from zero by 3*(chain), whose delta is a boundary -- so higher terms
+		//would only add work downstream and then cancel.
+		auto Bmultable = multp.mult_extension(&inj, max_degree-deg[i-2], resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 0, true);
 		//output the table
 		std::fstream fileB(director + "BocSS_theta" + std::to_string(i) + ".txt", std::ios::out);
 		fileB << multp.output_multiplication_table(Bmultable, 1, resolution_length+1); // EB: the last argument here is 1 + the last homological degree where theta products are recorded in the output files ...theta2.txt, etc.
