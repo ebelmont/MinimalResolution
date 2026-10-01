@@ -13,9 +13,28 @@ typedef Fp F3;
 
 class Z3_Op : public virtual RingOp<Z3>{
 public:
+	//highest valuation Z/3^40 can distinguish from a genuine zero (MAX3 =
+	//3^40, Z3.cpp): a value divisible by 3^40 is isZero()==true, so 39 is
+	//the last valuation this ring can represent honestly. Deliberately NOT
+	//raised by widening Z3 -- **the target of this computation is
+	//Ext(BP_*/3^40)**, so Z/3^40 is the intended model, not a limitation to
+	//engineer around (see NOTES.md "2026-09-10: correction"). NOTE: this
+	//comment used to say "Ext(BP_*) agrees with Ext(BP_*/3^40) outside stem
+	//0" -- that is FALSE and has misled at least one session into treating
+	//correct output as a bug. The LES of 0 -> BP_* -3^40-> BP_* ->
+	//BP_*/3^40 -> 0 gives Ext^s(BP_*/3^40) = Ext^s(BP_*)/3^40 (+)
+	//Ext^{s+1}(BP_*), i.e. a whole extra copy of Ext^{s+1} at v0-valuation
+	//40-k for a class of order 3^k. The resulting chart is roughly twice
+	//the size of Ext(BP_*) and that is the correct answer. Callers that drive a
+	//v0-power search/cancellation depth (pric, in BP_init.cpp) must clamp
+	//to this constant instead of using resolution_length directly, or the
+	//search speculates past what this ring can correctly cancel and
+	//manufactures bogus surviving generators (NOTES.md "the v0>=40 bug").
+	static constexpr unsigned MAX_VALUATION = 39;
+
 	//the constructor
 	Z3_Op();
-	
+
 	//the charateristic of the residue field
 	int prime();
 	

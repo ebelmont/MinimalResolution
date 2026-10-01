@@ -1,5 +1,6 @@
 //BP_init.cpp
 #include"BP_init.h"
+#include<algorithm>
 
 //initialize a generic comodule
 BPComodInit::BPComodInit(string filename) : BPCoMod_generic(&coaction_matrix), coaction_matrix(filename){
@@ -128,13 +129,18 @@ void BPInit::load_gens(string gens_data){
 //make algebraic Novikov table
 void BPInit::make_algNov(){
 	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
-	
-	AANtables.table_of_complex(Complex,resolution_length,director + "AANback");
+
+	//the v0-power search/cancellation depth (pric) must be capped at what
+	//Z3 (Z/3^40) can actually distinguish from zero, not resolution_length
+	//-- see Z3_Op::MAX_VALUATION and NOTES.md "2026-09-10: correction".
+	int pric = std::min(resolution_length, (int)Z3_Op::MAX_VALUATION);
+
+	AANtables.table_of_complex(Complex,pric,director + "AANback");
 	AANtables.save(director + "AANSS_table_binary");
 	std::fstream atb(director + "AANSS_table.txt", std::ios::out);
 	atb << AANtables.output_tables();
-	
-	auto et2 = multp.three_extension(resolution_length,Complex,AANtables,resolution_length);
+
+	auto et2 = multp.three_extension(resolution_length,Complex,AANtables,pric);
 	std::fstream a0f(director + "AANSS_a0.txt", std::ios::out);
 	a0f << multp.output_multiplication_table(et2,0,resolution_length-1);
 }
@@ -142,17 +148,20 @@ void BPInit::make_algNov(){
 //make Bockstein table
 void BPInit::make_Boc(){
 	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
-	
-	Btables.table_of_complex(Complex,resolution_length);
+
+	//see make_algNov's comment on pric vs resolution_length
+	int pric = std::min(resolution_length, (int)Z3_Op::MAX_VALUATION);
+
+	Btables.table_of_complex(Complex,pric);
 	Btables.save(director + "BocSS_table_binary");
 	std::fstream btb(director + "BocSS_table.txt", std::ios::out);
 	btb << Btables.output_tables();
-	
-	auto ba = Btables.Bname2Anames(resolution_length, AANtables, resolution_length);
+
+	auto ba = Btables.Bname2Anames(resolution_length, AANtables, pric);
 	std::fstream b2a(director + "B2A_table.txt", std::ios::out);
 	b2a << multp.output_multiplication_table(ba,0,resolution_length-1);
-	
-	auto et2 = multp.three_extension(resolution_length,Complex,Btables,resolution_length);
+
+	auto et2 = multp.three_extension(resolution_length,Complex,Btables,pric);
 	std::fstream a0f(director + "BocSS_a0.txt", std::ios::out);
 	a0f << multp.output_multiplication_table1(et2,0,resolution_length-1);
 }
@@ -168,8 +177,13 @@ void BPInit::mult_table(BPBP const &mul, int deg, string filename){
 	Btables.load(director + "BocSS_table_binary");
 	//make the multiplication table on BPBP
 	multp.make_eta_R_multiplier(mul, &inj, deg);
-	//compute the table for the multiplication on algebraic Novikov spectral sequence
-	auto multable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, AANtables, &indj, &mm, resolution_length);
+	//compute the table for the multiplication on algebraic Novikov spectral sequence.
+	//pric here is NOT fixed (fixedpric defaults false), so mult_extension
+	//computes cpric=pric-i per resolution step -- must clamp the same way
+	//as make_algNov/make_Boc, or it re-exposes the v0>=40 bug (the Bockstein
+	//call just below already passes a small fixed pric=1 and is unaffected).
+	int pric = std::min(resolution_length, (int)Z3_Op::MAX_VALUATION);
+	auto multable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, AANtables, &indj, &mm, pric);
 	//output the table
 	std::fstream file(director + "AANSS_" + filename, std::ios::out);
 	file << multp.output_multiplication_table(multable, 1, resolution_length-2);

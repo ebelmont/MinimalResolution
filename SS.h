@@ -1,6 +1,7 @@
 //SS.h
 #pragma once
 #include"matrices.h"
+#include"Z3.h"
 #include<memory>
 #include<algorithm>
 #include<omp.h>
@@ -98,6 +99,19 @@ public:
 	ring cancel_scalar(matrix_index ind, const ring &coef, typename SS_entry<cycle_name, ring>::value_type &matched){
 		auto matched_coef = Modop->component(ind, matched);
 		unsigned val = Modop->ringOper->valuation(coef);
+		//val>=40 means coef's true valuation exceeds what Z/3^40 (Z3.cpp's
+		//MAX3=3^40) can represent -- it should be structurally impossible
+		//to reach this once every pric passed into this table search is
+		//clamped to Z3_Op::MAX_VALUATION (BP_init.cpp), since the caller's
+		//filtration(led_name)>pric check (this->simplify(), just below)
+		//stops the search before a candidate this deep is ever named. If
+		//this ever fires, some pric wasn't clamped and the search is about
+		//to silently manufacture a bogus generator -- see NOTES.md "the
+		//v0>=40 bug" / "2026-09-10: correction".
+		if(val > Z3_Op::MAX_VALUATION)
+			std::cerr << "cancel_scalar: valuation " << val << " exceeds Z3's "
+				"precision ceiling (Z3_Op::MAX_VALUATION=" << Z3_Op::MAX_VALUATION
+				<< ") -- some pric wasn't clamped, see NOTES.md\n" << std::flush;
 		auto c_unit = Modop->ringOper->divide(coef, val);
 		auto m_unit = Modop->ringOper->divide(matched_coef, val);
 		//the shared-valuation guarantee above is only a documented invariant,
