@@ -1,4 +1,5 @@
 //embed into a cofree comodule
+#include<omp.h>
 template<typename ring, typename algebroid>
 template<typename degree_type>
 cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::embed2cofree(const CoModule<algebroid,degree_type> *X, matrix<ring> *inj, curtis_table<ring> *table, std::vector<int> *gens, matrix<ring> *new_map, std::vector<int> *basis_order, std::iostream &tablefile){
@@ -122,14 +123,40 @@ cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::embed2cof
 	}
 
 	//construct the new map -- likely the largest loop bound in the whole
-	//resolve() pipeline (X->rank() iterations)
-	std::function<vectors<matrix_index,ring>(int)> map_rows = [this, X, &res, gens](int i){
-		if(i % 500 == 0)
-			std::cout << "\r" << i << "/" << X->rank() << std::flush;
-		return adjoint(X, *gens, res.position_of_gens, i, 0);
-	};
+	//resolve() pipeline (X->rank() iterations). Parallelized in two
+	//stages: (1) gather X->coaction(i) for all i serially first, since
+	//X->coaction can bottom out in a matrix_file-backed table with shared
+	//stream state (e.g. BP_Op::delta -> delta_table) -- racing that would
+	//serialize on its internal lock at best, corrupt at worst; see
+	//hopf_algebroid/10.h's quotient comment for the reference hazard
+	//analysis this mirrors. (2) run the pure per-row math
+	//(adjoint_from_coaction) in parallel via matrix<ring>::construct_parallel,
+	//with any conversion table it needs (e.g. BP_Op's R2L_table, also
+	//possibly matrix_file-backed) materialized for the duration via
+	//with_materialized_conversion_tables.
 	sum_timer.reset();
-	{ DiagTimer _dt("map_rows"); inj->construct(X->rank(), map_rows); }
+	int n = X->rank();
+	std::vector<vectors<matrix_index,algebroid>> coas(n);
+	{
+		DiagTimer _dt("gather_coaction");
+		for(int i=0; i<n; ++i){
+			if(i % 500 == 0)
+				std::cout << "\r" << i << "/" << n << std::flush;
+			coas[i] = X->coaction(i);
+		}
+	}
+
+	std::vector<int> const& gvec = *gens;
+	std::vector<uint32_t> const& pos = res.position_of_gens;
+	std::function<vectors<matrix_index,ring>(int)> map_rows = [this,&gvec,&pos,&coas](int i){
+		return this->template adjoint_from_coaction<degree_type>(gvec, pos, coas[i], 0);
+	};
+	{
+		DiagTimer _dt("map_rows", std::max(1, omp_get_max_threads()));
+		with_materialized_conversion_tables([&](){
+			inj->construct_parallel(n, map_rows);
+		});
+	}
 	
 	return res;
 }

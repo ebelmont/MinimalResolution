@@ -1,6 +1,7 @@
 //BP.cpp
 #include"BP.h"
 #include"mon_index.h"
+#include"matrices_mem.h"
 #include<ios>
 
 //constructor
@@ -71,6 +72,21 @@ BPBP BP_Op::etaR(const BP &x){
 	std::function<BP(const Z3&)> tfm = [this](const Z3& r){
 		return this->monomial(0,r); };
 	return this->termwise_operation(tfm,x);
+}
+
+//materialize R2L_table into an in-memory copy for the duration of
+//body(), then restore the original pointer. algebroid2vector's calls
+//into R2L_table are unsafe to race across threads when R2L_table is
+//matrix_file-backed (single shared stream seek position) -- see
+//hopf_algebroid/10.h's quotient() comment for the reference
+//hazard analysis this mirrors.
+void BP_Op::with_materialized_conversion_tables(std::function<void()> body){
+	matrix_mem<BP> R2L_mem;
+	R2L_mem.construct(R2L_table);
+	matrix<BP> *saved = R2L_table;
+	R2L_table = &R2L_mem;
+	body();
+	R2L_table = saved;
 }
 
 //change algebroid to a vector

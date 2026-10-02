@@ -57,6 +57,14 @@ private:
         
 public:
 	BP_Op(int maxdeg, Z3_Op*, matrix<BP> *etaL_mat, matrix<BPBP> *delta_mat, matrix<BP> *R2L_mat);
+
+	//materialize R2L_table (may be matrix_file-backed, with shared
+	//stream state) into a plain in-memory copy for the duration of
+	//body(), then restore the original pointer. Needed before calling
+	//algebroid2vector (which goes through R2L_table) from multiple
+	//threads -- see hopf_algebroid/10.h's quotient() comment for
+	//the reference hazard analysis this mirrors.
+	void with_materialized_conversion_tables(std::function<void()> body) override;
         
 	//load the structure maps from files
 	void load_etaL(string);

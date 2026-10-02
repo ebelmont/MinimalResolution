@@ -28,7 +28,21 @@ vectors<matrix_index,ring> Hopf_Algebroid<ring,algebroid>::adjoint(const CoModul
 	vectors<matrix_index,ring> result;
 	for(unsigned w=0; w<gens.size(); ++w){
 		//tranform the comonent into an element in the cofree comodule
-		auto ns = algebroid2vector(algebroidModuleOper->component(gens[w],v),pos[w]+shift); 
+		auto ns = algebroid2vector(algebroidModuleOper->component(gens[w],v),pos[w]+shift);
+		result.direct_sum(ns,0);
+	}
+	return result;
+}
+
+// same as the above, but from an already-computed coaction vector v
+// instead of calling X->coaction(i) -- see hopf_algebroid/4.h's
+// declaration for the thread-safety contract
+template<typename ring, typename algebroid>
+template<typename degree_type>
+vectors<matrix_index,ring> Hopf_Algebroid<ring,algebroid>::adjoint_from_coaction(std::vector<int> const& gens, std::vector<uint32_t> const& pos, vectors<matrix_index,algebroid> const& v, int shift){
+	vectors<matrix_index,ring> result;
+	for(unsigned w=0; w<gens.size(); ++w){
+		auto ns = algebroid2vector(algebroidModuleOper->component(gens[w],v),pos[w]+shift);
 		result.direct_sum(ns,0);
 	}
 	return result;

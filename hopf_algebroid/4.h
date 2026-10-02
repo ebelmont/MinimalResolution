@@ -30,7 +30,17 @@ public:
 	
 	//the file name for the data
 	string maps_file_name;
-	 
+
+	//materialize any internal conversion tables algebroid2vector/adjoint
+	//need (e.g. a matrix_file-backed table with shared stream state) into
+	//plain in-memory copies for the duration of body(). Default: no-op
+	//(safe when there are no such tables). Override where needed --
+	//see BP_Op's override and hopf_algebroid/7.h's embed2cofree_modeled,
+	//which calls this before running adjoint_from_coaction in parallel;
+	//mirrors the same hazard hopf_algebroid/10.h's quotient()
+	//comment analyzes for delta_table.
+	virtual void with_materialized_conversion_tables(std::function<void()> body){ body(); }
+
 	//convert a vector V into a vector over algebroid using the right unit and then scalor multiply with A
 	vectors<matrix_index, algebroid> right_scalor_mult (algebroid const &A, vectors<matrix_index, ring> const &V);
 	
@@ -45,7 +55,15 @@ public:
 	//adjoint to projectin on many coordinates, the i-th component
 	template<typename degree_type>
 	vectors<matrix_index,ring> adjoint(const CoModule<algebroid,degree_type> *X, std::vector<int> const& gens, std::vector<uint32_t> const& pos, int i, int shift = 0);
-	
+
+	//same as the above, but from an already-computed coaction vector v
+	//instead of calling X->coaction(i) itself -- safe to call
+	//concurrently across threads for different i, as long as any
+	//conversion table algebroid2vector needs has been materialized first
+	//(see with_materialized_conversion_tables)
+	template<typename degree_type>
+	vectors<matrix_index,ring> adjoint_from_coaction(std::vector<int> const& gens, std::vector<uint32_t> const& pos, vectors<matrix_index,algebroid> const& v, int shift = 0);
+
 	//the trivial comodule of rank one over the base ring 
 	template<typename degree_type>
 	void set_to_trivial(comodule_generic<algebroid,degree_type> &X, degree_type deg);

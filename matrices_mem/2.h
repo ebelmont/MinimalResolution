@@ -38,7 +38,26 @@ public:
 		this->rank = n;
 		data.resize(n);
 	}
-	
+
+	//construct with parallel algorithm. Safe here because set_rank()
+	//pre-sizes `data` before the parallel loop, so each thread writes a
+	//distinct pre-existing element -- no reallocation race (unlike
+	//insert(), whose out-of-range resize is only safe single-threaded).
+	//The base class declares this virtual (matrices/2.h) but had no
+	//override anywhere -- every prior caller (e.g. quotient_p) was
+	//silently running the serial fallback. Caller is responsible for
+	//`rows` being safe to call concurrently for different indices -- see
+	//hopf_algebroid/10.h's quotient() comment and
+	//hopf_algebroid/7.h's embed2cofree_modeled for the reference hazard
+	//analysis and how callers gather any unsafe reads serially first.
+	void construct_parallel(int rk, std::function<vectors<matrix_index,ring>(int)> rows) override {
+		clear();
+		set_rank(rk);
+		#pragma omp parallel for schedule(dynamic)
+		for(int i=0; i<(int)this->rank; ++i)
+			data[i] = rows(i);
+	}
+
 	//update all rows
 	void update_all(std::function<void(vectors<matrix_index,ring>&,matrix_index)> action){
 		for(unsigned i=0; i<data.size(); ++i)
