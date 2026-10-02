@@ -2,6 +2,7 @@
 #pragma once
 #include"matrices.h"
 #include"Z3.h"
+#include"diag.h"
 #include<memory>
 #include<algorithm>
 #include<omp.h>
@@ -375,6 +376,7 @@ public:
 	//pattern the sequential version already used, just pushed out one more
 	//level.
 	void make_table(int pric, matrix<ring>* M, SS_table& T){
+		auto setup_timer = std::unique_ptr<DiagTimer>(new DiagTimer("setup"));
 		auto buckets = bucket_rows();
 		//build the set of T's tagged cycle names once per homological degree
 		//(not once per bucket -- see filter_pot_against) so per-bucket
@@ -418,7 +420,9 @@ public:
 		//(see comment above); the only place T/*this are actually touched
 		//is the serial merge loop after the parallel region closes
 		std::vector<std::vector<SS_entry<cycle_name,ring>>> T_staging(nthreads), this_staging(nthreads);
+		setup_timer.reset();
 
+		auto par_timer = std::unique_ptr<DiagTimer>(new DiagTimer("search_parallel"));
 		#pragma omp parallel num_threads(nthreads)
 		{
 			int tid = omp_get_thread_num();
@@ -472,7 +476,9 @@ public:
 			}
 		}
 
+		par_timer.reset();
 		//serial merge -- the only place T/*this are mutated for this call
+		DiagTimer _mt("merge");
 		for(auto &v : T_staging)
 			for(auto &e : v)
 				T.insert(e);

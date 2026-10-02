@@ -28,6 +28,7 @@ void Hopf_Algebroid<ring,algebroid>::resolution(string filename_maps, string fil
 	inj->load(maps_file);
 	
 	for(int i=0; i<resolution_length; ++i){
+		DiagTimer _st("s=" + std::to_string(i));
 		//the rank of the current comodule
 		gens_file.read((char*)&M_rank, 4);
 		gens_file.close();
@@ -58,7 +59,7 @@ void Hopf_Algebroid<ring,algebroid>::resolution(string filename_maps, string fil
 
 		//compose the injective map with the quotient map
 		composed->clear();
-		inj->compose(qut, composed);
+		{ DiagTimer _dt("compose"); inj->compose(qut, composed); }
 		if(cout!=NULL)
 			*cout << "com:" << composed->output() << std::flush;
 		composed->save(res_file);

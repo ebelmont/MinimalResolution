@@ -1,6 +1,7 @@
 //algNov.cpp
 #include"algNov.h"
 #include"fast_itos.h"
+#include"diag.h"
 #include<cstdio>
 
 //the operators
@@ -322,6 +323,7 @@ void  algNov_tables::table_of_complex(BPComplex& Comp, int pric, string back_up_
 
 	//construct tables
 	for(unsigned i=start; i<Comp.size(); ++i){
+		DiagTimer _st("s=" + std::to_string(i));
 		std::cout << "\n" << "table:" << i << "\n" << std::flush;
 		//no filtration cap at any homological degree (see BP_init.cpp's
 		//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.
@@ -336,13 +338,14 @@ void  algNov_tables::table_of_complex(BPComplex& Comp, int pric, string back_up_
 		//without touching the cache, so warming to MAX_VALUATION makes every
 		//later call a pure read, safe for concurrent callers.
 		algNov_table::Z3Oper->power_p(std::min(table_pric, (int)Z3_Op::MAX_VALUATION));
-		tables[i]->make_table(table_pric,Comp.Maps[i],*tables[i-1]);
+		{ DiagTimer _dt("make_table"); tables[i]->make_table(table_pric,Comp.Maps[i],*tables[i-1]); }
 
 		//checkpoint tables[i-1] (now finalized) and tables[i] (current)
 		//together in one file, written to a temp name and renamed into
 		//place atomically -- so a crash mid-write leaves the last good
 		//checkpoint intact instead of a half-written, silently-wrong one.
 		if(back_up_prefix!=""){
+			DiagTimer _ct("checkpoint");
 			string fname = back_up_prefix + std::to_string(i);
 			string tmp = fname + ".tmp";
 			{

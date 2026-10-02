@@ -1,5 +1,6 @@
 //multiplication.cpp
 #include"multiplication.h"
+#include"diag.h"
 
 //make the multiplication table for the primitives
 void multiplication::make_eta_R_multiplier(BPBP const& x,matrix<BP>* result, int deg){
@@ -120,11 +121,13 @@ std::vector<multiplication_table<cycle_name>> multiplication::mult_extension(mat
 	std::vector<multiplication_table<cycle_name>> result;
 	//make the tables for each term in the resolution	
 	for(int i=1;i<resolution_length-1;++i){
+		DiagTimer _st("s=" + std::to_string(i));
 		//load the maps in the resolution
-		mp->load(maps_file);
+		{ DiagTimer _dt("load_map"); mp->load(maps_file); }
 		//compute the matrix for the multiplacation
 		mm->clear();
-		multily_matrix(max_deg, multiplier, mp, &generators[i-1], &Cm.Prims[i], mm);
+		{ DiagTimer _dt("multiply_matrix"); multily_matrix(max_deg, multiplier, mp, &generators[i-1], &Cm.Prims[i], mm); }
+		DiagTimer _et("extension");
 		//compute the multiplication table for the current term in the resolution.
 		//no filtration cap at any homological degree (see BP_init.cpp's
 		//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.
@@ -142,12 +145,14 @@ std::vector<multiplication_table<cycle_name>> multiplication::mult_extension1(ma
 	std::vector<multiplication_table<cycle_name>> result;
 	//make the tables for each term in the resolution	
 	for(int i=1;i<resolution_length-1;++i){
+		DiagTimer _st("s=" + std::to_string(i));
 		std::cout << "\n" << i << std::flush;
 		//load the maps in the resolution
-		mp->load(maps_file);
+		{ DiagTimer _dt("load_map"); mp->load(maps_file); }
 		//compute the matrix for the multiplacation
 		mm->clear();
-		multily_matrix(max_deg, multiplier, mp, &generators[i-1], &Cm.Prims[i], mm);
+		{ DiagTimer _dt("multiply_matrix"); multily_matrix(max_deg, multiplier, mp, &generators[i-1], &Cm.Prims[i], mm); }
+		DiagTimer _et("extension");
 		//compute the multiplication table for the current term in the resolution.
 		//no filtration cap at any homological degree (see BP_init.cpp's
 		//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.
@@ -248,6 +253,7 @@ std::vector<multiplication_table<cycle_name>> multiplication::three_extension(in
 	std::vector<multiplication_table<cycle_name>> result;
 	//make the tables for each term in the resolution	
 	for(int i=0;i<resolution_length;++i){
+		DiagTimer _st("s=" + std::to_string(i));
 		//compute the multiplication table for the current term in the resolution.
 		//no filtration cap at any homological degree (see BP_init.cpp's
 		//NO_FILTRATION_LIMIT); it used to be L - s, capping s+f.

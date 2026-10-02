@@ -53,7 +53,8 @@ public:
 	
 	//delete some columns and then do Gaussion
 	void del_and_gaussian(std::vector<std::pair<matrix_index,matrix_index>> const &row_cols, std::set<int> const &to_del){
-		this->del_cols(to_del);
+		{ DiagTimer _dt("del_cols"); this->del_cols(to_del); }
+		DiagTimer _dt("gaussian");
 		gaussian(row_cols);
 	}
 	

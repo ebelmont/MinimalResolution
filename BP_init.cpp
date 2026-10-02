@@ -2,6 +2,8 @@
 #include"BP_init.h"
 #include<limits>
 #include<algorithm>
+#include<memory>
+#include"diag.h"
 
 //initialize a generic comodule
 BPComodInit::BPComodInit(string filename) : BPCoMod_generic(&coaction_matrix), coaction_matrix(filename){
@@ -63,6 +65,7 @@ void BPInit::resolve(){
 	BP_oper.pre_resolution_modeled(comod, director + "maps", director + "gens", resolution_length, director+"tables", &ctable, gens, tfm, &inj, &qut, &indj, &new_map, back_prefix, res_start);
 
 	//combining generator files
+	DiagTimer _dt("gens_file_combiner");
 	BP_oper.gens_file_combiner(director + "gens", resolution_length, comod);
 }
 
@@ -94,11 +97,11 @@ void BPInit::resolution(){
 
 	//construct the resolution
 	std::fstream outfile("maps.txt", std::ios::out);
-	BP_oper.resolution(director + "maps", director + "gens", director + "res" , resolution_length, comod, &inj, &qut, &indj, NULL);
+	{ DiagTimer _dt("compose_maps"); BP_oper.resolution(director + "maps", director + "gens", director + "res" , resolution_length, comod, &inj, &qut, &indj, NULL); }
 
 	//construct the complex of primitives
-	Complex.load(resolution_length,director + "gens",director + "res",&inj,&indj,mst);
-	Complex.save_matrix(director + "cpx");
+	{ DiagTimer _dt("primitives"); Complex.load(resolution_length,director + "gens",director + "res",&inj,&indj,mst); }
+	{ DiagTimer _dt("save_cpx"); Complex.save_matrix(director + "cpx"); }
 }
 
 //load the curtis table data
@@ -140,7 +143,7 @@ static const int NO_FILTRATION_LIMIT = std::numeric_limits<int>::max();
 
 //make algebraic Novikov table
 void BPInit::make_algNov(){
-	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
+	{ DiagTimer _dt("load_cpx"); Complex.load_matrix(resolution_length,director + "gens", director+"cpx"); }
 
 	//pric bounds total algebraic-Novikov filtration search depth (v0- AND
 	//v1,v2,...-power combined) -- unrelated to Z3's own v0-only precision
@@ -152,11 +155,15 @@ void BPInit::make_algNov(){
 	//exceed Z3_Op::MAX_VALUATION.
 	int pric = NO_FILTRATION_LIMIT;
 
-	AANtables.table_of_complex(Complex,pric,director + "AANback");
-	AANtables.save(director + "AANSS_table_binary");
-	std::fstream atb(director + "AANSS_table.txt", std::ios::out);
-	atb << AANtables.output_tables(pric);
+	{ DiagTimer _dt("table_of_complex"); AANtables.table_of_complex(Complex,pric,director + "AANback"); }
+	{ DiagTimer _dt("save_table"); AANtables.save(director + "AANSS_table_binary"); }
+	{
+		DiagTimer _dt("output_table");
+		std::fstream atb(director + "AANSS_table.txt", std::ios::out);
+		atb << AANtables.output_tables(pric);
+	}
 
+	DiagTimer _dt("three_extension");
 	auto et2 = multp.three_extension(resolution_length,Complex,AANtables,pric);
 	std::fstream a0f(director + "AANSS_a0.txt", std::ios::out);
 	a0f << multp.output_multiplication_table(et2,0,pric);
@@ -164,20 +171,27 @@ void BPInit::make_algNov(){
 
 //make Bockstein table
 void BPInit::make_Boc(){
-	Complex.load_matrix(resolution_length,director + "gens", director+"cpx");
+	{ DiagTimer _dt("load_cpx"); Complex.load_matrix(resolution_length,director + "gens", director+"cpx"); }
 
 	//see make_algNov's comment on pric vs resolution_length
 	int pric = NO_FILTRATION_LIMIT;
 
-	Btables.table_of_complex(Complex,pric);
-	Btables.save(director + "BocSS_table_binary");
-	std::fstream btb(director + "BocSS_table.txt", std::ios::out);
-	btb << Btables.output_tables(pric);
+	{ DiagTimer _dt("table_of_complex"); Btables.table_of_complex(Complex,pric); }
+	{ DiagTimer _dt("save_table"); Btables.save(director + "BocSS_table_binary"); }
+	{
+		DiagTimer _dt("output_table");
+		std::fstream btb(director + "BocSS_table.txt", std::ios::out);
+		btb << Btables.output_tables(pric);
+	}
 
-	auto ba = Btables.Bname2Anames(resolution_length, AANtables, pric);
-	std::fstream b2a(director + "B2A_table.txt", std::ios::out);
-	b2a << multp.output_multiplication_table(ba,0,pric);
+	{
+		DiagTimer _dt("Bname2Anames");
+		auto ba = Btables.Bname2Anames(resolution_length, AANtables, pric);
+		std::fstream b2a(director + "B2A_table.txt", std::ios::out);
+		b2a << multp.output_multiplication_table(ba,0,pric);
+	}
 
+	DiagTimer _dt("three_extension");
 	auto et2 = multp.three_extension(resolution_length,Complex,Btables,pric);
 	std::fstream a0f(director + "BocSS_a0.txt", std::ios::out);
 	a0f << multp.output_multiplication_table1(et2,0,pric);
@@ -185,6 +199,7 @@ void BPInit::make_Boc(){
 
 //make the algebraic Novikov multiplication table by a given element in BPBP
 void BPInit::mult_table(BPBP const &mul, int deg, string filename){
+	auto load_timer = std::unique_ptr<DiagTimer>(new DiagTimer("load"));
 	//load the complex
 	auto genst = BPComplex::get_generator(resolution_length, director + "gens");
 	//load the complex of primitives
@@ -192,27 +207,35 @@ void BPInit::mult_table(BPBP const &mul, int deg, string filename){
 	//load the algebraic Novikov table
 	AANtables.load(director + "AANSS_table_binary");
 	Btables.load(director + "BocSS_table_binary");
+	load_timer.reset();
 	//make the multiplication table on BPBP
-	multp.make_eta_R_multiplier(mul, &inj, deg);
+	{ DiagTimer _dt("eta_R_multiplier"); multp.make_eta_R_multiplier(mul, &inj, deg); }
 	//compute the table for the multiplication on algebraic Novikov spectral sequence.
 	//see make_algNov's comment on pric vs resolution_length -- not the
 	//Z3 precision ceiling, which cancel_scalar guards independently.
 	int pric = NO_FILTRATION_LIMIT;
-	auto multable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, AANtables, &indj, &mm, pric);
-	//output the table
-	std::fstream file(director + "AANSS_" + filename, std::ios::out);
-	file << multp.output_multiplication_table(multable, 1, pric);
+	{
+		DiagTimer _dt("AANSS");
+		auto multable = multp.mult_extension(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, AANtables, &indj, &mm, pric);
+		//output the table
+		DiagTimer _ot("output");
+		std::fstream file(director + "AANSS_" + filename, std::ios::out);
+		file << multp.output_multiplication_table(multable, 1, pric);
+	}
 	//compute the table for the multiplication on Bockstein spectral sequence.
 	//Limit 0 (inclusive, like every pric): name products through v0-power 0
 	//only, i.e. the action on the Bockstein E_1 = Ext(BP_*/3).
+	DiagTimer _dt("BocSS");
 	auto Bmultable = multp.mult_extension1(&inj, max_degree-deg, resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 0, true);
 	//output the table
+	DiagTimer _ot("output");
 	std::fstream fileB(director + "BocSS_" + filename, std::ios::out);
 	fileB << multp.output_multiplication_table(Bmultable, 1, NO_FILTRATION_LIMIT);
 }
 
 //make multiplication table for top theta on the Moore spectrum
 void BPInit::mult_theta(int resolution_length){
+	auto load_timer = std::unique_ptr<DiagTimer>(new DiagTimer("load"));
 	//load the complex
 	auto genst = BPComplex::get_generator(resolution_length, director + "gens");
 	//load the complex of primitives
@@ -222,14 +245,16 @@ void BPInit::mult_theta(int resolution_length){
 	AANtables.load(director + "AANSS_table_binary");
 	Btables.load(director + "BocSS_table_binary");
 	
+	load_timer.reset();
 	//compute the top thetas
-	auto theta = BP_oper.thetas();
+	auto theta = [&]{ DiagTimer _dt("thetas"); return BP_oper.thetas(); }();
 	
 	//degree of theta
 	int deg[maxVar+1] = {12,28,36,60,76,84};
 	for(int i=2; i<=7; ++i){
+		DiagTimer _tt("theta" + std::to_string(i));
 		//make the multiplication table on BPBP
-		multp.make_eta_R_multiplier(theta[i], &inj, deg[i-2]);
+		{ DiagTimer _dt("eta_R_multiplier"); multp.make_eta_R_multiplier(theta[i], &inj, deg[i-2]); }
 		//compute the table for the multiplication on Bockstein spectral sequence.
 		//Limit 0 (inclusive): keep only the v0^0 terms of theta*x. beta*x =
 		//delta(theta*x) depends only on those -- a v0^k term (k>=1) differs
@@ -237,6 +262,7 @@ void BPInit::mult_theta(int resolution_length){
 		//would only add work downstream and then cancel.
 		auto Bmultable = multp.mult_extension(&inj, max_degree-deg[i-2], resolution_length, genst, director + "res", Complex, Btables, &indj, &mm, 0, true);
 		//output the table
+		DiagTimer _ot("output");
 		std::fstream fileB(director + "BocSS_theta" + std::to_string(i) + ".txt", std::ios::out);
 		fileB << multp.output_multiplication_table(Bmultable, 1, NO_FILTRATION_LIMIT); // EB: the last argument here is 1 + the last homological degree where theta products are recorded in the output files ...theta2.txt, etc. [It is actually a filtration cutoff on the multiplied class; see NO_FILTRATION_LIMIT.]
 	}
@@ -248,6 +274,7 @@ void BPInit::mult_table(){
 	BPBP h0 = BP_oper.h0();
 	// h0 is defined as (eta_R(v1) - eta_L(v1))/p
 	BPBP h02 = BP_oper.BPBP_opers.multiply(h0, h0);
+	DiagTimer _dt("h0");
 	mult_table(h0, 4, "h0.txt");
 //	mult_table(h02, 8, "h0squared.txt");
 }

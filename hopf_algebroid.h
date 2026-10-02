@@ -1,4 +1,6 @@
 #pragma once
+#include"diag.h"
+#include<memory>
 #include"hopf_algebroid/1.h"
 #include"hopf_algebroid/2.h"
 #include"hopf_algebroid/3.h"

@@ -107,6 +107,7 @@ cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::embed2cof
 	cofree_comodule<algebroid,degree_type> res;
 	cofree_comodule<algebroid,degree_type> new_sumd;
 	std::cout << "a" << gens->size() << std::flush;
+	auto sum_timer = std::unique_ptr<DiagTimer>(new DiagTimer("summands"));
 	//construct the new comodule
 	//throttled -- see matrices_mem/4.h::gaussian; this is the
 	//embed2cofree_modeled overload resolvor_modeled actually calls, so this
@@ -127,7 +128,8 @@ cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::embed2cof
 			std::cout << "\r" << i << "/" << X->rank() << std::flush;
 		return adjoint(X, *gens, res.position_of_gens, i, 0);
 	};
-	inj->construct(X->rank(), map_rows);
+	sum_timer.reset();
+	{ DiagTimer _dt("map_rows"); inj->construct(X->rank(), map_rows); }
 	
 	return res;
 }

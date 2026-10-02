@@ -4,13 +4,14 @@ template<typename degree_type, typename table_type>
 cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::resolvor_modeled(comodule_generic<algebroid,degree_type> &X, matrix<ring> *inj, matrix<ring> *quot, matrix<ring> *indj, matrix<ring> *new_map, curtis_table<table_type> *table, std::vector<int> *gens, std::vector<int> *nex_gens, std::function<vectors<matrix_index,ring>(vectors<matrix_index,table_type> const&)> transformer, std::iostream &maps_file){
 	//embed using the model
 	std::cout << "embedding...\n" << std::flush;
-	auto F = embed2cofree_modeled(&X,inj,gens);
+	auto F = [&]{ DiagTimer _dt("embed2cofree_modeled"); return embed2cofree_modeled(&X,inj,gens); }();
 
 	//prepare the gaussian elimination
 	std::cout << "Preparing Gausing...\n" << std::flush;
+	auto prep_timer = std::unique_ptr<DiagTimer>(new DiagTimer("prep"));
 	indj->clear();
 	//compute the cycles
-	auto inj_ind = table->cycle_matrix(*indj,X.rank(),transformer,inj);
+	auto inj_ind = [&]{ DiagTimer _dt("cycle_matrix"); return table->cycle_matrix(*indj,X.rank(),transformer,inj); }();
 	auto quot_inds = matrix<ring>::quot_index(inj_ind,F.rank());
 	//get the irrelevant indices
 	std::set<int> to_del;
@@ -23,15 +24,16 @@ cofree_comodule<algebroid,degree_type> Hopf_Algebroid<ring,algebroid>::resolvor_
 	for(unsigned i=0; i<inj_ind.size(); ++i)
 		gs.push_back(std::make_pair((matrix_index) i, (matrix_index) inj_ind[i]));
 	sort_deg(gs,X.base_module.degree);
+	prep_timer.reset();
 	
 	//Gaussian ellimiation
 	std::cout << "Gausings...\n" << std::flush;
-	indj->del_and_gaussian(gs,to_del);
+	{ DiagTimer _dt("del_and_gaussian"); indj->del_and_gaussian(gs,to_del); }
 	
 	//compute the quotient comodule
 	std::cout << "quotieting...\n" << std::flush;
-	indj->make_quotient(quot_inds.first, quot_inds.second, inj_ind, quot);
-	quotient(&F, quot, quot_inds.first, X);
+	{ DiagTimer _dt("make_quotient"); indj->make_quotient(quot_inds.first, quot_inds.second, inj_ind, quot); }
+	{ DiagTimer _dt("quotient"); quotient(&F, quot, quot_inds.first, X); }
 	return F;
 }
 
@@ -67,12 +69,13 @@ void Hopf_Algebroid<ring,algebroid>::pre_resolution_modeled( comodule_generic<al
 	maps_file.close();
 	
 	for(int i=0; i<=resolution_length; ++i) {
+		DiagTimer _st("s=" + std::to_string(i));
 		//the table file holds one entry per degree in order, so it must be
 		//read every iteration to stay in sync with `i` even when degree i's
 		//resolution work below is being skipped because it was already
 		//completed (and its back<i>/gens<i>/maps<i> files already written)
 		//by an earlier, interrupted run that this call is resuming from
-		table->load(table_file);
+		{ DiagTimer _dt("table_load"); table->load(table_file); }
 		if(i <= res_start) continue;
 
 		inj->clear();
@@ -90,9 +93,10 @@ void Hopf_Algebroid<ring,algebroid>::pre_resolution_modeled( comodule_generic<al
 		//lookahead available and none are protected, rather than reading OOB.
 		static std::vector<int> no_lookahead;
 		std::vector<int> *nex_gens = (i+1 < (int)gens.size()) ? &gens[i+1] : &no_lookahead;
-		auto F = resolvor_modeled(resolved, inj, qut, indj, new_map, table, &gens[i], nex_gens,transformer, maps_file);
+		auto F = [&]{ DiagTimer _dt("resolvor_modeled"); return resolvor_modeled(resolved, inj, qut, indj, new_map, table, &gens[i], nex_gens,transformer, maps_file); }();
 		
 		//save the data
+		auto save_timer = std::unique_ptr<DiagTimer>(new DiagTimer("save"));
 		std::fstream gens_file(filename_generators + std::to_string(i), std::ios::out | std::fstream::binary);
 
 		//save the quotient to the new comodule
@@ -107,17 +111,20 @@ void Hopf_Algebroid<ring,algebroid>::pre_resolution_modeled( comodule_generic<al
 		
 		maps_file.close();
 		gens_file.close();
+		save_timer.reset();
 		
 		//write the back-up file
 		if(back_up_file_name!=""){
+			auto bw_timer = std::unique_ptr<DiagTimer>(new DiagTimer("backup_write"));
 			std::fstream back_file(back_up_file_name + std::to_string(i), std::fstream::out | std::fstream::binary);
 			
 			std::cout << back_file.is_open();
 		//	back_file.write((char*)&M_rank, 4);
 			resolved.coaction_matrix->save(back_file);
 			back_file.close();
+			bw_timer.reset();
 			
-			
+			DiagTimer _br("backup_reread");
 			back_file.open(back_up_file_name + std::to_string(i), std::fstream::in | std::fstream::binary);
 			
 			std::cout << back_file.is_open();

@@ -49,17 +49,22 @@ void Hopf_Algebroid<ring,algebroid>::quotient(const CoModule<algebroid,degree_ty
 	AbGroupOp<vectors<matrix_index,algebroid>> *adop = algebroidModuleOper;
 
 	//materialize quot (hazard 1 above)
+	auto mat_timer = std::unique_ptr<DiagTimer>(new DiagTimer("materialize"));
 	matrix_mem<ring> quot_mem;
 	quot_mem.construct(quot);
+	mat_timer.reset();
 
 	//serially gather each generator's coaction (hazard noted above); this
 	//also hands us term counts for LPT load-balancing below for free
 	std::cout << "computing the coactions...\n" << std::flush;
 	std::vector<vectors<matrix_index,algebroid>> coas(n);
 	std::vector<size_t> term_count(n);
-	for(unsigned i=0; i<n; ++i){
-		coas[i] = X->coaction(inverse_ind[i]);
-		term_count[i] = coas[i].size();
+	{
+		DiagTimer _dt("gather_coaction");
+		for(unsigned i=0; i<n; ++i){
+			coas[i] = X->coaction(inverse_ind[i]);
+			term_count[i] = coas[i].size();
+		}
 	}
 
 	//LPT partition: sort indices descending by coaction term count (a
@@ -85,6 +90,7 @@ void Hopf_Algebroid<ring,algebroid>::quotient(const CoModule<algebroid,degree_ty
 	//it in `results`, indexed by position within inverse_ind -- no shared
 	//mutation races
 	std::vector<vectors<matrix_index,algebroid>> results(n);
+	auto par_timer = std::unique_ptr<DiagTimer>(new DiagTimer("maps_to_parallel"));
 	#pragma omp parallel num_threads(nthreads)
 	{
 		int tid = omp_get_thread_num();
@@ -96,7 +102,9 @@ void Hopf_Algebroid<ring,algebroid>::quotient(const CoModule<algebroid,degree_ty
 		}
 	}
 
+	par_timer.reset();
 	//serial writeback (hazard 2 above)
+	DiagTimer _wt("writeback");
 	std::function<vectors<matrix_index,algebroid>(int)> rows = [&results](int i){
 		return results[i]; };
 	result.coaction_matrix->construct((int)n, rows);

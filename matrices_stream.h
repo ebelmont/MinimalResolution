@@ -65,8 +65,9 @@ public:
 	//delete some columns and then do Gaussion
 	void del_and_gaussian(std::vector<std::pair<matrix_index,matrix_index>> const &row_cols, std::set<int> const &to_del){
 		matrix_mem<ring> M;
-		M.construct(this);
+		{ DiagTimer _dt("to_mem"); M.construct(this); }
 		M.del_and_gaussian(row_cols,to_del);
+		DiagTimer _dt("from_mem");
 		this->construct(&M);
 	}
 };
