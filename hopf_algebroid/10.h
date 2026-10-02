@@ -86,15 +86,29 @@ void Hopf_Algebroid<ring,algebroid>::quotient(const CoModule<algebroid,degree_ty
 		load[t] += term_count[idx];
 	}
 
-	//parallel compute: each thread writes only the positions assigned to
-	//it in `results`, indexed by position within inverse_ind -- no shared
-	//mutation races
+	//parallel compute: each slot's generators are written by exactly one
+	//thread into `results`, indexed by position within inverse_ind -- no
+	//shared mutation races
 	std::vector<vectors<matrix_index,algebroid>> results(n);
 	auto par_timer = std::unique_ptr<DiagTimer>(new DiagTimer("maps_to_parallel"));
 	#pragma omp parallel num_threads(nthreads)
 	{
+		int team = omp_get_num_threads();
 		int tid = omp_get_thread_num();
-		for(int i : assign[tid]){
+		//num_threads is a request, not a guarantee -- the team can come back
+		//smaller than asked for (OMP_DYNAMIC, OMP_THREAD_LIMIT, or this
+		//region ending up nested inside another parallel region, which
+		//BPmain.cpp's omp_set_max_active_levels(1) collapses to a single
+		//thread). Indexing assign[] by thread id alone would then leave the
+		//slots belonging to threads that don't exist unprocessed, and their
+		//`results` entries default-constructed -- i.e. silently writing zero
+		//coaction rows into the resolution, with no error. Striding over the
+		//slots covers every one of them with whatever team we actually got;
+		//when team==nthreads this reduces to s==tid, i.e. the
+		//one-slot-per-thread assignment, unchanged. See SS.h::make_table,
+		//which has the same partition and the same guard.
+		for(int s = tid; s < nthreads; s += team)
+		for(int i : assign[s]){
 			//throttled -- see matrices_mem/4.h::gaussian
 			if(i % 500 == 0)
 				std::cout << "\r" << i << "/" << n << std::flush;

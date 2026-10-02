@@ -416,17 +416,34 @@ public:
 			load[t] += pots[idx].size();
 		}
 
-		//per-thread staging for the two deferred shared-container merges
+		//per-slot staging for the two deferred shared-container merges
 		//(see comment above); the only place T/*this are actually touched
-		//is the serial merge loop after the parallel region closes
+		//is the serial merge loop after the parallel region closes.
+		//Indexed by LPT slot, not by thread id: each slot is still touched
+		//by exactly one thread, and the serial merge below walks these in
+		//slot order, so the resulting entry order in T/*this no longer
+		//depends on how many threads the region below actually gets.
 		std::vector<std::vector<SS_entry<cycle_name,ring>>> T_staging(nthreads), this_staging(nthreads);
 		setup_timer.reset();
 
 		auto par_timer = std::unique_ptr<DiagTimer>(new DiagTimer("search_parallel"));
 		#pragma omp parallel num_threads(nthreads)
 		{
+			int team = omp_get_num_threads();
 			int tid = omp_get_thread_num();
-			for(int bidx : assign[tid]){
+			//num_threads is a request, not a guarantee -- the team can come
+			//back smaller than asked for (OMP_DYNAMIC, OMP_THREAD_LIMIT, or
+			//this region ending up nested inside another parallel region,
+			//which BPmain.cpp's omp_set_max_active_levels(1) collapses to a
+			//single thread). Indexing assign[] by thread id alone would then
+			//simply never execute the slots belonging to threads that don't
+			//exist: whole internal-degree buckets silently skipped, no error,
+			//and a plausible-looking but incomplete table as the result.
+			//Striding over the slots covers every one of them with whatever
+			//team we actually got; when team==nthreads this reduces to s==tid,
+			//i.e. the one-slot-per-thread assignment, unchanged.
+			for(int s = tid; s < nthreads; s += team)
+			for(int bidx : assign[s]){
 				auto &pot = pots[bidx];
 
 				//this bucket's own fresh, empty table -- entries found while
@@ -458,7 +475,7 @@ public:
 					//previous table T (deferred -- see comment above)
 					if(BT==Boundary){
 						neE = {invalid(), *it, Modop->zero(), vs};
-						T_staging[tid].push_back(std::move(neE));
+						T_staging[s].push_back(std::move(neE));
 					} //if we find a nontrivial tag, then insert into this bucket's table
 					else{
 						//find the leading term if the boundary
@@ -472,7 +489,7 @@ public:
 				//stage this bucket's entries for the real, shared table
 				//(deferred -- see comment above)
 				for(auto &e : *temp)
-					this_staging[tid].push_back(e);
+					this_staging[s].push_back(e);
 			}
 		}
 
